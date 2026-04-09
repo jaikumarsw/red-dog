@@ -1,0 +1,86 @@
+require('dotenv').config();
+const express = require('express');
+const cors = require('cors');
+const helmet = require('helmet');
+const morgan = require('morgan');
+const rateLimit = require('express-rate-limit');
+const swaggerJsdoc = require('swagger-jsdoc');
+const swaggerUi = require('swagger-ui-express');
+const mongoose = require('mongoose');
+
+const { errorHandler, notFoundHandler } = require('./middlewares/error.middleware');
+
+const authRoutes = require('./modules/auth/auth.route');
+const organizationRoutes = require('./modules/organizations/organization.route');
+const opportunityRoutes = require('./modules/opportunities/opportunity.route');
+const matchRoutes = require('./modules/matches/match.route');
+const applicationRoutes = require('./modules/applications/application.route');
+const agencyRoutes = require('./modules/agencies/agency.route');
+const alertRoutes = require('./modules/alerts/alert.route');
+const outboxRoutes = require('./modules/outbox/outbox.route');
+const digestRoutes = require('./modules/digests/digest.route');
+const aiRoutes = require('./modules/ai/ai.route');
+
+const app = express();
+
+app.use(helmet());
+app.use(cors({ origin: process.env.CORS_ORIGIN || '*', credentials: true }));
+app.use(morgan(process.env.NODE_ENV === 'production' ? 'combined' : 'dev'));
+app.use(express.json({ limit: '10mb' }));
+app.use(express.urlencoded({ extended: true }));
+
+const limiter = rateLimit({ windowMs: 15 * 60 * 1000, max: 200, standardHeaders: true, legacyHeaders: false });
+app.use('/api', limiter);
+
+// Swagger
+const swaggerOptions = {
+  definition: {
+    openapi: '3.0.0',
+    info: {
+      title: 'Red Dog Radio Grant Intelligence API',
+      version: '1.0.0',
+      description: 'Grant Intelligence Platform — full API reference',
+    },
+    components: {
+      securitySchemes: {
+        bearerAuth: { type: 'http', scheme: 'bearer', bearerFormat: 'JWT' },
+      },
+    },
+  },
+  apis: ['./src/modules/**/*.route.js'],
+};
+const swaggerSpec = swaggerJsdoc(swaggerOptions);
+app.use('/api-docs', swaggerUi.serve, swaggerUi.setup(swaggerSpec));
+
+// Health check
+app.get('/health', (req, res) => {
+  const mongoStatus = mongoose.connection.readyState;
+  const mongoStates = { 0: 'disconnected', 1: 'connected', 2: 'connecting', 3: 'disconnecting' };
+  res.json({
+    success: true,
+    message: 'Red Dog Radio Grant Intelligence API is running',
+    environment: process.env.NODE_ENV,
+    checks: {
+      mongo: { status: mongoStates[mongoStatus] || 'unknown', ok: mongoStatus === 1 },
+      openai: { configured: !!process.env.OPENAI_API_KEY },
+      smtp: { configured: !!(process.env.SMTP_HOST && process.env.SMTP_USER && process.env.SMTP_PASS) },
+    },
+  });
+});
+
+// Routes
+app.use('/api/auth', authRoutes);
+app.use('/api/organizations', organizationRoutes);
+app.use('/api/opportunities', opportunityRoutes);
+app.use('/api/matches', matchRoutes);
+app.use('/api/applications', applicationRoutes);
+app.use('/api/agencies', agencyRoutes);
+app.use('/api/alerts', alertRoutes);
+app.use('/api/outbox', outboxRoutes);
+app.use('/api/digests', digestRoutes);
+app.use('/api/ai', aiRoutes);
+
+app.use(notFoundHandler);
+app.use(errorHandler);
+
+module.exports = app;

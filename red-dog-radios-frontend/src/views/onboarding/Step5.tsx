@@ -1,0 +1,120 @@
+"use client";
+
+import { useState } from "react";
+import { useRouter } from "next/navigation";
+import { ChevronRight, Search, FileText, Sparkles, ClipboardList, Check } from "lucide-react";
+
+const OnboardingLogo = () => (
+  <div className="flex items-center gap-2.5 mb-8">
+    <div className="flex w-9 h-9 items-center justify-center bg-[#ef3e34] rounded-lg flex-shrink-0">
+      <span className="[font-family:'Oswald',Helvetica] font-bold text-white text-base tracking-[1px]">RD</span>
+    </div>
+    <div className="flex flex-col items-start">
+      <span className="[font-family:'Oswald',Helvetica] font-bold text-black text-base tracking-[0.5px] leading-tight">RED DOG LOGO</span>
+      <span className="[font-family:'Montserrat',Helvetica] font-semibold text-[#9ca3af] text-[9px] tracking-[0.8px] leading-tight uppercase">Real Time Intelligence On Grants</span>
+    </div>
+  </div>
+);
+
+const goalItems = [
+  { id: "discover", icon: Search, label: "Discover new grant opportunities" },
+  { id: "track", icon: FileText, label: "Track application progress" },
+  { id: "ai-write", icon: Sparkles, label: "Use AI to write grant proposals" },
+  { id: "ai-score", icon: ClipboardList, label: "Get AI-powered grant-fit scoring" },
+];
+
+export const OnboardingStep5 = () => {
+  const router = useRouter();
+  const [selected, setSelected] = useState<Set<string>>(new Set(["discover"]));
+  const [goalsError, setGoalsError] = useState<string | null>(null);
+
+  const allIds = goalItems.map((g) => g.id);
+  const allSelected = allIds.every((id) => selected.has(id));
+
+  const toggle = (id: string) => {
+    setGoalsError(null);
+    setSelected((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  };
+
+  const toggleAll = () => {
+    setGoalsError(null);
+    if (allSelected) {
+      setSelected(new Set());
+    } else {
+      setSelected(new Set(allIds));
+    }
+  };
+
+  const continueToDashboard = () => {
+    if (selected.size === 0) {
+      setGoalsError("Select at least one goal to continue.");
+      return;
+    }
+    setGoalsError(null);
+    router.push("/dashboard");
+  };
+
+  const rowClass = (active: boolean) =>
+    `w-full flex items-center gap-3 px-4 py-3 rounded-lg border cursor-pointer transition-all ${
+      active
+        ? "border-[#ef3e34] bg-[#fff4f4]"
+        : "border-[#e5e7eb] bg-white hover:border-[#ef3e34]/40"
+    }`;
+
+  return (
+    <div className="flex min-h-screen flex-col items-center justify-start bg-white px-4 pb-12 pt-6 sm:pt-8">
+      <OnboardingLogo />
+      <div className="flex w-full max-w-[520px] flex-col gap-6 rounded-2xl border border-[#f0f0f0] bg-white px-4 py-6 shadow-[0_4px_32px_rgba(0,0,0,0.10)] sm:px-8 sm:py-8">
+        <div className="flex flex-col gap-1">
+          <h1 className="[font-family:'Oswald',Helvetica] font-bold text-black text-xl tracking-[0.5px] uppercase">Your Goals</h1>
+          <p className="[font-family:'Montserrat',Helvetica] font-normal text-[#6b7280] text-sm leading-5">
+            What do you want to accomplish? Ashleen will tailor her approach accordingly.
+          </p>
+        </div>
+
+        <div className="flex flex-col gap-2.5">
+          {goalItems.map(({ id, icon: Icon, label }) => {
+            const active = selected.has(id);
+            return (
+              <button key={id} type="button" onClick={() => toggle(id)} className={rowClass(active)}>
+                <div className={`w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0 ${active ? "bg-[#ef3e34]" : "bg-[#f3f4f6]"}`}>
+                  <Icon size={15} className={active ? "text-white" : "text-[#9ca3af]"} />
+                </div>
+                <span className={`[font-family:'Montserrat',Helvetica] font-semibold text-sm ${active ? "text-[#ef3e34]" : "text-[#111827]"}`}>
+                  {label}
+                </span>
+              </button>
+            );
+          })}
+
+          <button type="button" onClick={toggleAll} className={rowClass(allSelected)}>
+            <div className={`w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0 ${allSelected ? "bg-[#ef3e34]" : "bg-[#f3f4f6]"}`}>
+              <Check size={15} className={allSelected ? "text-white" : "text-[#9ca3af]"} />
+            </div>
+            <span className={`[font-family:'Montserrat',Helvetica] font-semibold text-sm ${allSelected ? "text-[#ef3e34]" : "text-[#111827]"}`}>
+              Choose All
+            </span>
+          </button>
+        </div>
+        {goalsError && (
+          <p className="[font-family:'Montserrat',Helvetica] text-sm text-red-600">{goalsError}</p>
+        )}
+
+        <div className="flex flex-col gap-3 pt-1 sm:flex-row sm:items-center sm:justify-between">
+          <button type="button" onClick={() => router.push("/onboarding/step4")} className="[font-family:'Montserrat',Helvetica] font-medium text-sm text-[#6b7280] hover:text-[#374151] transition-colors">
+            Back
+          </button>
+          <button type="button" onClick={continueToDashboard} className="flex h-10 w-full items-center justify-center gap-1.5 rounded-lg bg-[#ef3e34] px-6 text-white transition-colors hover:bg-[#d63530] sm:w-auto">
+            <span className="[font-family:'Montserrat',Helvetica] font-semibold text-sm">Continue</span>
+            <ChevronRight size={15} />
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+};

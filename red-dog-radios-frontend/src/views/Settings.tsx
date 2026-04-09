@@ -1,0 +1,338 @@
+"use client";
+
+import type { ReactNode } from "react";
+import { useState, useEffect } from "react";
+import { useForm } from "react-hook-form";
+import { zodResolver } from "@hookform/resolvers/zod";
+import { Bell, Globe, Shield, Trash2, Mail, Zap, Clock, X, CheckCircle, Lock, AlignJustify } from "lucide-react";
+import { useToast } from "@/hooks/use-toast";
+import { useRouter } from "next/navigation";
+import { cn } from "@/lib/utils";
+import { deleteAccountConfirmSchema, settingsSaveSchema, type DeleteAccountConfirmValues, type SettingsSaveFormValues } from "@/lib/validation-schemas";
+
+const Toggle = ({ checked, onChange, id }: { checked: boolean; onChange: (v: boolean) => void; id: string }) => (
+  <button role="switch" aria-checked={checked} data-testid={`toggle-${id}`} onClick={() => onChange(!checked)}
+    className={`relative inline-flex h-6 w-11 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 focus:outline-none ${checked ? "bg-[#22c55e]" : "bg-[#d1d5db]"}`}>
+    <span className={`pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow transition duration-200 ${checked ? "translate-x-5" : "translate-x-0"}`} />
+  </button>
+);
+
+const SectionCard = ({ icon, title, subtitle, children, iconBg = "bg-[#fff4f4]", iconCls = "text-[#ef3e34]" }: {
+  icon: ReactNode; title: string; subtitle: string; children: ReactNode; iconBg?: string; iconCls?: string;
+}) => (
+  <div className="rounded-xl border border-[#f0f0f0] bg-white shadow-[0_1px_4px_rgba(0,0,0,0.06)]">
+    <div className="flex items-center gap-3 border-b border-[#f3f4f6] px-4 pb-4 pt-5 sm:px-6">
+      <div className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-full ${iconBg} ${iconCls}`}>
+        {icon}
+      </div>
+      <div className="flex min-w-0 flex-col gap-0.5">
+        <span className="[font-family:'Oswald',Helvetica] text-sm font-bold uppercase tracking-[0.6px] text-[#111827]">{title}</span>
+        <span className="[font-family:'Montserrat',Helvetica] text-xs font-normal text-[#9ca3af]">{subtitle}</span>
+      </div>
+    </div>
+    <div className="px-4 py-5 sm:px-6">{children}</div>
+  </div>
+);
+
+const DeleteModal = ({ onClose, onConfirm }: { onClose: () => void; onConfirm: () => void }) => {
+  const {
+    register,
+    handleSubmit,
+    formState: { errors },
+  } = useForm<DeleteAccountConfirmValues>({
+    resolver: zodResolver(deleteAccountConfirmSchema),
+    defaultValues: { confirmation: "" },
+  });
+
+  useEffect(() => {
+    const handleKey = (e: KeyboardEvent) => { if (e.key === "Escape") onClose(); };
+    document.addEventListener("keydown", handleKey);
+    return () => document.removeEventListener("keydown", handleKey);
+  }, [onClose]);
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50"
+      onClick={(e) => e.target === e.currentTarget && onClose()}>
+      <div className="bg-white rounded-2xl shadow-[0_8px_40px_rgba(0,0,0,0.22)] w-full max-w-[520px] mx-4">
+        <div className="flex justify-end px-5 pt-5">
+          <button type="button" onClick={onClose} data-testid="button-close-delete-modal"
+            className="w-8 h-8 flex items-center justify-center rounded-lg border border-[#e5e7eb] hover:bg-[#f3f4f6] transition-colors">
+            <X size={14} className="text-[#6b7280]" />
+          </button>
+        </div>
+        <form onSubmit={handleSubmit(onConfirm)} className="px-8 pb-6 flex flex-col gap-4" noValidate>
+          <h2 className="[font-family:'Oswald',Helvetica] font-bold text-black text-xl leading-tight uppercase">
+            Are you sure you want to delete your account
+          </h2>
+          <p className="[font-family:'Montserrat',Helvetica] font-normal text-[#6b7280] text-sm leading-6">
+            This action is permanent – your account and all associated data will be permanently deleted and cannot be recovered.
+          </p>
+          <div className="flex flex-col gap-1.5">
+            <label className="[font-family:'Montserrat',Helvetica] font-semibold text-[#374151] text-xs">
+              Type <span className="font-mono font-bold">DELETE</span> to confirm
+            </label>
+            <input
+              data-testid="input-delete-confirm"
+              autoComplete="off"
+              placeholder="DELETE"
+              className={cn(
+                "w-full rounded-lg border border-[#e5e7eb] bg-white px-4 py-2.5 [font-family:'Montserrat',Helvetica] text-sm text-[#111827] placeholder:text-[#d1d5db] focus:border-[#ef3e34] focus:outline-none focus:ring-2 focus:ring-[#ef3e34]/20",
+                errors.confirmation && "border-red-500"
+              )}
+              {...register("confirmation")}
+            />
+            {errors.confirmation && (
+              <p className="text-xs text-red-600 [font-family:'Montserrat',Helvetica]">{errors.confirmation.message}</p>
+            )}
+          </div>
+          <hr className="border-[#e5e7eb] my-1" />
+          <div className="flex flex-col-reverse gap-2 sm:flex-row sm:justify-end sm:gap-3">
+            <button type="button" onClick={onClose} data-testid="button-cancel-delete"
+              className="h-11 rounded-lg border border-[#111827] px-6 [font-family:'Montserrat',Helvetica] text-sm font-semibold text-[#111827] transition-colors hover:bg-[#f9fafb]">
+              No, Go Back
+            </button>
+            <button type="submit" data-testid="button-confirm-delete"
+              className="h-11 rounded-lg bg-[#ef3e34] px-6 text-white [font-family:'Montserrat',Helvetica] text-sm font-semibold transition-colors hover:bg-[#d63530]">
+              Yes, Delete My Account
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+  );
+};
+
+export const Settings = () => {
+  const router = useRouter();
+  const { toast } = useToast();
+  const {
+    register,
+    handleSubmit,
+    formState: { errors },
+  } = useForm<SettingsSaveFormValues>({
+    resolver: zodResolver(settingsSaveSchema),
+    defaultValues: {
+      firstName: "Red Dog",
+      lastName: "Admin",
+      email: "admin@reddogradios.com",
+      currentPassword: "",
+      newPassword: "",
+    },
+  });
+  const [notifications, setNotifications] = useState({ newGrantMatches: true, deadlineAlerts: true, weeklyDigest: true, outboxUpdates: false, systemAlerts: true });
+  const [showDeleteModal, setShowDeleteModal] = useState(false);
+
+  const toggleNotif = (key: keyof typeof notifications) => setNotifications((prev) => ({ ...prev, [key]: !prev[key] }));
+
+  const onSaveValid = () => {
+    toast({ title: "Settings saved successfully", description: "Your preferences have been updated." });
+  };
+
+  const handleSave = () => {
+    void handleSubmit(onSaveValid)();
+  };
+
+  const handleDeleteConfirm = () => {
+    setShowDeleteModal(false);
+    router.push("/login");
+  };
+
+  const inputCls =
+    "w-full rounded-lg border border-[#e5e7eb] bg-white px-4 py-2.5 [font-family:'Montserrat',Helvetica] text-sm font-normal text-[#111827] placeholder:text-[#d1d5db] transition-colors focus:border-[#ef3e34] focus:outline-none focus:ring-2 focus:ring-[#ef3e34]/20";
+  const labelCls = "[font-family:'Montserrat',Helvetica] font-semibold text-[#9ca3af] text-xs tracking-[0.6px] uppercase";
+
+  const notifRows = [
+    { key: "newGrantMatches" as const, icon: <Zap size={15} />, label: "New Grant Matches", desc: "When a high-fit grant is detected for any organization" },
+    { key: "deadlineAlerts" as const, icon: <Clock size={15} />, label: "Deadline Alerts", desc: "Reminders 3 days before grant deadlines expire" },
+    { key: "weeklyDigest" as const, icon: <Mail size={15} />, label: "Weekly Digest", desc: "A summary of top opportunities every Monday morning" },
+    { key: "outboxUpdates" as const, icon: <Globe size={15} />, label: "Outbox Updates", desc: "Confirmations when outreach emails are sent" },
+    { key: "systemAlerts" as const, icon: <Bell size={15} />, label: "System Alerts", desc: "Platform updates and important announcements" },
+  ];
+
+  return (
+    <>
+      <div className="flex w-full min-w-0 flex-col gap-6 bg-neutral-50 p-4 pb-10 sm:p-6 lg:p-8">
+        <div className="flex flex-col gap-4 sm:flex-row sm:flex-wrap sm:items-start sm:justify-between">
+          <div className="flex flex-col gap-1">
+            <h1 className="[font-family:'Oswald',Helvetica] font-bold text-black text-2xl sm:text-3xl tracking-[0.5px] uppercase leading-tight">Settings</h1>
+            <p className="[font-family:'Montserrat',Helvetica] font-normal text-[#6b7280] text-sm">Manage your profile, notifications, and preferences</p>
+          </div>
+          <button onClick={handleSave} data-testid="button-save-changes"
+            className="flex h-10 w-full shrink-0 items-center justify-center gap-2 rounded-lg bg-[#ef3e34] px-5 [font-family:'Montserrat',Helvetica] text-sm font-semibold text-white transition-colors hover:bg-[#d63530] sm:w-auto sm:justify-center">
+            <Zap size={14} />Save Changes
+          </button>
+        </div>
+
+        {/* PROFILE */}
+        <SectionCard icon={<span className="[font-family:'Montserrat',Helvetica] font-bold text-[#ef3e34] text-xs">A</span>} title="Profile" subtitle="Your personal and account information">
+          <div className="mb-5 flex flex-col gap-3 rounded-xl border border-[#f0f0f0] bg-[#fafafa] px-4 py-3 sm:flex-row sm:items-center sm:justify-between">
+            <div className="flex min-w-0 items-center gap-3">
+              <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-[#ef3e34]">
+                <span className="[font-family:'Montserrat',Helvetica] text-sm font-bold text-white">RD</span>
+              </div>
+              <div className="flex min-w-0 flex-col gap-0.5">
+                <span className="[font-family:'Montserrat',Helvetica] text-sm font-bold text-[#111827]">Red Dog Admin</span>
+                <span className="[font-family:'Montserrat',Helvetica] text-xs font-normal text-[#9ca3af] break-all">admin@reddogradios.com</span>
+              </div>
+            </div>
+            <span className="inline-flex w-fit items-center gap-1 rounded-full bg-[#dcfce7] px-2.5 py-0.5 [font-family:'Montserrat',Helvetica] text-xs font-semibold text-[#16a34a]">✦ Active</span>
+          </div>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-4">
+            <div className="flex flex-col gap-1.5">
+              <label className={labelCls}>First Name</label>
+              <input
+                data-testid="input-first-name"
+                className={cn(inputCls, errors.firstName && "border-red-500")}
+                placeholder="First name"
+                {...register("firstName")}
+              />
+              {errors.firstName && (
+                <p className="text-xs text-red-600 [font-family:'Montserrat',Helvetica]">{errors.firstName.message}</p>
+              )}
+            </div>
+            <div className="flex flex-col gap-1.5">
+              <label className={labelCls}>Last Name</label>
+              <input
+                data-testid="input-last-name"
+                className={cn(inputCls, errors.lastName && "border-red-500")}
+                placeholder="Last name"
+                {...register("lastName")}
+              />
+              {errors.lastName && (
+                <p className="text-xs text-red-600 [font-family:'Montserrat',Helvetica]">{errors.lastName.message}</p>
+              )}
+            </div>
+          </div>
+          <div className="flex flex-col gap-1.5 mb-4">
+            <label className={labelCls}>Email Address</label>
+            <div className="relative">
+              <Mail size={14} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-[#9ca3af]" />
+              <input
+                data-testid="input-email"
+                type="email"
+                autoComplete="email"
+                className={cn(inputCls, "pl-9", errors.email && "border-red-500")}
+                placeholder="Email address"
+                {...register("email")}
+              />
+            </div>
+            {errors.email && (
+              <p className="text-xs text-red-600 [font-family:'Montserrat',Helvetica]">{errors.email.message}</p>
+            )}
+          </div>
+          <div className="flex flex-col gap-1.5">
+            <label className={labelCls}>Organization</label>
+            <div className="border border-[#e5e7eb] rounded-lg px-4 py-2.5 bg-[#f9fafb]">
+              <span className="[font-family:'Montserrat',Helvetica] font-semibold text-[#111827] text-sm">Red Dog Radio</span>
+            </div>
+          </div>
+        </SectionCard>
+
+        {/* NOTIFICATIONS */}
+        <SectionCard icon={<Bell size={15} />} title="Notifications" subtitle="Choose which emails and alerts you receive">
+          <div className="flex flex-col divide-y divide-[#f9fafb]">
+            {notifRows.map((row) => (
+              <div key={row.key} className="flex flex-col gap-3 py-3.5 first:pt-0 last:pb-0 sm:flex-row sm:items-center sm:justify-between sm:gap-4">
+                <div className="flex min-w-0 items-center gap-3">
+                  <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-[#f3f4f6] text-[#9ca3af]">{row.icon}</div>
+                  <div className="flex min-w-0 flex-col gap-0.5">
+                    <span className="[font-family:'Montserrat',Helvetica] text-sm font-semibold text-[#111827]">{row.label}</span>
+                    <span className="[font-family:'Montserrat',Helvetica] text-xs font-normal text-[#9ca3af]">{row.desc}</span>
+                  </div>
+                </div>
+                <Toggle id={row.key} checked={notifications[row.key]} onChange={() => toggleNotif(row.key)} />
+              </div>
+            ))}
+          </div>
+        </SectionCard>
+
+        {/* PREFERENCES */}
+        <SectionCard icon={<AlignJustify size={15} />} title="Preferences" subtitle="Regional settings and display options">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <div className="flex flex-col gap-1.5">
+              <label className={labelCls}>Language</label>
+              <div className="relative">
+                <Globe size={13} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-[#9ca3af]" />
+                <select data-testid="select-language" className={`${inputCls} pl-9 appearance-none cursor-pointer`} defaultValue="English">
+                  <option>English</option><option>Spanish</option><option>French</option>
+                </select>
+              </div>
+            </div>
+            <div className="flex flex-col gap-1.5">
+              <label className={labelCls}>Timezone</label>
+              <div className="relative">
+                <Clock size={13} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-[#9ca3af]" />
+                <select data-testid="select-timezone" className={`${inputCls} pl-9 appearance-none cursor-pointer`} defaultValue="Eastern (ET)">
+                  <option>Eastern (ET)</option><option>Central (CT)</option><option>Mountain (MT)</option><option>Pacific (PT)</option>
+                </select>
+              </div>
+            </div>
+          </div>
+        </SectionCard>
+
+        {/* SECURITY */}
+        <SectionCard icon={<Shield size={15} />} title="Security" subtitle="Authentication and account protection" iconBg="bg-[#fef3c7]" iconCls="text-[#d97706]">
+          <div className="flex flex-col gap-3 mb-5">
+            <div className="flex items-center gap-3 px-4 py-3 rounded-xl border border-[#bbf7d0] bg-[#f0fdf4]">
+              <CheckCircle size={17} className="text-[#16a34a] flex-shrink-0" />
+              <div className="flex flex-col gap-0.5">
+                <span className="[font-family:'Montserrat',Helvetica] font-semibold text-[#111827] text-sm">Account Secured</span>
+                <span className="[font-family:'Montserrat',Helvetica] font-normal text-[#9ca3af] text-xs">Protected with enterprise-grade OIDC authentication</span>
+              </div>
+            </div>
+            <div className="flex items-center gap-3 px-4 py-3 rounded-xl border border-[#bfdbfe] bg-[#eff6ff]">
+              <Lock size={17} className="text-[#3b82f6] flex-shrink-0" />
+              <div className="flex flex-col gap-0.5">
+                <span className="[font-family:'Montserrat',Helvetica] font-semibold text-[#111827] text-sm">Two-Factor Authentication</span>
+                <span className="[font-family:'Montserrat',Helvetica] font-normal text-[#9ca3af] text-xs">Managed via your account settings</span>
+              </div>
+            </div>
+          </div>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <div className="flex flex-col gap-1.5">
+              <label className={labelCls}>Current Password</label>
+              <input
+                data-testid="input-current-password"
+                type="password"
+                autoComplete="current-password"
+                className={cn(inputCls, errors.currentPassword && "border-red-500")}
+                placeholder="Leave blank if not changing"
+                {...register("currentPassword")}
+              />
+              {errors.currentPassword && (
+                <p className="text-xs text-red-600 [font-family:'Montserrat',Helvetica]">{errors.currentPassword.message}</p>
+              )}
+            </div>
+            <div className="flex flex-col gap-1.5">
+              <label className={labelCls}>New Password</label>
+              <input
+                data-testid="input-new-password"
+                type="password"
+                autoComplete="new-password"
+                className={cn(inputCls, errors.newPassword && "border-red-500")}
+                placeholder="Leave blank if not changing"
+                {...register("newPassword")}
+              />
+              {errors.newPassword && (
+                <p className="text-xs text-red-600 [font-family:'Montserrat',Helvetica]">{errors.newPassword.message}</p>
+              )}
+            </div>
+          </div>
+        </SectionCard>
+
+        {/* DANGER ZONE */}
+        <SectionCard icon={<Trash2 size={15} />} title="Danger Zone" subtitle="Irreversible actions – proceed with caution" iconBg="bg-[#fff1f0]" iconCls="text-[#ef4444]">
+          <p className="[font-family:'Montserrat',Helvetica] font-normal text-[#6b7280] text-sm leading-6 mb-4">
+            Permanently delete all your account data from Grant Intelligence. This removes all organizations, matches, Weekly Summary, and alerts. This action cannot be undone.
+          </p>
+          <button onClick={() => setShowDeleteModal(true)} data-testid="button-delete-account-data"
+            className="flex items-center gap-2 h-10 px-5 rounded-lg border border-[#ef3e34] text-[#ef3e34] hover:bg-[#fff1f0] [font-family:'Montserrat',Helvetica] font-semibold text-sm transition-colors">
+            <Trash2 size={14} />Delete All Account Data
+          </button>
+        </SectionCard>
+      </div>
+
+      {showDeleteModal && <DeleteModal onClose={() => setShowDeleteModal(false)} onConfirm={handleDeleteConfirm} />}
+    </>
+  );
+};

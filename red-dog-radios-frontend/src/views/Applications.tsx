@@ -1,0 +1,308 @@
+"use client";
+
+import type { ElementType } from "react";
+import { useState } from "react";
+import { FileText, Award, Clock, Eye, Pencil, CalendarClock } from "lucide-react";
+import { MobileFilterSelect } from "@/components/MobileFilterSelect";
+
+/* ── Mock data ─────────────────────────────────────────── */
+const mockApplications = [
+  {
+    id: 1,
+    grant: "Community Radio Sustainability",
+    funder: "NEA",
+    amount: "$25,000",
+    org: "Red Dog Radio",
+    appliedDate: "Mar 15, 2026",
+    category: "Community Development",
+    status: "under-review",
+    ashleenMsg: "We're in the running! This funder typically takes 8-12 weeks to review. I'll alert you the moment there's news.",
+  },
+  {
+    id: 2,
+    grant: "Local Journalism Initiative",
+    funder: "Knight Foundation",
+    amount: "$100,000",
+    org: "KEXP Public Radio",
+    appliedDate: "Feb 28, 2026",
+    category: "Journalism & Media",
+    status: "awarded",
+    ashleenMsg: "Congratulations! This is a well-deserved win. Your narrative around community impact was exactly what the funder was looking for. Let's use this momentum for the next application!",
+  },
+  {
+    id: 3,
+    grant: "Public Media Innovation",
+    funder: "CPB",
+    amount: "$75,000",
+    org: "Red Dog Radio",
+    appliedDate: "Jan 10, 2026",
+    category: "Technology",
+    status: "submitted",
+    ashleenMsg: "Application submitted successfully! I'll monitor for any updates from CPB and keep you informed.",
+  },
+  {
+    id: 4,
+    grant: "Youth Media Arts Program",
+    funder: "Ford Foundation",
+    amount: "$40,000",
+    org: "Red Dog Radio",
+    appliedDate: "Mar 1, 2026",
+    category: "Youth Programs",
+    status: "drafting",
+    ashleenMsg: "I've started drafting this application based on your organization profile. Review and let me know if you'd like any changes.",
+  },
+  {
+    id: 5,
+    grant: "Community Arts & Culture Fund",
+    funder: "Robert Wood Johnson Foundation",
+    amount: "$50,000",
+    org: "Red Dog Radio",
+    appliedDate: "Dec 5, 2025",
+    category: "Arts & Culture",
+    status: "declined",
+    ashleenMsg: "This one didn't go through, but don't worry — I've analyzed the feedback and found 3 similar grants opening next quarter that are a stronger fit.",
+  },
+];
+
+type Status = "drafting" | "submitted" | "under-review" | "awarded" | "declined";
+
+/* ── Status config ─────────────────────────────────────── */
+const statusConfig: Record<Status, {
+  label: string;
+  badgeCls: string;
+  iconBg: string;
+  Icon: ElementType;
+  iconCls: string;
+  msgBg: string;
+}> = {
+  "under-review": {
+    label: "Under Review",
+    badgeCls: "bg-[#fef9c3] text-[#b45309]",
+    iconBg: "bg-[#fff7ed]",
+    Icon: Clock,
+    iconCls: "text-[#f59e0b]",
+    msgBg: "bg-[#eff6ff] border-[#dbeafe]",
+  },
+  awarded: {
+    label: "Awarded 🏆",
+    badgeCls: "bg-[#dcfce7] text-[#16a34a]",
+    iconBg: "bg-[#f0fdf4]",
+    Icon: Award,
+    iconCls: "text-[#16a34a]",
+    msgBg: "bg-[#f0fdf4] border-[#bbf7d0]",
+  },
+  submitted: {
+    label: "Submitted",
+    badgeCls: "bg-[#dbeafe] text-[#1d4ed8]",
+    iconBg: "bg-[#eff6ff]",
+    Icon: FileText,
+    iconCls: "text-[#3b82f6]",
+    msgBg: "bg-[#f9fafb] border-[#f0f0f0]",
+  },
+  drafting: {
+    label: "Drafting",
+    badgeCls: "bg-[#f3f4f6] text-[#6b7280]",
+    iconBg: "bg-[#f3f4f6]",
+    Icon: Pencil,
+    iconCls: "text-[#6b7280]",
+    msgBg: "bg-[#f9fafb] border-[#f0f0f0]",
+  },
+  declined: {
+    label: "Declined",
+    badgeCls: "bg-[#fee2e2] text-[#dc2626]",
+    iconBg: "bg-[#fff1f0]",
+    Icon: FileText,
+    iconCls: "text-[#ef4444]",
+    msgBg: "bg-[#fff1f0] border-[#fecaca]",
+  },
+};
+
+/* ── Stats ─────────────────────────────────────────────── */
+const stats = [
+  {
+    label: "Total Applied",
+    value: 4,
+    Icon: FileText,
+    iconBg: "bg-[#eff6ff]",
+    iconCls: "text-[#3b82f6]",
+    valueCls: "text-[#3b82f6]",
+  },
+  {
+    label: "Awarded",
+    value: 1,
+    Icon: Award,
+    iconBg: "bg-[#f0fdf4]",
+    iconCls: "text-[#16a34a]",
+    valueCls: "text-[#16a34a]",
+  },
+  {
+    label: "Under Review",
+    value: 1,
+    Icon: Clock,
+    iconBg: "bg-[#fff7ed]",
+    iconCls: "text-[#f59e0b]",
+    valueCls: "text-[#f59e0b]",
+  },
+];
+
+const filterTabs: { label: string; value: string }[] = [
+  { label: "All", value: "all" },
+  { label: "Drafting", value: "drafting" },
+  { label: "Submitted", value: "submitted" },
+  { label: "Under Review", value: "under-review" },
+  { label: "Awarded", value: "awarded" },
+  { label: "Declined", value: "declined" },
+];
+
+/* ── Application Card ──────────────────────────────────── */
+const AppCard = ({ app }: { app: typeof mockApplications[0] }) => {
+  const cfg = statusConfig[app.status as Status];
+  const { Icon } = cfg;
+
+  return (
+    <div className="bg-white rounded-xl border border-[#e5e7eb] p-4 sm:p-5 flex flex-col gap-4 min-w-0">
+      {/* Top row */}
+      <div className="flex flex-col gap-3 min-[480px]:flex-row min-[480px]:items-start min-[480px]:justify-between">
+        <div className="flex items-start gap-3 min-w-0 flex-1">
+          {/* Status icon */}
+          <div className={`w-10 h-10 rounded-full ${cfg.iconBg} flex items-center justify-center flex-shrink-0 mt-0.5`}>
+            <Icon size={18} className={cfg.iconCls} />
+          </div>
+          {/* Grant info */}
+          <div className="flex min-w-0 flex-1 flex-col gap-0.5">
+            <p className="[font-family:'Montserrat',Helvetica] font-bold text-[#111827] text-sm leading-snug break-words">
+              {app.grant}
+            </p>
+            <p className="[font-family:'Montserrat',Helvetica] font-normal text-[#9ca3af] text-xs break-words">
+              {app.funder} · {app.amount} · {app.org}
+            </p>
+            {/* Applied date + category */}
+            <div className="flex flex-wrap items-center gap-x-3 gap-y-1 mt-1">
+              <div className="flex items-center gap-1 min-w-0">
+                <CalendarClock size={11} className="text-[#ef3e34] flex-shrink-0" />
+                <span className="[font-family:'Montserrat',Helvetica] font-semibold text-[#ef3e34] text-xs">
+                  Applied {app.appliedDate}
+                </span>
+              </div>
+              <span className="[font-family:'Montserrat',Helvetica] font-normal text-[#9ca3af] text-xs break-words">
+                {app.category}
+              </span>
+            </div>
+          </div>
+        </div>
+        {/* Status badge */}
+        <span className={`inline-flex w-fit max-w-full items-center px-3 py-1 rounded-full [font-family:'Montserrat',Helvetica] font-semibold text-xs flex-shrink-0 ${cfg.badgeCls}`}>
+          {cfg.label}
+        </span>
+      </div>
+
+      {/* Ashleen message */}
+      <div className={`flex items-start gap-2.5 rounded-lg p-3 border min-w-0 ${cfg.msgBg}`}>
+        <div className="w-7 h-7 rounded-full bg-[#ef3e34] flex items-center justify-center flex-shrink-0">
+          <span className="[font-family:'Montserrat',Helvetica] font-bold text-white text-[10px]">A</span>
+        </div>
+        <p className="min-w-0 flex-1 [font-family:'Montserrat',Helvetica] font-normal text-[#374151] text-xs leading-5 pt-0.5 break-words">
+          {app.ashleenMsg}
+        </p>
+      </div>
+
+      {/* Footer actions */}
+      <div className="flex flex-wrap items-center justify-end gap-3 sm:gap-4 pt-1 border-t border-[#f3f4f6]">
+        <button className="flex items-center gap-1.5 [font-family:'Montserrat',Helvetica] font-medium text-xs text-[#6b7280] hover:text-[#374151] transition-colors">
+          <Eye size={14} />
+          View
+        </button>
+        <button className="flex items-center gap-1.5 [font-family:'Montserrat',Helvetica] font-medium text-xs text-[#6b7280] hover:text-[#374151] transition-colors">
+          <Pencil size={13} />
+          Update Status
+        </button>
+      </div>
+    </div>
+  );
+};
+
+/* ── Main Page ─────────────────────────────────────────── */
+export const Applications = () => {
+  const [activeFilter, setActiveFilter] = useState("all");
+
+  const filtered = mockApplications.filter(
+    (a) => activeFilter === "all" || a.status === activeFilter
+  );
+
+  return (
+    <div className="flex h-full min-w-0 flex-col gap-5 bg-neutral-50 p-4 sm:gap-6 sm:p-6 lg:p-8">
+      {/* Header */}
+      <div className="flex min-w-0 flex-col gap-1">
+        <h1 className="[font-family:'Oswald',Helvetica] font-bold text-black text-2xl min-[400px]:text-3xl tracking-[0.5px] uppercase leading-tight break-words">
+          Applications
+        </h1>
+        <p className="[font-family:'Montserrat',Helvetica] font-normal text-[#6b7280] text-sm max-w-prose break-words">
+          Track all grant applications and outcomes
+        </p>
+      </div>
+
+      {/* Stat cards — stack on narrow screens; no horizontal overflow */}
+      <div className="grid grid-cols-1 gap-3 sm:grid-cols-3 sm:gap-4">
+        {stats.map((s) => (
+          <div
+            key={s.label}
+            className="bg-white rounded-xl border border-[#f0f0f0] shadow-[0_1px_4px_rgba(0,0,0,0.05)] p-4 sm:p-5 flex min-w-0 items-center gap-3 sm:gap-4"
+          >
+            <div className={`w-10 h-10 sm:w-11 sm:h-11 rounded-xl ${s.iconBg} flex items-center justify-center flex-shrink-0`}>
+              <s.Icon size={20} className={s.iconCls} />
+            </div>
+            <div className="flex min-w-0 flex-1 flex-col gap-0.5">
+              <span className={`[font-family:'Oswald',Helvetica] font-bold text-xl tabular-nums sm:text-2xl leading-tight ${s.valueCls}`}>
+                {s.value}
+              </span>
+              <span className="[font-family:'Montserrat',Helvetica] font-normal text-[#9ca3af] text-xs leading-snug break-words">
+                {s.label}
+              </span>
+            </div>
+          </div>
+        ))}
+      </div>
+
+      {/* Filter: dropdown on mobile, chips from md */}
+      <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between md:gap-4">
+        <div className="min-w-0 flex-1 md:flex-initial">
+          <MobileFilterSelect
+            ariaLabel="Filter applications by status"
+            label="Status"
+            value={activeFilter}
+            onChange={setActiveFilter}
+            options={filterTabs.map((t) => ({ value: t.value, label: t.label }))}
+            dataTestId="select-filter-applications"
+          />
+          <div className="hidden flex-wrap items-center gap-1.5 md:flex">
+            {filterTabs.map((t) => (
+              <button
+                key={t.value}
+                type="button"
+                onClick={() => setActiveFilter(t.value)}
+                data-testid={`tab-${t.value}`}
+                className={`h-8 rounded-lg px-4 [font-family:'Montserrat',Helvetica] text-sm font-semibold transition-all ${
+                  activeFilter === t.value
+                    ? "bg-[#ef3e34] text-white"
+                    : "border border-[#e5e7eb] bg-white text-[#6b7280] hover:border-[#ef3e34]/40"
+                }`}
+              >
+                {t.label}
+              </button>
+            ))}
+          </div>
+        </div>
+        <span className="[font-family:'Montserrat',Helvetica] text-sm font-normal text-[#9ca3af] md:flex-shrink-0 md:text-right">
+          {filtered.length} results
+        </span>
+      </div>
+
+      {/* Application cards */}
+      <div className="flex flex-col gap-4">
+        {filtered.map((app) => (
+          <AppCard key={app.id} app={app} />
+        ))}
+      </div>
+    </div>
+  );
+};
