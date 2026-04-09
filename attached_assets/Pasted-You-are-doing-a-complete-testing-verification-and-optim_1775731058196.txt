@@ -1,0 +1,98 @@
+You are doing a complete testing, verification, and optimization audit of the Red Dog Radio Grant Intelligence platform. Go through every single item below systematically. Do not skip anything. Report what passes, what fails, and what you fixed. Work through each section completely before moving to the next.
+
+SECTION 1 — MANUAL FLOW TESTING
+Test every user journey from start to finish exactly as a real user would experience it. Open the app in the browser and walk through each flow completely.
+FLOW 1 — New User Registration and Onboarding:
+Open the app. You should land on the login page. Click the Sign Up tab. Enter a full name, a valid email address, and a password of at least 8 characters. Click Create An Account. Verify you are taken to the OTP verification page. Enter any 6 digits in the boxes. Verify each box auto-advances to the next one as you type. Click Confirm OTP. Verify you land on the Create New Password page. Enter a new password in both fields. Click Confirm Password. Verify you are redirected to the login page with a success message visible on the screen. Now log in with the email and password you just created. Verify you are taken to the onboarding welcome screen because this account has not completed onboarding. Walk through all 5 onboarding steps making selections at each step. Click Continue on step 5. Verify you are taken to the dashboard and all your onboarding selections were saved. Log out. Log back in again. Verify you go directly to the dashboard this time and not back to onboarding.
+FLOW 2 — Dashboard Interaction:
+On the dashboard verify all 6 metric cards show real numbers from the database — none should show zero unless the database actually has zero records. Click each metric card and verify it navigates to the correct page. Click the back button and return to dashboard each time. Click View Weekly Summary and verify it goes to the weekly summary page. Return to dashboard. Click Refresh and verify the numbers briefly show a loading state and then reload.
+FLOW 3 — Grant Discovery and Application with Ashleen:
+Go to the Opportunities page. Verify the table loads with real grant data. Click the Open tab and verify only open grants show. Click Closing and verify only closing grants show. Type a word in the search bar and verify the results update. Click a keyword pill and verify it filters. Click any grant row and verify the preview panel slides in from the right and the table compresses to the left — the table must not disappear. Verify the preview panel shows the real grant title, funder, amount, deadline, description, and keywords. Click the funder website link and verify it opens in a new tab. Click Apply with Ashleen. Verify the Ashleen panel appears with her avatar, name, and title. Verify the Grant Context Banner shows the correct grant name, funder, amount, and deadline matching the grant you selected. Verify Ashleen sends two chat messages — the first greeting and the second explaining the specific grant with its real name and details. Click Tell me more. Verify Ashleen sends a follow-up message. Click Apply for it. Verify a loading state appears while the application is being created. Verify Ashleen sends a message about generating the application. Verify a loading indicator appears while the AI generates content. Verify the draft form appears pre-filled with real data including organization name and contact email from the logged-in user. Edit the Project Title field to add some custom text. Click Looks good Review and Submit. Verify the full application review appears with the Project Summary and Community Impact sections showing actual AI-generated text. Click Submit. Verify a green success toast appears. Verify the Ashleen panel closes. Go to the Applications page and verify your newly submitted application appears there.
+FLOW 4 — Matches Workflow:
+Go to the Matches page. Verify fit scores are colored correctly — green for 75 and above, orange for 50 to 74, red below 50. Click a high-scoring match row. Verify the details panel shows the fit score, amount, deadline, and a list of AI reasons explaining why this is a match. Click Approve Match. Verify the button shows a loading state and then the match status updates. Click another row. Click Reject Match. Verify it updates correctly.
+FLOW 5 — Alerts and Badge:
+Go to the Alerts page. Verify unread alerts have a different visual appearance from read ones. Note the number on the red badge on the bell icon in the sidebar. Click an unread alert. Verify it changes to read appearance. Verify the badge count on the bell icon decreases by one. Click all unread alerts one by one. Verify the badge disappears completely when all are read.
+FLOW 6 — Weekly Summary Preview:
+Go to the Weekly Summary page. Verify the left panel shows a list of organizations with their digest status. Click Preview next to an organization that shows Sent status. Verify a loading spinner appears in the right panel. Verify the HTML email preview loads showing the red header banner, an AI intro paragraph, and opportunity cards with fit scores. Click Preview on a different organization. Verify the right panel updates to show that organization's digest.
+FLOW 7 — Settings Save and Reload:
+Go to Settings. Verify all fields are pre-filled with real data from the logged-in user. Change the first name field. Toggle one of the notification switches off. Click Save Changes. Verify a success toast appears. Refresh the page completely. Verify the changed first name and the toggled notification switch are still showing the updated values — confirming the changes were actually saved to the database and are being loaded back correctly.
+FLOW 8 — Sign Out:
+Click Sign Out in the sidebar. Verify you are on the login page. Open browser developer tools and check localStorage. Verify rdg_token and rdg_user are completely gone from localStorage.
+
+SECTION 2 — ERROR HANDLING VERIFICATION
+Test every error scenario to make sure the app handles failures gracefully and never crashes or shows a blank screen.
+Test API timeout handling. In the browser developer tools, go to Network tab and set throttling to Slow 3G. Navigate to the Organizations page. Verify skeleton loading placeholders appear while waiting. Verify the data eventually loads. Set throttling to Offline. Navigate to the Opportunities page. Verify an error message appears on the page — not a blank screen, not a JavaScript error, but a visible friendly error message with a retry button. Click the retry button and verify it attempts to fetch again. Turn the connection back on. Click retry. Verify the data loads successfully.
+Test form validation errors. Go to the Add Organization modal. Click Create Organization without filling in anything. Verify the Organization Name field shows a validation error message. It must not close the modal and must not call the API. Go to the login page. Submit with empty fields. Verify both fields show validation errors. Submit with a valid email but a password shorter than 8 characters. Verify a specific error message about password length appears. Go to Create Password page. Enter different values in the two password fields. Verify an error message says passwords do not match and the form does not submit.
+Test the 401 unauthorized scenario. In developer tools Application tab find localStorage and manually delete the rdg_token value but keep the rdg_user. Refresh any protected page. Verify you are immediately redirected to the login page and the page does not crash or show partial content.
+Test the Ashleen AI error scenario. If the OpenAI API key is not configured, verify that when the application reaches the AI generation step in the Ashleen flow, it does not crash. It must show either AI-generated fallback content from the backend stub or a friendly error message in the chat interface with a retry option. It must never show a blank panel or a JavaScript error.
+Test the duplicate submission prevention. On any form, click the submit button once and immediately try to click it again multiple times rapidly. Verify the button is disabled after the first click and only one API call is made. Check the Network tab in developer tools to confirm only one request was sent.
+
+SECTION 3 — DATA ACCURACY VERIFICATION
+Verify that every piece of data shown in the UI matches what is actually in the database.
+On the Dashboard, note the number shown on the Total Organizations metric card. Go to the Organizations page and count the total number of organizations in the table. These numbers must match exactly.
+Note the Active Opportunities count on the dashboard. Go to Opportunities and click the All tab. Note the result count shown on the page. Go back and click Open tab. The Active Opportunities dashboard number should match the Open count on the opportunities page.
+Note the High-Fit Matches count on the dashboard. Go to Matches and manually count all rows with green fit score badges showing 75 or above. These must match.
+Note the Active Alerts count on the dashboard. Go to Alerts and count all alert cards visible. These must match.
+Note the Pending Outbox count on the dashboard. Go to Outbox and look at the Pending metric card number. These must match.
+On the Opportunities page, click any grant row and note the amount shown in the preview panel. Verify it matches the amount shown in the table row for that same grant.
+On the Matches page, click any row and verify the fit score number shown in the detail panel matches the score shown in the table.
+
+SECTION 4 — PERFORMANCE OPTIMIZATION VERIFICATION
+Check that the application loads efficiently and does not make unnecessary API calls.
+Open developer tools Network tab. Clear all requests. Navigate to the Dashboard page. Count how many API calls are made on initial load. There should be exactly one call to the dashboard stats endpoint on initial mount. There must not be multiple repeated calls to the same endpoint on a single page load.
+Navigate away to Organizations and back to Dashboard. Verify the dashboard data refreshes appropriately but does not make redundant calls.
+On the Organizations page, type characters one by one in the search bar. Verify API calls are NOT made on every single keystroke. With a 400ms debounce in place, rapid typing should result in only one API call after the user stops typing. Check the Network tab to confirm this.
+On the Alerts page, verify the automatic refresh happens every 60 seconds to update the unread badge count. Check that this interval is properly cleared when the user navigates away from the page — there must not be ongoing network requests happening on pages the user has left.
+Check that all loading states properly terminate. Navigate to each page, note that skeleton loaders appear, and verify they disappear and are replaced by real content. There must not be any page where the skeleton loader stays visible permanently because an API call was never completed or its state was never updated.
+Check for memory leaks caused by abandoned async operations. Navigate quickly between pages. Verify no console errors appear saying things like cannot update state on an unmounted component. If these errors exist, they indicate async operations are not being properly cancelled when components unmount.
+
+SECTION 5 — ASHLEEN AI DEEP VERIFICATION
+This section specifically stress-tests the Ashleen AI flow since it is the most complex feature.
+Verify the grant context banner in the Ashleen panel uses the actual opportunity data. Click a grant named something specific. Verify the banner inside the Ashleen panel shows that exact same grant name, the correct funder name, the correct dollar amount, and the correct deadline date. Then close the panel. Click a completely different grant. Open Ashleen again. Verify the banner now shows the second grant's data — confirming the panel is not caching the first grant's data.
+Verify the AI-generated application content is relevant and not generic. In the Ashleen draft step, look at the Project Summary that was generated. It should reference the specific grant being applied for and the organization's details. If it shows completely generic text with no relation to the grant or organization, the AI prompt being sent to the backend is not including the necessary context — report this as a bug.
+Verify the form fields in the Ashleen draft step are all editable. Click into each field and type some text. Verify the typed text appears and is saved when moving to the review step. The review step must show your edited values, not the original pre-filled values.
+Verify the application is actually created in the database. After completing the Ashleen flow and clicking Submit, go to the Applications page. Verify the new application appears with the correct grant name, organization, and Submitted status. Refresh the page. Verify the application is still there after the refresh — confirming it was saved to the database and not just held in memory.
+Open the Ashleen panel for a grant and click Not Interested. Verify the panel closes and returns to the opportunities list. Verify no draft application was created in the Applications page.
+Open the Ashleen panel and proceed to Step 3 where the draft form appears. Click I need more time. Verify the panel closes. Go to the Applications page. Verify a draft application was created for this grant — because the user already clicked Apply for it in Step 2, which should have created the draft. This is correct behavior.
+
+SECTION 6 — RESPONSIVE DESIGN VERIFICATION
+Open the application and resize the browser window to test responsive behavior.
+At full desktop width of 1280 pixels and above, verify the full sidebar is always visible, the main content area uses the full available width, and all tables show all columns.
+At tablet width between 768 and 1279 pixels, verify the sidebar either collapses to show only icons or remains visible in a narrower form. Verify the content area still shows all essential information. Verify no content overflows horizontally causing a horizontal scrollbar on the main content.
+At mobile width below 768 pixels, verify a hamburger menu icon appears. Verify clicking it opens the sidebar as an overlay. Verify clicking outside the sidebar overlay closes it. Verify tables either scroll horizontally within their container or adapt to show fewer columns. Verify all buttons are large enough to tap with a finger.
+Verify the Ashleen panel works on mobile. It should either take up the full screen width or be displayed as a modal on small screens.
+Verify all modals (Add Organization, Add Agency, Add Opportunity, Email Details, Account Deletion confirmation) are properly sized and usable on mobile — they must not overflow the screen edges.
+
+SECTION 7 — BROWSER CONSOLE VERIFICATION
+Open browser developer tools and check the console while using the application. There must be zero errors and zero warnings during normal usage.
+Navigate through every page and check for console errors. JavaScript errors with red icons must not exist. These indicate broken code that will cause unpredictable behavior for users.
+Check for React-specific warnings. Warnings about missing key props in lists, using deprecated methods, or failed prop type checks must all be resolved.
+Check for failed network requests in the Network tab. Any request showing a red status code in the 400 or 500 range that should have succeeded must be investigated and fixed.
+Check specifically for these common issues: Cannot read properties of undefined — this means the code is trying to access a property on data that has not loaded yet, indicating missing null checks. Each child in a list should have a unique key prop — this means list items are missing unique key attributes. Warning: An update to a component inside a test was not wrapped in act — this indicates async state updates are not handled correctly.
+
+SECTION 8 — SECURITY VERIFICATION
+Verify that protected routes and data cannot be accessed without authentication.
+Open a new incognito browser window. Try to navigate directly to the URL of the dashboard page. Verify you are redirected to login and cannot see any dashboard content.
+Try to navigate directly to the Organizations, Opportunities, Matches, Applications, Agencies, Alerts, Outbox, Weekly Summary, and Settings pages directly by URL. All must redirect to login.
+Verify that API calls made without a valid JWT token return 401 errors and no data. Open the browser console and manually run a fetch call to the organizations API endpoint without an Authorization header. Verify it returns an error response and not actual data.
+Verify passwords are not stored in plain text. Check that the user object stored in localStorage under rdg_user does not contain the password field. Verify that API responses for user data do not include the password field.
+
+SECTION 9 — FINAL OPTIMIZATION CHECKLIST
+Go through each item below and confirm it is done or fix it if it is not.
+Confirm every page has a proper document title. The browser tab should show a descriptive title for each page like Red Dog — Dashboard or Red Dog — Opportunities rather than just the default app name or a blank title.
+Confirm all images and icons load correctly. There must be no broken image icons anywhere in the application.
+Confirm all external links (funder website links on the opportunities preview panel) open in a new browser tab and not in the same tab which would navigate the user away from the app.
+Confirm that after submitting any form the form fields are properly reset. After creating an organization and closing the modal, clicking Add Organization again must show an empty form, not the previously entered data.
+Confirm the sidebar Sign Out link is always visible and accessible. It must not be hidden or cut off even on smaller screen sizes.
+Confirm that all status badge colors are consistent across the entire application. Open status must always be green. Closing must always be orange. Closed must always be gray. Failed must always be red. Sent must always be green. Pending must always be yellow or orange.
+Confirm that monetary amounts are formatted consistently throughout the app. Dollar amounts must always show a dollar sign and use commas for thousands. 50000 must display as dollar sign 50,000 everywhere it appears.
+Confirm that all dates are formatted consistently throughout the app. Dates must always show in the same readable format like Apr 1, 2026 and never show as a raw ISO string like 2026-04-01T00:00:00.000Z.
+
+SECTION 10 — FINAL REPORT
+After completing all testing and fixes, provide a detailed structured report.
+List every test that passed without any issues.
+List every bug that was found and fixed, describing what was wrong and exactly what was changed to fix it.
+List every performance optimization that was applied.
+List anything that is still not working and explain precisely why — for example if certain AI features require an OpenAI API key that is not yet configured.
+Confirm whether the complete application can be demonstrated end to end by a non-technical person without any crashes, blank screens, console errors, or missing data.
+Provide a final score out of 100 for the overall quality and completeness of the application, broken down into these categories: Authentication and Security, Core Feature Functionality, Ashleen AI Flow, Error Handling, Performance, and UI Consistency.

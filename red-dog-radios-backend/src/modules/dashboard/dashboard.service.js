@@ -15,7 +15,7 @@ const getStats = async () => {
     activeAlerts,
   ] = await Promise.all([
     Organization.countDocuments({ status: 'active' }),
-    Opportunity.countDocuments({ status: { $in: ['open', 'closing'] } }),
+    Opportunity.countDocuments({ status: 'open' }),
     Match.countDocuments({ fitScore: { $gte: 75 } }),
     Outbox.countDocuments({ status: 'pending' }),
     Application.countDocuments({ status: { $in: ['submitted', 'in_review', 'awarded'] } }),

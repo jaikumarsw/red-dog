@@ -135,10 +135,10 @@ export const Settings = () => {
     },
   });
   const [notifications, setNotifications] = useState({
-    newGrantMatches: true,
-    deadlineAlerts: true,
-    weeklyDigest: true,
-    outboxUpdates: false,
+    highFitAlerts: true,
+    deadlineReminders: true,
+    weeklySummary: true,
+    alertUpdates: false,
     systemAlerts: true,
   });
   const [showDeleteModal, setShowDeleteModal] = useState(false);
@@ -217,10 +217,10 @@ export const Settings = () => {
   const labelCls = "[font-family:'Montserrat',Helvetica] font-semibold text-[#9ca3af] text-xs tracking-[0.6px] uppercase";
 
   const notifRows = [
-    { key: "newGrantMatches" as const, icon: <Zap size={15} />, label: "New Grant Matches", desc: "When a high-fit grant is detected for any organization" },
-    { key: "deadlineAlerts" as const, icon: <Clock size={15} />, label: "Deadline Alerts", desc: "Reminders 3 days before grant deadlines expire" },
-    { key: "weeklyDigest" as const, icon: <Mail size={15} />, label: "Weekly Digest", desc: "A summary of top opportunities every Monday morning" },
-    { key: "outboxUpdates" as const, icon: <Globe size={15} />, label: "Outbox Updates", desc: "Confirmations when outreach emails are sent" },
+    { key: "highFitAlerts" as const, icon: <Zap size={15} />, label: "New Grant Matches", desc: "When a high-fit grant is detected for any organization" },
+    { key: "deadlineReminders" as const, icon: <Clock size={15} />, label: "Deadline Alerts", desc: "Reminders 3 days before grant deadlines expire" },
+    { key: "weeklySummary" as const, icon: <Mail size={15} />, label: "Weekly Digest", desc: "A summary of top opportunities every Monday morning" },
+    { key: "alertUpdates" as const, icon: <Globe size={15} />, label: "Outbox Updates", desc: "Confirmations when outreach emails are sent" },
     { key: "systemAlerts" as const, icon: <Bell size={15} />, label: "System Alerts", desc: "Platform updates and important announcements" },
   ];
 

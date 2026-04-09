@@ -78,9 +78,8 @@ const mapMatch = (m: ApiMatch): Match => ({
 });
 
 const scoreColor = (n: number) => {
-  if (n >= 85) return { border: "border-[#22c55e]", text: "text-[#22c55e]", bg: "bg-[#f0fdf4]" };
-  if (n >= 70) return { border: "border-[#f97316]", text: "text-[#f97316]", bg: "bg-[#fff7ed]" };
-  if (n >= 55) return { border: "border-[#eab308]", text: "text-[#eab308]", bg: "bg-[#fefce8]" };
+  if (n >= 75) return { border: "border-[#22c55e]", text: "text-[#22c55e]", bg: "bg-[#f0fdf4]" };
+  if (n >= 50) return { border: "border-[#f97316]", text: "text-[#f97316]", bg: "bg-[#fff7ed]" };
   return { border: "border-[#ef4444]", text: "text-[#ef4444]", bg: "bg-[#fff1f0]" };
 };
 
