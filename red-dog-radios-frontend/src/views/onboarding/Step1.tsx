@@ -26,7 +26,10 @@ export const OnboardingStep1 = () => {
     },
   });
 
-  const onSubmit = () => {
+  const onSubmit = (data: OnboardingStep1FormValues) => {
+    if (typeof window !== "undefined") {
+      sessionStorage.setItem("rdg_onboarding_step1", JSON.stringify(data));
+    }
     router.push("/onboarding/step2");
   };
 

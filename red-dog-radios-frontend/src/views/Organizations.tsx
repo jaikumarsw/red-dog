@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { Search, MapPin, Plus, X } from "lucide-react";
@@ -10,9 +10,10 @@ import { Label } from "@/components/ui/label";
 import { useToast } from "@/hooks/use-toast";
 import { cn } from "@/lib/utils";
 import { organizationFormSchema, type OrganizationFormValues } from "@/lib/validation-schemas";
+import api from "@/lib/api";
 
 type Org = {
-  id: number;
+  id: string;
   name: string;
   website: string;
   location: string;
@@ -22,12 +23,31 @@ type Org = {
   status: string;
 };
 
-const initialOrgs: Org[] = [
-  { id: 1, name: "Red Dog Radios", website: "Website", location: "Dallas, TX", focusAreas: ["media", "education"], extraAreas: 2, matches: 8, status: "active" },
-  { id: 2, name: "Arts Bridge Foundation", website: "Website", location: "Austin, TX", focusAreas: ["arts", "education"], extraAreas: 1, matches: 7, status: "active" },
-  { id: 3, name: "Community Health Alliance", website: "Website", location: "Houston, TX", focusAreas: ["healthcare", "community development"], extraAreas: 1, matches: 7, status: "active" },
-  { id: 4, name: "Tech for All Initiative", website: "Website", location: "San Antonio, TX", focusAreas: ["technology", "education"], extraAreas: 1, matches: 7, status: "active" },
-];
+type ApiOrg = {
+  _id: string;
+  name: string;
+  website?: string;
+  websiteUrl?: string;
+  location?: string;
+  focusAreas?: string[];
+  programAreas?: string[];
+  matchCount?: number;
+  status?: string;
+};
+
+const mapOrg = (o: ApiOrg): Org => {
+  const areas = o.focusAreas ?? o.programAreas ?? [];
+  return {
+    id: o._id,
+    name: o.name,
+    website: o.website ?? o.websiteUrl ?? "Website",
+    location: o.location ?? "—",
+    focusAreas: areas.slice(0, 2),
+    extraAreas: Math.max(0, areas.length - 2),
+    matches: o.matchCount ?? 0,
+    status: o.status ?? "active",
+  };
+};
 
 interface AddOrgModalProps {
   onClose: () => void;
@@ -35,6 +55,8 @@ interface AddOrgModalProps {
 }
 
 const AddOrganizationModal = ({ onClose, onAdd }: AddOrgModalProps) => {
+  const { toast } = useToast();
+  const [loading, setLoading] = useState(false);
   const {
     register,
     handleSubmit,
@@ -50,19 +72,28 @@ const AddOrganizationModal = ({ onClose, onAdd }: AddOrgModalProps) => {
     return () => document.removeEventListener("keydown", handleKey);
   }, [onClose]);
 
-  const onValid = (data: OrganizationFormValues) => {
-    const areas = data.focusAreas.split(",").map((s) => s.trim()).filter(Boolean);
-    const newOrg: Org = {
-      id: Date.now(),
-      name: data.name.trim(),
-      website: data.website.trim() || "Website",
-      location: data.location.trim(),
-      focusAreas: areas.slice(0, 2),
-      extraAreas: Math.max(0, areas.length - 2),
-      matches: 0,
-      status: "active",
-    };
-    onAdd(newOrg);
+  const onValid = async (data: OrganizationFormValues) => {
+    setLoading(true);
+    try {
+      const areas = data.focusAreas.split(",").map((s) => s.trim()).filter(Boolean);
+      const res = await api.post("/organizations", {
+        name: data.name.trim(),
+        location: data.location.trim(),
+        website: data.website.trim() || undefined,
+        missionStatement: data.mission.trim() || undefined,
+        focusAreas: areas,
+        status: "active",
+      });
+      const created = res.data.data as ApiOrg;
+      onAdd(mapOrg(created));
+    } catch (err: unknown) {
+      const msg =
+        (err as { response?: { data?: { message?: string } } })?.response?.data?.message ??
+        "Failed to create organization.";
+      toast({ title: "Error", description: msg, variant: "destructive" });
+    } finally {
+      setLoading(false);
+    }
   };
 
   const inputClass = (name: keyof OrganizationFormValues) =>
@@ -125,9 +156,9 @@ const AddOrganizationModal = ({ onClose, onAdd }: AddOrgModalProps) => {
               className="px-4 py-2 [font-family:'Montserrat',Helvetica] text-sm font-medium text-[#6b7280] transition-colors hover:text-[#374151]">
               Cancel
             </button>
-            <button type="submit" data-testid="button-create-org"
-              className="h-10 rounded-lg bg-[#ef3e34] px-5 text-white [font-family:'Montserrat',Helvetica] text-sm font-semibold transition-colors hover:bg-[#d63530] active:bg-[#c02c28]">
-              Create Organization
+            <button type="submit" disabled={loading} data-testid="button-create-org"
+              className="h-10 rounded-lg bg-[#ef3e34] px-5 text-white [font-family:'Montserrat',Helvetica] text-sm font-semibold transition-colors hover:bg-[#d63530] active:bg-[#c02c28] disabled:opacity-60">
+              {loading ? "Creating..." : "Create Organization"}
             </button>
           </div>
         </form>
@@ -137,10 +168,25 @@ const AddOrganizationModal = ({ onClose, onAdd }: AddOrgModalProps) => {
 };
 
 export const Organizations = () => {
-  const [orgs, setOrgs] = useState<Org[]>(initialOrgs);
+  const [orgs, setOrgs] = useState<Org[]>([]);
+  const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
   const [showModal, setShowModal] = useState(false);
   const { toast } = useToast();
+
+  const fetchOrgs = useCallback(async () => {
+    try {
+      const res = await api.get("/organizations", { params: { limit: 100 } });
+      const raw: ApiOrg[] = res.data.data ?? [];
+      setOrgs(raw.map(mapOrg));
+    } catch {
+      // keep empty
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  useEffect(() => { void fetchOrgs(); }, [fetchOrgs]);
 
   const filtered = orgs.filter((o) => o.name.toLowerCase().includes(search.toLowerCase()));
 
@@ -184,47 +230,91 @@ export const Organizations = () => {
             </div>
           </div>
 
-          <div className="hidden overflow-x-auto md:block">
-            <table className="w-full min-w-[680px]">
-              <thead>
-                <tr className="border-b border-[#f3f4f6]">
-                  {["Organization", "Location", "Focus Areas", "Matches (High Fit)", "Status"].map((h) => (
-                    <th key={h} className="px-4 py-3 text-left lg:px-5">
-                      <span className="[font-family:'Montserrat',Helvetica] text-xs font-semibold uppercase tracking-[0.6px] text-[#9ca3af]">
-                        {h}
-                      </span>
-                    </th>
-                  ))}
-                </tr>
-              </thead>
-              <tbody>
-                {filtered.map((org, idx) => (
-                  <tr
-                    key={org.id}
-                    data-testid={`row-org-${org.id}`}
-                    className={`cursor-pointer border-b border-[#f9fafb] transition-colors hover:bg-[#fafafa] ${idx === filtered.length - 1 ? "border-b-0" : ""}`}
-                  >
-                    <td className="px-4 py-4 lg:px-5">
-                      <div className="flex min-w-0 flex-col gap-0.5">
-                        <span className="[font-family:'Montserrat',Helvetica] text-sm font-semibold break-words text-[#111827]">{org.name}</span>
-                        <a href="#" className="[font-family:'Montserrat',Helvetica] text-xs font-medium text-[#ef3e34] hover:underline break-all">
+          {loading ? (
+            <div className="flex items-center justify-center py-16">
+              <span className="[font-family:'Montserrat',Helvetica] text-sm text-[#9ca3af]">Loading organizations...</span>
+            </div>
+          ) : (
+            <>
+              <div className="hidden overflow-x-auto md:block">
+                <table className="w-full min-w-[680px]">
+                  <thead>
+                    <tr className="border-b border-[#f3f4f6]">
+                      {["Organization", "Location", "Focus Areas", "Matches (High Fit)", "Status"].map((h) => (
+                        <th key={h} className="px-4 py-3 text-left lg:px-5">
+                          <span className="[font-family:'Montserrat',Helvetica] text-xs font-semibold uppercase tracking-[0.6px] text-[#9ca3af]">
+                            {h}
+                          </span>
+                        </th>
+                      ))}
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {filtered.map((org, idx) => (
+                      <tr
+                        key={org.id}
+                        data-testid={`row-org-${org.id}`}
+                        className={`cursor-pointer border-b border-[#f9fafb] transition-colors hover:bg-[#fafafa] ${idx === filtered.length - 1 ? "border-b-0" : ""}`}
+                      >
+                        <td className="px-4 py-4 lg:px-5">
+                          <div className="flex min-w-0 flex-col gap-0.5">
+                            <span className="[font-family:'Montserrat',Helvetica] text-sm font-semibold break-words text-[#111827]">{org.name}</span>
+                            <span className="[font-family:'Montserrat',Helvetica] text-xs font-medium text-[#ef3e34] break-all">
+                              {org.website}
+                            </span>
+                          </div>
+                        </td>
+                        <td className="px-4 py-4 lg:px-5">
+                          <div className="flex items-center gap-1.5">
+                            <MapPin size={12} className="shrink-0 text-[#9ca3af]" />
+                            <span className="[font-family:'Montserrat',Helvetica] text-sm font-normal break-words text-[#374151]">{org.location}</span>
+                          </div>
+                        </td>
+                        <td className="px-4 py-4 lg:px-5">
+                          <div className="flex flex-wrap items-center gap-1.5">
+                            {org.focusAreas.map((area) => (
+                              <span key={area} className="inline-flex items-center rounded-full border border-[#e5e7eb] bg-white px-2 py-0.5 [font-family:'Montserrat',Helvetica] text-xs font-normal text-[#374151]">
+                                {area}
+                              </span>
+                            ))}
+                            {org.extraAreas > 0 && (
+                              <span className="inline-flex items-center rounded-full border border-[#e5e7eb] bg-white px-2 py-0.5 [font-family:'Montserrat',Helvetica] text-xs font-normal text-[#374151]">
+                                +{org.extraAreas}
+                              </span>
+                            )}
+                          </div>
+                        </td>
+                        <td className="whitespace-nowrap px-4 py-4 lg:px-5">
+                          <span className="[font-family:'Montserrat',Helvetica] text-sm font-semibold text-[#111827]">{org.matches} matches</span>
+                        </td>
+                        <td className="whitespace-nowrap px-4 py-4 lg:px-5">
+                          <span className="inline-flex items-center rounded-full bg-[#dcfce7] px-3 py-1 [font-family:'Montserrat',Helvetica] text-xs font-semibold text-[#16a34a]">
+                            {org.status}
+                          </span>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+
+              <ul className="m-0 flex list-none flex-col divide-y divide-[#f9fafb] p-0 md:hidden">
+                {filtered.map((org) => (
+                  <li key={org.id} data-testid={`row-org-${org.id}`} className="cursor-pointer p-4 transition-colors hover:bg-[#fafafa]">
+                    <div className="flex flex-col gap-3">
+                      <div className="min-w-0">
+                        <p className="[font-family:'Montserrat',Helvetica] text-sm font-semibold break-words text-[#111827]">{org.name}</p>
+                        <span className="mt-0.5 [font-family:'Montserrat',Helvetica] text-xs font-medium text-[#ef3e34] break-all">
                           {org.website}
-                        </a>
+                        </span>
                       </div>
-                    </td>
-                    <td className="px-4 py-4 lg:px-5">
-                      <div className="flex items-center gap-1.5">
-                        <MapPin size={12} className="shrink-0 text-[#9ca3af]" />
+                      <div className="flex items-start gap-1.5">
+                        <MapPin size={12} className="mt-0.5 shrink-0 text-[#9ca3af]" />
                         <span className="[font-family:'Montserrat',Helvetica] text-sm font-normal break-words text-[#374151]">{org.location}</span>
                       </div>
-                    </td>
-                    <td className="px-4 py-4 lg:px-5">
-                      <div className="flex flex-wrap items-center gap-1.5">
+                      <div className="flex flex-wrap gap-1.5">
                         {org.focusAreas.map((area) => (
-                          <span
-                            key={area}
-                            className="inline-flex items-center rounded-full border border-[#e5e7eb] bg-white px-2 py-0.5 [font-family:'Montserrat',Helvetica] text-xs font-normal text-[#374151]"
-                          >
+                          <span key={area} className="inline-flex items-center rounded-full border border-[#e5e7eb] bg-white px-2 py-0.5 [font-family:'Montserrat',Helvetica] text-xs font-normal text-[#374151]">
                             {area}
                           </span>
                         ))}
@@ -234,60 +324,18 @@ export const Organizations = () => {
                           </span>
                         )}
                       </div>
-                    </td>
-                    <td className="whitespace-nowrap px-4 py-4 lg:px-5">
-                      <span className="[font-family:'Montserrat',Helvetica] text-sm font-semibold text-[#111827]">{org.matches} matches</span>
-                    </td>
-                    <td className="whitespace-nowrap px-4 py-4 lg:px-5">
-                      <span className="inline-flex items-center rounded-full bg-[#dcfce7] px-3 py-1 [font-family:'Montserrat',Helvetica] text-xs font-semibold text-[#16a34a]">
-                        {org.status}
-                      </span>
-                    </td>
-                  </tr>
+                      <div className="flex flex-wrap items-center justify-between gap-2">
+                        <span className="[font-family:'Montserrat',Helvetica] text-sm font-semibold text-[#111827]">{org.matches} matches</span>
+                        <span className="inline-flex items-center rounded-full bg-[#dcfce7] px-3 py-1 [font-family:'Montserrat',Helvetica] text-xs font-semibold text-[#16a34a]">
+                          {org.status}
+                        </span>
+                      </div>
+                    </div>
+                  </li>
                 ))}
-              </tbody>
-            </table>
-          </div>
-
-          <ul className="m-0 flex list-none flex-col divide-y divide-[#f9fafb] p-0 md:hidden">
-            {filtered.map((org) => (
-              <li key={org.id} data-testid={`row-org-${org.id}`} className="cursor-pointer p-4 transition-colors hover:bg-[#fafafa]">
-                <div className="flex flex-col gap-3">
-                  <div className="min-w-0">
-                    <p className="[font-family:'Montserrat',Helvetica] text-sm font-semibold break-words text-[#111827]">{org.name}</p>
-                    <a href="#" className="mt-0.5 [font-family:'Montserrat',Helvetica] text-xs font-medium text-[#ef3e34] hover:underline break-all">
-                      {org.website}
-                    </a>
-                  </div>
-                  <div className="flex items-start gap-1.5">
-                    <MapPin size={12} className="mt-0.5 shrink-0 text-[#9ca3af]" />
-                    <span className="[font-family:'Montserrat',Helvetica] text-sm font-normal break-words text-[#374151]">{org.location}</span>
-                  </div>
-                  <div className="flex flex-wrap gap-1.5">
-                    {org.focusAreas.map((area) => (
-                      <span
-                        key={area}
-                        className="inline-flex items-center rounded-full border border-[#e5e7eb] bg-white px-2 py-0.5 [font-family:'Montserrat',Helvetica] text-xs font-normal text-[#374151]"
-                      >
-                        {area}
-                      </span>
-                    ))}
-                    {org.extraAreas > 0 && (
-                      <span className="inline-flex items-center rounded-full border border-[#e5e7eb] bg-white px-2 py-0.5 [font-family:'Montserrat',Helvetica] text-xs font-normal text-[#374151]">
-                        +{org.extraAreas}
-                      </span>
-                    )}
-                  </div>
-                  <div className="flex flex-wrap items-center justify-between gap-2">
-                    <span className="[font-family:'Montserrat',Helvetica] text-sm font-semibold text-[#111827]">{org.matches} matches</span>
-                    <span className="inline-flex items-center rounded-full bg-[#dcfce7] px-3 py-1 [font-family:'Montserrat',Helvetica] text-xs font-semibold text-[#16a34a]">
-                      {org.status}
-                    </span>
-                  </div>
-                </div>
-              </li>
-            ))}
-          </ul>
+              </ul>
+            </>
+          )}
         </div>
       </div>
 

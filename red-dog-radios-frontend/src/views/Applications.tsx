@@ -1,73 +1,86 @@
 "use client";
 
 import type { ElementType } from "react";
-import { useState } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { FileText, Award, Clock, Eye, Pencil, CalendarClock } from "lucide-react";
 import { MobileFilterSelect } from "@/components/MobileFilterSelect";
+import api from "@/lib/api";
 
-/* ── Mock data ─────────────────────────────────────────── */
-const mockApplications = [
-  {
-    id: 1,
-    grant: "Community Radio Sustainability",
-    funder: "NEA",
-    amount: "$25,000",
-    org: "Red Dog Radio",
-    appliedDate: "Mar 15, 2026",
-    category: "Community Development",
-    status: "under-review",
-    ashleenMsg: "We're in the running! This funder typically takes 8-12 weeks to review. I'll alert you the moment there's news.",
-  },
-  {
-    id: 2,
-    grant: "Local Journalism Initiative",
-    funder: "Knight Foundation",
-    amount: "$100,000",
-    org: "KEXP Public Radio",
-    appliedDate: "Feb 28, 2026",
-    category: "Journalism & Media",
-    status: "awarded",
-    ashleenMsg: "Congratulations! This is a well-deserved win. Your narrative around community impact was exactly what the funder was looking for. Let's use this momentum for the next application!",
-  },
-  {
-    id: 3,
-    grant: "Public Media Innovation",
-    funder: "CPB",
-    amount: "$75,000",
-    org: "Red Dog Radio",
-    appliedDate: "Jan 10, 2026",
-    category: "Technology",
-    status: "submitted",
-    ashleenMsg: "Application submitted successfully! I'll monitor for any updates from CPB and keep you informed.",
-  },
-  {
-    id: 4,
-    grant: "Youth Media Arts Program",
-    funder: "Ford Foundation",
-    amount: "$40,000",
-    org: "Red Dog Radio",
-    appliedDate: "Mar 1, 2026",
-    category: "Youth Programs",
-    status: "drafting",
-    ashleenMsg: "I've started drafting this application based on your organization profile. Review and let me know if you'd like any changes.",
-  },
-  {
-    id: 5,
-    grant: "Community Arts & Culture Fund",
-    funder: "Robert Wood Johnson Foundation",
-    amount: "$50,000",
-    org: "Red Dog Radio",
-    appliedDate: "Dec 5, 2025",
-    category: "Arts & Culture",
-    status: "declined",
-    ashleenMsg: "This one didn't go through, but don't worry — I've analyzed the feedback and found 3 similar grants opening next quarter that are a stronger fit.",
-  },
-];
+type Status = "drafting" | "submitted" | "under-review" | "awarded" | "declined" | "in_review";
 
-type Status = "drafting" | "submitted" | "under-review" | "awarded" | "declined";
+type AppItem = {
+  id: string;
+  grant: string;
+  funder: string;
+  amount: string;
+  org: string;
+  appliedDate: string;
+  category: string;
+  status: string;
+  ashleenMsg: string;
+};
 
-/* ── Status config ─────────────────────────────────────── */
-const statusConfig: Record<Status, {
+type ApiApp = {
+  _id: string;
+  title?: string;
+  grant?: string;
+  funder?: string;
+  amount?: number;
+  organization?: { name?: string };
+  orgName?: string;
+  submittedAt?: string;
+  appliedDate?: string;
+  createdAt?: string;
+  category?: string;
+  status?: string;
+  notes?: string;
+};
+
+const ashleenMsgFor = (status: string): string => {
+  switch (status) {
+    case "under-review":
+    case "in_review":
+      return "We're in the running! This funder typically takes 8-12 weeks to review. I'll alert you the moment there's news.";
+    case "awarded":
+      return "Congratulations! This is a well-deserved win. Your narrative around community impact was exactly what the funder was looking for. Let's use this momentum for the next application!";
+    case "submitted":
+      return "Application submitted successfully! I'll monitor for any updates from the funder and keep you informed.";
+    case "drafting":
+      return "I've started drafting this application based on your organization profile. Review and let me know if you'd like any changes.";
+    case "declined":
+      return "This one didn't go through, but don't worry — I've analyzed the feedback and found similar grants opening next quarter that are a stronger fit.";
+    default:
+      return "I'm monitoring this application and will alert you to any developments.";
+  }
+};
+
+const fmtDate = (s: string | undefined) => {
+  if (!s) return "—";
+  try {
+    return new Date(s).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" });
+  } catch {
+    return s;
+  }
+};
+
+const fmtAmount = (n: number | undefined) => {
+  if (!n) return "—";
+  return n >= 1000 ? `$${(n / 1000).toFixed(0)},000` : `$${n}`;
+};
+
+const mapApp = (a: ApiApp): AppItem => ({
+  id: a._id,
+  grant: a.title ?? a.grant ?? "Unknown Grant",
+  funder: a.funder ?? "—",
+  amount: a.amount ? fmtAmount(a.amount) : "—",
+  org: a.orgName ?? a.organization?.name ?? "—",
+  appliedDate: fmtDate(a.submittedAt ?? a.appliedDate ?? a.createdAt),
+  category: a.category ?? "—",
+  status: a.status ?? "submitted",
+  ashleenMsg: a.notes ?? ashleenMsgFor(a.status ?? "submitted"),
+});
+
+const statusConfig: Record<string, {
   label: string;
   badgeCls: string;
   iconBg: string;
@@ -76,6 +89,14 @@ const statusConfig: Record<Status, {
   msgBg: string;
 }> = {
   "under-review": {
+    label: "Under Review",
+    badgeCls: "bg-[#fef9c3] text-[#b45309]",
+    iconBg: "bg-[#fff7ed]",
+    Icon: Clock,
+    iconCls: "text-[#f59e0b]",
+    msgBg: "bg-[#eff6ff] border-[#dbeafe]",
+  },
+  in_review: {
     label: "Under Review",
     badgeCls: "bg-[#fef9c3] text-[#b45309]",
     iconBg: "bg-[#fff7ed]",
@@ -117,33 +138,14 @@ const statusConfig: Record<Status, {
   },
 };
 
-/* ── Stats ─────────────────────────────────────────────── */
-const stats = [
-  {
-    label: "Total Applied",
-    value: 4,
-    Icon: FileText,
-    iconBg: "bg-[#eff6ff]",
-    iconCls: "text-[#3b82f6]",
-    valueCls: "text-[#3b82f6]",
-  },
-  {
-    label: "Awarded",
-    value: 1,
-    Icon: Award,
-    iconBg: "bg-[#f0fdf4]",
-    iconCls: "text-[#16a34a]",
-    valueCls: "text-[#16a34a]",
-  },
-  {
-    label: "Under Review",
-    value: 1,
-    Icon: Clock,
-    iconBg: "bg-[#fff7ed]",
-    iconCls: "text-[#f59e0b]",
-    valueCls: "text-[#f59e0b]",
-  },
-];
+const defaultCfg = {
+  label: "Submitted",
+  badgeCls: "bg-[#dbeafe] text-[#1d4ed8]",
+  iconBg: "bg-[#eff6ff]",
+  Icon: FileText,
+  iconCls: "text-[#3b82f6]",
+  msgBg: "bg-[#f9fafb] border-[#f0f0f0]",
+};
 
 const filterTabs: { label: string; value: string }[] = [
   { label: "All", value: "all" },
@@ -154,21 +156,17 @@ const filterTabs: { label: string; value: string }[] = [
   { label: "Declined", value: "declined" },
 ];
 
-/* ── Application Card ──────────────────────────────────── */
-const AppCard = ({ app }: { app: typeof mockApplications[0] }) => {
-  const cfg = statusConfig[app.status as Status];
+const AppCard = ({ app }: { app: AppItem }) => {
+  const cfg = statusConfig[app.status] ?? defaultCfg;
   const { Icon } = cfg;
 
   return (
     <div className="bg-white rounded-xl border border-[#e5e7eb] p-4 sm:p-5 flex flex-col gap-4 min-w-0">
-      {/* Top row */}
       <div className="flex flex-col gap-3 min-[480px]:flex-row min-[480px]:items-start min-[480px]:justify-between">
         <div className="flex items-start gap-3 min-w-0 flex-1">
-          {/* Status icon */}
           <div className={`w-10 h-10 rounded-full ${cfg.iconBg} flex items-center justify-center flex-shrink-0 mt-0.5`}>
             <Icon size={18} className={cfg.iconCls} />
           </div>
-          {/* Grant info */}
           <div className="flex min-w-0 flex-1 flex-col gap-0.5">
             <p className="[font-family:'Montserrat',Helvetica] font-bold text-[#111827] text-sm leading-snug break-words">
               {app.grant}
@@ -176,7 +174,6 @@ const AppCard = ({ app }: { app: typeof mockApplications[0] }) => {
             <p className="[font-family:'Montserrat',Helvetica] font-normal text-[#9ca3af] text-xs break-words">
               {app.funder} · {app.amount} · {app.org}
             </p>
-            {/* Applied date + category */}
             <div className="flex flex-wrap items-center gap-x-3 gap-y-1 mt-1">
               <div className="flex items-center gap-1 min-w-0">
                 <CalendarClock size={11} className="text-[#ef3e34] flex-shrink-0" />
@@ -190,13 +187,11 @@ const AppCard = ({ app }: { app: typeof mockApplications[0] }) => {
             </div>
           </div>
         </div>
-        {/* Status badge */}
         <span className={`inline-flex w-fit max-w-full items-center px-3 py-1 rounded-full [font-family:'Montserrat',Helvetica] font-semibold text-xs flex-shrink-0 ${cfg.badgeCls}`}>
           {cfg.label}
         </span>
       </div>
 
-      {/* Ashleen message */}
       <div className={`flex items-start gap-2.5 rounded-lg p-3 border min-w-0 ${cfg.msgBg}`}>
         <div className="w-7 h-7 rounded-full bg-[#ef3e34] flex items-center justify-center flex-shrink-0">
           <span className="[font-family:'Montserrat',Helvetica] font-bold text-white text-[10px]">A</span>
@@ -206,7 +201,6 @@ const AppCard = ({ app }: { app: typeof mockApplications[0] }) => {
         </p>
       </div>
 
-      {/* Footer actions */}
       <div className="flex flex-wrap items-center justify-end gap-3 sm:gap-4 pt-1 border-t border-[#f3f4f6]">
         <button className="flex items-center gap-1.5 [font-family:'Montserrat',Helvetica] font-medium text-xs text-[#6b7280] hover:text-[#374151] transition-colors">
           <Eye size={14} />
@@ -221,17 +215,41 @@ const AppCard = ({ app }: { app: typeof mockApplications[0] }) => {
   );
 };
 
-/* ── Main Page ─────────────────────────────────────────── */
 export const Applications = () => {
+  const [apps, setApps] = useState<AppItem[]>([]);
+  const [loading, setLoading] = useState(true);
   const [activeFilter, setActiveFilter] = useState("all");
 
-  const filtered = mockApplications.filter(
-    (a) => activeFilter === "all" || a.status === activeFilter
+  const fetchApps = useCallback(async () => {
+    try {
+      const res = await api.get("/applications", { params: { limit: 100 } });
+      const raw: ApiApp[] = res.data.data ?? [];
+      setApps(raw.map(mapApp));
+    } catch {
+      // keep empty
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  useEffect(() => { void fetchApps(); }, [fetchApps]);
+
+  const filtered = apps.filter(
+    (a) => activeFilter === "all" || a.status === activeFilter || (activeFilter === "under-review" && a.status === "in_review")
   );
+
+  const totalApplied = apps.filter((a) => ["submitted", "in_review", "under-review", "awarded"].includes(a.status)).length;
+  const awarded = apps.filter((a) => a.status === "awarded").length;
+  const underReview = apps.filter((a) => a.status === "in_review" || a.status === "under-review").length;
+
+  const stats = [
+    { label: "Total Applied", value: totalApplied, Icon: FileText, iconBg: "bg-[#eff6ff]", iconCls: "text-[#3b82f6]", valueCls: "text-[#3b82f6]" },
+    { label: "Awarded", value: awarded, Icon: Award, iconBg: "bg-[#f0fdf4]", iconCls: "text-[#16a34a]", valueCls: "text-[#16a34a]" },
+    { label: "Under Review", value: underReview, Icon: Clock, iconBg: "bg-[#fff7ed]", iconCls: "text-[#f59e0b]", valueCls: "text-[#f59e0b]" },
+  ];
 
   return (
     <div className="flex h-full min-w-0 flex-col gap-5 bg-neutral-50 p-4 sm:gap-6 sm:p-6 lg:p-8">
-      {/* Header */}
       <div className="flex min-w-0 flex-col gap-1">
         <h1 className="[font-family:'Oswald',Helvetica] font-bold text-black text-2xl min-[400px]:text-3xl tracking-[0.5px] uppercase leading-tight break-words">
           Applications
@@ -241,19 +259,15 @@ export const Applications = () => {
         </p>
       </div>
 
-      {/* Stat cards — stack on narrow screens; no horizontal overflow */}
       <div className="grid grid-cols-1 gap-3 sm:grid-cols-3 sm:gap-4">
         {stats.map((s) => (
-          <div
-            key={s.label}
-            className="bg-white rounded-xl border border-[#f0f0f0] shadow-[0_1px_4px_rgba(0,0,0,0.05)] p-4 sm:p-5 flex min-w-0 items-center gap-3 sm:gap-4"
-          >
+          <div key={s.label} className="bg-white rounded-xl border border-[#f0f0f0] shadow-[0_1px_4px_rgba(0,0,0,0.05)] p-4 sm:p-5 flex min-w-0 items-center gap-3 sm:gap-4">
             <div className={`w-10 h-10 sm:w-11 sm:h-11 rounded-xl ${s.iconBg} flex items-center justify-center flex-shrink-0`}>
               <s.Icon size={20} className={s.iconCls} />
             </div>
             <div className="flex min-w-0 flex-1 flex-col gap-0.5">
               <span className={`[font-family:'Oswald',Helvetica] font-bold text-xl tabular-nums sm:text-2xl leading-tight ${s.valueCls}`}>
-                {s.value}
+                {loading ? "—" : s.value}
               </span>
               <span className="[font-family:'Montserrat',Helvetica] font-normal text-[#9ca3af] text-xs leading-snug break-words">
                 {s.label}
@@ -263,7 +277,6 @@ export const Applications = () => {
         ))}
       </div>
 
-      {/* Filter: dropdown on mobile, chips from md */}
       <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between md:gap-4">
         <div className="min-w-0 flex-1 md:flex-initial">
           <MobileFilterSelect
@@ -293,16 +306,26 @@ export const Applications = () => {
           </div>
         </div>
         <span className="[font-family:'Montserrat',Helvetica] text-sm font-normal text-[#9ca3af] md:flex-shrink-0 md:text-right">
-          {filtered.length} results
+          {loading ? "..." : `${filtered.length} results`}
         </span>
       </div>
 
-      {/* Application cards */}
-      <div className="flex flex-col gap-4">
-        {filtered.map((app) => (
-          <AppCard key={app.id} app={app} />
-        ))}
-      </div>
+      {loading ? (
+        <div className="flex items-center justify-center py-16">
+          <span className="[font-family:'Montserrat',Helvetica] text-sm text-[#9ca3af]">Loading applications...</span>
+        </div>
+      ) : (
+        <div className="flex flex-col gap-4">
+          {filtered.map((app) => (
+            <AppCard key={app.id} app={app} />
+          ))}
+          {filtered.length === 0 && (
+            <div className="flex items-center justify-center py-16">
+              <span className="[font-family:'Montserrat',Helvetica] text-sm text-[#9ca3af]">No applications found</span>
+            </div>
+          )}
+        </div>
+      )}
     </div>
   );
 };

@@ -10,10 +10,15 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { cn } from "@/lib/utils";
 import { signUpSchema, type SignUpFormValues } from "@/lib/validation-schemas";
+import api from "@/lib/api";
+import { useAuth } from "@/lib/AuthContext";
 
 export const SignUp = () => {
   const router = useRouter();
+  const { login } = useAuth();
   const [showPassword, setShowPassword] = useState(false);
+  const [apiError, setApiError] = useState<string | null>(null);
+  const [loading, setLoading] = useState(false);
   const {
     register,
     handleSubmit,
@@ -23,8 +28,26 @@ export const SignUp = () => {
     defaultValues: { fullName: "", email: "", password: "" },
   });
 
-  const onSubmit = () => {
-    router.push("/otp-verification?flow=signup");
+  const onSubmit = async (data: SignUpFormValues) => {
+    setApiError(null);
+    setLoading(true);
+    try {
+      const res = await api.post("/auth/register", {
+        fullName: data.fullName,
+        email: data.email,
+        password: data.password,
+      });
+      const { user, token } = res.data.data;
+      login(user, token);
+      router.push("/otp-verification?flow=signup");
+    } catch (err: unknown) {
+      const msg =
+        (err as { response?: { data?: { message?: string } } })?.response?.data?.message ??
+        "Registration failed. Please try again.";
+      setApiError(msg);
+    } finally {
+      setLoading(false);
+    }
   };
 
   const fieldBorder = (name: keyof SignUpFormValues) =>
@@ -103,6 +126,12 @@ export const SignUp = () => {
               </div>
             </div>
 
+            {apiError && (
+              <p className="[font-family:'Montserrat',Helvetica] text-sm text-red-600 bg-red-50 border border-red-200 rounded-lg px-3 py-2">
+                {apiError}
+              </p>
+            )}
+
             <div className="flex flex-col gap-1.5">
               <Label className="[font-family:'Montserrat',Helvetica] font-medium text-xs text-[#374151]">
                 Full Name
@@ -168,12 +197,13 @@ export const SignUp = () => {
 
             <button
               type="submit"
+              disabled={loading}
               data-testid="button-signup"
-              className="w-full h-11 bg-[#ef3e34] hover:bg-[#d63530] active:bg-[#c02c28] text-white rounded-lg flex items-center justify-center gap-2 transition-colors"
+              className="w-full h-11 bg-[#ef3e34] hover:bg-[#d63530] active:bg-[#c02c28] text-white rounded-lg flex items-center justify-center gap-2 transition-colors disabled:opacity-60"
             >
               <LogIn size={16} className="text-white" />
               <span className="[font-family:'Montserrat',Helvetica] font-bold text-sm tracking-[0.3px]">
-                CREATE AN ACCOUNT
+                {loading ? "CREATING ACCOUNT..." : "CREATE AN ACCOUNT"}
               </span>
             </button>
           </form>

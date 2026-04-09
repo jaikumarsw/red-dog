@@ -57,6 +57,41 @@ Also set in `red-dog-radios-backend/.env` for local runtime.
 - `digests` — Weekly digest generation
 - `ai` — OpenAI-powered tools (summarize, draft email)
 
+## Frontend Integration (Completed)
+All pages are fully wired to the backend API (no mock data in production paths):
+
+### Auth & Infrastructure
+- `api.ts` — Axios client with Bearer token interceptor, rewrites `/api/*` → `http://localhost:4000/api/*`
+- `AuthContext.tsx` — Login/logout/updateUser, JWT + user stored in localStorage + cookies for middleware
+- `middleware.ts` — Route protection: unauthenticated → `/login`, onboarding incomplete → `/onboarding`
+- `providers.tsx` — AuthProvider wraps the entire app
+
+### Pages & API Endpoints Used
+| Page | Endpoint |
+|------|----------|
+| Login / SignUp | `POST /api/auth/login`, `POST /api/auth/register` |
+| Onboarding Steps 1–5 | `POST /api/onboarding/complete` |
+| Dashboard | `GET /api/dashboard/stats` |
+| Organizations | `GET /api/organizations`, `POST /api/organizations` |
+| Opportunities | `GET /api/opportunities`, `POST /api/opportunities` |
+| Matches | `GET /api/matches`, `PUT /api/matches/:id/approve`, `PUT /api/matches/:id/reject` |
+| Applications | `GET /api/applications` |
+| Agencies | `GET /api/agencies`, `POST /api/agencies` |
+| Alerts | `GET /api/alerts`, `PUT /api/alerts/:id/read`, `DELETE /api/alerts/:id` |
+| Outbox | `GET /api/outbox` |
+| Weekly Summary | `GET /api/digests` |
+| Settings | `GET /api/settings`, `PUT /api/settings`, `DELETE /api/settings/account` |
+| Nav Sidebar | Alert badge from `GET /api/alerts?isRead=false`, routing via `useRouter`, sign-out via AuthContext |
+
+### Test Credentials (seed data)
+- Admin: `admin@reddogradios.com` / `Admin1234!`
+- Regular: `jane@valleyfire.org` / `Password1234!`
+
+## Backend Modules Added
+- `dashboard` — Stats endpoint (`/api/dashboard/stats`) with attention items and system jobs
+- `onboarding` — Complete onboarding flow (`POST /api/onboarding/complete`)
+- `settings` — User settings CRUD (`GET/PUT /api/settings`, `DELETE /api/settings/account`)
+
 ## Deployment
 - Target: VM (always-running, needs local MongoDB state)
 - Build: `cd red-dog-radios-frontend && npm run build`

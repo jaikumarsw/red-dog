@@ -2,7 +2,7 @@ const Alert = require('./alert.schema');
 const Match = require('../matches/match.schema');
 const { AppError } = require('../../middlewares/error.middleware');
 
-const getAll = async ({ page = 1, limit = 20, isRead, priority, userId }) => {
+const getAll = async ({ page = 1, limit = 50, isRead, priority, userId }) => {
   const query = {};
   if (userId) query.user = userId;
   if (priority) query.priority = priority;
@@ -26,7 +26,8 @@ const markRead = async (id) => {
 };
 
 const markAllRead = async (userId) => {
-  await Alert.updateMany({ user: userId }, { isRead: true });
+  const query = userId ? { user: userId } : {};
+  await Alert.updateMany(query, { isRead: true });
 };
 
 const remove = async (id) => {
@@ -51,6 +52,8 @@ const createDeadlineAlerts = async (daysAhead = 30, minFitScore = 75) => {
       await Alert.create({
         organization: match.organization._id,
         opportunity: match.opportunity._id,
+        orgName: match.organization.name,
+        grantName: match.opportunity.title,
         type: 'deadline',
         priority: daysLeft <= 7 ? 'high' : 'medium',
         message: `Deadline alert: "${match.opportunity.title}" from ${match.opportunity.funder} — ${daysLeft} day(s) remaining. Fit score: ${match.fitScore}.`,
@@ -79,6 +82,8 @@ const createHighFitAlerts = async (minFitScore = 75) => {
       await Alert.create({
         organization: match.organization._id,
         opportunity: match.opportunity._id,
+        orgName: match.organization.name,
+        grantName: match.opportunity.title,
         type: 'high_fit',
         priority: match.fitScore >= 85 ? 'high' : 'medium',
         message: `High fit alert: "${match.opportunity.title}" scored ${match.fitScore}/100 for ${match.organization.name}. ${match.recommendedAction}`,

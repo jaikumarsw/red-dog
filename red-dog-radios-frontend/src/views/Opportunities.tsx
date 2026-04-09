@@ -1,6 +1,7 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
+import api from "@/lib/api";
 import { createPortal } from "react-dom";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -99,7 +100,60 @@ const mockOpportunities = [
   },
 ];
 
-type Opportunity = typeof mockOpportunities[0];
+type Opportunity = {
+  id: string | number;
+  grant: string;
+  funder: string;
+  keywords: string[];
+  keywordsFull: string[];
+  category: string;
+  amount: string;
+  amountNum: number;
+  deadline: string;
+  status: string;
+  description: string;
+  sourceUrl: string;
+};
+
+type ApiOpportunity = {
+  _id: string;
+  title?: string;
+  funder?: string;
+  keywords?: string[];
+  category?: string;
+  maxAmount?: number;
+  deadline?: string;
+  status?: string;
+  description?: string;
+  sourceUrl?: string;
+};
+
+const fmtDeadline = (s: string | undefined) => {
+  if (!s) return "—";
+  try {
+    return new Date(s).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" });
+  } catch {
+    return s;
+  }
+};
+
+const mapOpp = (o: ApiOpportunity): Opportunity => {
+  const kws = o.keywords ?? [];
+  return {
+    id: o._id,
+    grant: o.title ?? "Unknown",
+    funder: o.funder ?? "—",
+    keywords: kws.slice(0, 3),
+    keywordsFull: kws,
+    category: o.category ?? "—",
+    amount: o.maxAmount ? `$${o.maxAmount.toLocaleString()}` : "—",
+    amountNum: o.maxAmount ?? 0,
+    deadline: fmtDeadline(o.deadline),
+    status: o.status ?? "open",
+    description: o.description ?? "",
+    sourceUrl: o.sourceUrl ?? "#",
+  };
+};
 
 /* ── Shared ────────────────────────────────────────────── */
 const inputClass =
@@ -548,11 +602,24 @@ export const Opportunities = () => {
   const [statusFilter, setStatusFilter] = useState<"all"|"open"|"closing"|"closed">("all");
   const [modal, setModal] = useState<ModalType>(null);
   const [selectedOpp, setSelectedOpp] = useState<Opportunity | null>(null);
+  const [opportunities, setOpportunities] = useState<Opportunity[]>([]);
+
+  const fetchOpportunities = useCallback(async () => {
+    try {
+      const res = await api.get("/opportunities", { params: { limit: 100 } });
+      const raw: ApiOpportunity[] = res.data.data ?? [];
+      setOpportunities(raw.map(mapOpp));
+    } catch {
+      setOpportunities(mockOpportunities.map((o) => ({ ...o, id: String(o.id) })));
+    }
+  }, []);
+
+  useEffect(() => { void fetchOpportunities(); }, [fetchOpportunities]);
 
   const toggleKeyword = (k: string) =>
     setActiveKeywords((prev) => prev.includes(k) ? prev.filter((x) => x !== k) : [...prev, k]);
 
-  const filtered = mockOpportunities.filter((o) => {
+  const filtered = opportunities.filter((o) => {
     const matchSearch = !search || o.grant.toLowerCase().includes(search.toLowerCase()) || o.funder.toLowerCase().includes(search.toLowerCase());
     const matchStatus = statusFilter === "all" || o.status === statusFilter;
     const matchKeywords = activeKeywords.length === 0 || activeKeywords.some((k) => o.keywords.includes(k));
@@ -563,9 +630,10 @@ export const Opportunities = () => {
   const openAshleen = () => setModal("ashleen");
   const closeModal = () => setModal(null);
 
-  const handleCreate = (title: string) => {
+  const handleCreate = async (title: string) => {
     closeModal();
     toast({ title: "Opportunity created", description: `"${title || "New Opportunity"}" has been added.` });
+    await fetchOpportunities();
   };
 
   const tabs: { label: string; value: typeof statusFilter }[] = [

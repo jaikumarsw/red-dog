@@ -17,7 +17,7 @@ const getAll = async ({ page = 1, limit = 20, status, organizationId }) => {
     sort: { createdAt: -1 },
     populate: [
       { path: 'organization', select: 'name email' },
-      { path: 'user', select: 'firstName lastName email' },
+      { path: 'user', select: 'fullName firstName lastName email' },
     ],
   });
 };
@@ -25,7 +25,7 @@ const getAll = async ({ page = 1, limit = 20, status, organizationId }) => {
 const getOne = async (id) => {
   const digest = await Digest.findById(id)
     .populate('organization')
-    .populate('user', 'firstName lastName email')
+    .populate('user', 'fullName firstName lastName email')
     .populate({ path: 'matches', populate: { path: 'opportunity', select: 'title funder maxAmount deadline sourceUrl status' } });
   if (!digest) throw new AppError('Digest not found', 404);
   return digest;
@@ -36,6 +36,7 @@ const buildHtml = (org, matches, aiIntro) => {
     .slice(0, 12)
     .map((m) => {
       const opp = m.opportunity;
+      if (!opp) return '';
       const deadlineText = opp.deadline ? new Date(opp.deadline).toLocaleDateString() : 'No deadline';
       const amountText = opp.maxAmount ? `$${opp.maxAmount.toLocaleString()}` : 'N/A';
       return `
@@ -93,7 +94,7 @@ const generateAiIntro = async (orgName, count) => {
   }
 };
 
-const generateDigest = async (organizationId, userId, weekStart, weekEnd, saveToDb = true) => {
+const generateDigest = async (organizationId, userId, periodStart, periodEnd, saveToDb = true) => {
   const org = await Organization.findById(organizationId);
   if (!org) throw new AppError('Organization not found', 404);
 
@@ -110,17 +111,27 @@ const generateDigest = async (organizationId, userId, weekStart, weekEnd, saveTo
   const html = buildHtml(org, validMatches, aiIntro);
   const subject = `Grant Intelligence Weekly Digest — ${org.name}`;
 
+  const opportunitiesSummary = validMatches.slice(0, 12).map((m) => ({
+    title: m.opportunity.title,
+    fitScore: m.fitScore,
+    amount: m.opportunity.maxAmount,
+    deadline: m.opportunity.deadline,
+  }));
+
   if (!saveToDb) {
-    return { subject, html, itemCount: validMatches.length, aiIntro };
+    return { subject, html, htmlContent: html, itemCount: validMatches.length, aiIntro, opportunities: opportunitiesSummary };
   }
 
   const digest = await Digest.create({
     organization: organizationId,
     user: userId,
-    weekStart,
-    weekEnd,
+    orgName: org.name,
+    periodStart: periodStart || new Date(),
+    periodEnd: periodEnd || new Date(Date.now() + 7 * 24 * 60 * 60 * 1000),
     matches: validMatches.map((m) => m._id),
+    opportunities: opportunitiesSummary,
     aiIntro,
+    htmlContent: html,
     status: 'draft',
     itemCount: validMatches.length,
   });
@@ -132,12 +143,12 @@ const sendDigest = async (digestId, recipientEmail, recipientName) => {
   const digest = await getOne(digestId);
   const org = digest.organization;
 
-  const html = buildHtml(org, digest.matches, digest.aiIntro);
+  const html = digest.htmlContent || buildHtml(org, digest.matches, digest.aiIntro);
   const subject = `Grant Intelligence Weekly Digest — ${org.name}`;
 
   await outboxService.queueEmail({
-    recipient: recipientEmail,
-    recipientName,
+    recipient: recipientEmail || org.email || 'admin@reddogradios.com',
+    recipientName: recipientName || org.name,
     subject,
     htmlBody: html,
     emailType: 'weekly_digest',

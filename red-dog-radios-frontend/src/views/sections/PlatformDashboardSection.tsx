@@ -1,79 +1,102 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { Separator } from "@/components/ui/separator";
 import { RefreshCw } from "lucide-react";
+import api from "@/lib/api";
 
-const statCards = [
-  { icon: "/figmaAssets/overlay-3.svg", label: "Total Organizations", value: "4", valueColor: "text-[#50a2ff]", path: "/organizations" },
-  { icon: "/figmaAssets/overlay-1.svg", label: "Active Opportunities", value: "5", valueColor: "text-[#00d491]", path: "/opportunities" },
-  { icon: "/figmaAssets/overlay-5.svg", label: "High-Fit Matches", value: "14", valueColor: "text-[#feb900]", path: "/matches" },
-  { icon: "/figmaAssets/overlay.svg", label: "Pending Outbox", value: "2", valueColor: "text-[#c17aff]", path: "/outbox" },
-  { icon: "/figmaAssets/overlay-2.svg", label: "Applications Sent", value: "3", valueColor: "text-[#ef3e34]", path: "/applications" },
-  { icon: "/figmaAssets/overlay-4.svg", label: "Active Alerts", value: "3", valueColor: "text-[#ff6366]", path: "/alerts" },
+type StatCards = {
+  totalOrganizations: number;
+  activeOpportunities: number;
+  highFitMatches: number;
+  pendingOutbox: number;
+  applicationsSent: number;
+  activeAlerts: number;
+};
+
+type AttentionItem = {
+  type: string;
+  priority: string;
+  orgName: string;
+  grantName: string;
+  description: string;
+  date: string | null;
+};
+
+type SystemJob = {
+  name: string;
+  status: string;
+  lastRun: string | null;
+  nextRun: string | null;
+  duration: string | null;
+};
+
+type DashboardStats = StatCards & {
+  systemJobs: SystemJob[];
+  attentionItems: AttentionItem[];
+};
+
+const statCardConfig = [
+  { key: "totalOrganizations" as keyof StatCards, icon: "/figmaAssets/overlay-3.svg", label: "Total Organizations", valueColor: "text-[#50a2ff]", path: "/organizations" },
+  { key: "activeOpportunities" as keyof StatCards, icon: "/figmaAssets/overlay-1.svg", label: "Active Opportunities", valueColor: "text-[#00d491]", path: "/opportunities" },
+  { key: "highFitMatches" as keyof StatCards, icon: "/figmaAssets/overlay-5.svg", label: "High-Fit Matches", valueColor: "text-[#feb900]", path: "/matches" },
+  { key: "pendingOutbox" as keyof StatCards, icon: "/figmaAssets/overlay.svg", label: "Pending Outbox", valueColor: "text-[#c17aff]", path: "/outbox" },
+  { key: "applicationsSent" as keyof StatCards, icon: "/figmaAssets/overlay-2.svg", label: "Applications Sent", valueColor: "text-[#ef3e34]", path: "/applications" },
+  { key: "activeAlerts" as keyof StatCards, icon: "/figmaAssets/overlay-4.svg", label: "Active Alerts", valueColor: "text-[#ff6366]", path: "/alerts" },
 ];
 
-const attentionItems = [
-  {
-    priority: "MEDIUM",
-    priorityBg: "bg-[#fd99001a]",
-    priorityBorder: "border-[#fd990033]",
-    priorityTextColor: "text-[#ffb900]",
-    title: "Deadline approaching: Healthcare Access Expansion Grant",
-    description: "Robert Wood Johnson Foundation grant closes in 4 days",
-    dueDate: "Due: Apr 1, 2026",
-    dueDateIcon: "/figmaAssets/svg.svg",
-  },
-  {
-    priority: "HIGH",
-    priorityBg: "bg-[#ef3e341a]",
-    priorityBorder: "border-[#ef3e3433]",
-    priorityTextColor: "text-[#ff6366]",
-    title: "Deadline approaching: Workforce Development Initiative",
-    description: "JP Morgan Chase Foundation grant closes in 2 days",
-    dueDate: "Due: Mar 30, 2026",
-    dueDateIcon: "/figmaAssets/svg-10.svg",
-  },
-  {
-    priority: "HIGH",
-    priorityBg: "bg-[#ef3e341a]",
-    priorityBorder: "border-[#ef3e3433]",
-    priorityTextColor: "text-[#ff6366]",
-    title: "High-fit match: Digital Equity Community Fund",
-    description: "Fit score 94% — awaiting review",
-    dueDate: null,
-    dueDateIcon: null,
-  },
-  {
-    priority: "HIGH",
-    priorityBg: "bg-[#ef3e341a]",
-    priorityBorder: "border-[#ef3e3433]",
-    priorityTextColor: "text-[#ff6366]",
-    title: "High-fit match: Community Media Innovation Grant",
-    description: "Fit score 89% — awaiting review",
-    dueDate: null,
-    dueDateIcon: null,
-  },
-];
+const priorityStyle = (priority: string) => {
+  const p = priority.toUpperCase();
+  if (p === "HIGH") return { bg: "bg-[#ef3e341a]", border: "border-[#ef3e3433]", text: "text-[#ff6366]" };
+  if (p === "MEDIUM") return { bg: "bg-[#fd99001a]", border: "border-[#fd990033]", text: "text-[#ffb900]" };
+  return { bg: "bg-[#f3f4f6]", border: "border-[#e5e7eb]", text: "text-[#6b7280]" };
+};
 
-const systemJobs = [
-  { name: "Nightly Match Refresh", started: "2026-03-26 12:00 AM", duration: "4m 32s", status: "COMPLETED", statusBg: "bg-green-50", statusBorder: "border-[#b8f7cf]", statusDotColor: "bg-[#00d491]", statusTextColor: "text-[#00d491]" },
-  { name: "Weekly Digest Generation", started: "2026-03-26 8:00 AM", duration: null, status: "RUNNING", statusBg: "bg-[#eef5fe]", statusBorder: "border-[#bddaff]", statusDotColor: "bg-[#2b7fff]", statusTextColor: "text-[#1347e5]" },
-  { name: "Email Outbox Send", started: "2026-03-26 8:30 AM", duration: "1m 12s", status: "COMPLETED", statusBg: "bg-green-50", statusBorder: "border-[#b8f7cf]", statusDotColor: "bg-[#00d491]", statusTextColor: "text-[#00d491]" },
-  { name: "Grant Ingestion", started: "2026-03-26 9:00 AM", duration: null, status: "QUEUED", statusBg: "bg-[#f0f4f9]", statusBorder: "border-[#e1e8f0]", statusDotColor: "bg-[#90a1b8]", statusTextColor: "text-[#45556c]" },
-];
+const jobStatusStyle = (status: string) => {
+  const s = status.toUpperCase();
+  if (s === "COMPLETED") return { bg: "bg-green-50", border: "border-[#b8f7cf]", dot: "bg-[#00d491]", text: "text-[#00d491]" };
+  if (s === "RUNNING") return { bg: "bg-[#eef5fe]", border: "border-[#bddaff]", dot: "bg-[#2b7fff]", text: "text-[#1347e5]" };
+  return { bg: "bg-[#f0f4f9]", border: "border-[#e1e8f0]", dot: "bg-[#90a1b8]", text: "text-[#45556c]" };
+};
 
 export const PlatformDashboardSection = () => {
   const router = useRouter();
   const [refreshing, setRefreshing] = useState(false);
+  const [stats, setStats] = useState<DashboardStats | null>(null);
 
-  const handleRefresh = () => {
+  const fetchStats = useCallback(async () => {
+    try {
+      const res = await api.get("/dashboard/stats");
+      setStats(res.data.data as DashboardStats);
+    } catch {
+      // silent — keep previous data
+    }
+  }, []);
+
+  useEffect(() => {
+    void fetchStats();
+  }, [fetchStats]);
+
+  const handleRefresh = async () => {
     setRefreshing(true);
-    setTimeout(() => setRefreshing(false), 1500);
+    await fetchStats();
+    setTimeout(() => setRefreshing(false), 600);
   };
+
+  const statValues: StatCards = {
+    totalOrganizations: stats?.totalOrganizations ?? 0,
+    activeOpportunities: stats?.activeOpportunities ?? 0,
+    highFitMatches: stats?.highFitMatches ?? 0,
+    pendingOutbox: stats?.pendingOutbox ?? 0,
+    applicationsSent: stats?.applicationsSent ?? 0,
+    activeAlerts: stats?.activeAlerts ?? 0,
+  };
+
+  const attentionItems = stats?.attentionItems ?? [];
+  const systemJobs = stats?.systemJobs ?? [];
 
   return (
     <div className="flex w-full flex-1 flex-col items-start overflow-y-auto px-4 pb-0 pt-6 sm:px-6 sm:pt-8 lg:px-8">
@@ -119,9 +142,9 @@ export const PlatformDashboardSection = () => {
           </div>
         </div>
 
-        {/* Stat Cards Grid — 1 col on narrow phones, 2 from sm, 3 from xl */}
+        {/* Stat Cards Grid */}
         <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-3 sm:gap-6 self-stretch w-full">
-          {statCards.map((card, index) => (
+          {statCardConfig.map((card, index) => (
             <Card
               key={index}
               data-testid={`card-stat-${index}`}
@@ -135,7 +158,7 @@ export const PlatformDashboardSection = () => {
                     {card.label}
                   </span>
                   <span className={`[font-family:'Oswald',Helvetica] font-bold ${card.valueColor} text-2xl sm:text-3xl tracking-[-0.75px] leading-tight sm:leading-9 tabular-nums`}>
-                    {card.value}
+                    {statValues[card.key]}
                   </span>
                 </div>
               </CardContent>
@@ -156,33 +179,42 @@ export const PlatformDashboardSection = () => {
               </div>
             </CardHeader>
             <CardContent className="flex flex-col items-start self-stretch w-full p-0 bg-white">
-              {attentionItems.map((item, index) => (
-                <div key={index} className="flex items-start justify-between gap-3 p-4 sm:p-5 self-stretch w-full border-b border-[#0000000d]">
-                  <div className="flex min-w-0 flex-col items-start gap-1">
-                    <div className="flex flex-col items-start gap-2 self-stretch w-full sm:flex-row sm:flex-wrap sm:items-center sm:gap-3">
-                      <span className={`inline-flex items-center px-2.5 py-0.5 ${item.priorityBg} rounded-full border border-solid ${item.priorityBorder} flex-shrink-0`}>
-                        <span className={`[font-family:'Montserrat',Helvetica] font-semibold ${item.priorityTextColor} text-xs tracking-[0] leading-4 whitespace-nowrap`}>
-                          {item.priority}
-                        </span>
-                      </span>
-                      <span className="min-w-0 [font-family:'Montserrat',Helvetica] font-semibold text-black text-sm sm:text-base tracking-[0] leading-snug sm:leading-6 break-words">
-                        {item.title}
-                      </span>
-                    </div>
-                    <span className="[font-family:'Montserrat',Helvetica] font-normal text-[#666666] text-xs sm:text-sm tracking-[0] leading-5">
-                      {item.description}
-                    </span>
-                    {item.dueDate && (
-                      <div className="flex items-center gap-1.5 pt-[3.5px]">
-                        <img className="w-3 h-3" alt="Due date" src={item.dueDateIcon!} />
-                        <span className="[font-family:'Montserrat',Helvetica] font-normal text-[#a5a5a5] text-xs tracking-[0] leading-4 whitespace-nowrap">
-                          {item.dueDate}
-                        </span>
-                      </div>
-                    )}
-                  </div>
+              {attentionItems.length === 0 ? (
+                <div className="flex flex-col items-center justify-center py-12 gap-2 w-full">
+                  <p className="[font-family:'Montserrat',Helvetica] font-normal text-[#9ca3af] text-sm">No attention items</p>
                 </div>
-              ))}
+              ) : (
+                attentionItems.map((item, index) => {
+                  const ps = priorityStyle(item.priority);
+                  return (
+                    <div key={index} className="flex items-start justify-between gap-3 p-4 sm:p-5 self-stretch w-full border-b border-[#0000000d]">
+                      <div className="flex min-w-0 flex-col items-start gap-1">
+                        <div className="flex flex-col items-start gap-2 self-stretch w-full sm:flex-row sm:flex-wrap sm:items-center sm:gap-3">
+                          <span className={`inline-flex items-center px-2.5 py-0.5 ${ps.bg} rounded-full border border-solid ${ps.border} flex-shrink-0`}>
+                            <span className={`[font-family:'Montserrat',Helvetica] font-semibold ${ps.text} text-xs tracking-[0] leading-4 whitespace-nowrap`}>
+                              {item.priority.toUpperCase()}
+                            </span>
+                          </span>
+                          <span className="min-w-0 [font-family:'Montserrat',Helvetica] font-semibold text-black text-sm sm:text-base tracking-[0] leading-snug sm:leading-6 break-words">
+                            {item.grantName}
+                          </span>
+                        </div>
+                        <span className="[font-family:'Montserrat',Helvetica] font-normal text-[#666666] text-xs sm:text-sm tracking-[0] leading-5">
+                          {item.description}
+                        </span>
+                        {item.date && (
+                          <div className="flex items-center gap-1.5 pt-[3.5px]">
+                            <img className="w-3 h-3" alt="Due date" src="/figmaAssets/svg.svg" />
+                            <span className="[font-family:'Montserrat',Helvetica] font-normal text-[#a5a5a5] text-xs tracking-[0] leading-4 whitespace-nowrap">
+                              {item.date}
+                            </span>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  );
+                })
+              )}
             </CardContent>
           </Card>
 
@@ -197,32 +229,45 @@ export const PlatformDashboardSection = () => {
               </div>
             </CardHeader>
             <CardContent className="flex flex-col items-start gap-4 p-4 sm:p-5 self-stretch w-full bg-white">
-              {systemJobs.map((job, index) => (
-                <div key={index} className="self-stretch w-full">
-                  <div className="flex items-start justify-between pb-4 self-stretch w-full gap-2">
-                    <div className="flex min-w-0 flex-col items-start gap-1">
-                      <span className="[font-family:'Montserrat',Helvetica] font-semibold text-black text-sm tracking-[0] leading-snug break-words">
-                        {job.name}
-                      </span>
-                      <span className="[font-family:'Montserrat',Helvetica] font-normal text-[#666666] text-xs tracking-[0] leading-4 break-words">
-                        Started: {job.started}
-                      </span>
-                      {job.duration && (
-                        <span className="[font-family:'Montserrat',Helvetica] font-normal text-[#666666] text-xs tracking-[0] leading-4">
-                          Duration: {job.duration}
-                        </span>
-                      )}
+              {systemJobs.length === 0 ? (
+                <p className="[font-family:'Montserrat',Helvetica] font-normal text-[#9ca3af] text-sm">No jobs scheduled</p>
+              ) : (
+                systemJobs.map((job, index) => {
+                  const js = jobStatusStyle(job.status);
+                  return (
+                    <div key={index} className="self-stretch w-full">
+                      <div className="flex items-start justify-between pb-4 self-stretch w-full gap-2">
+                        <div className="flex min-w-0 flex-col items-start gap-1">
+                          <span className="[font-family:'Montserrat',Helvetica] font-semibold text-black text-sm tracking-[0] leading-snug break-words">
+                            {job.name}
+                          </span>
+                          {job.lastRun ? (
+                            <span className="[font-family:'Montserrat',Helvetica] font-normal text-[#666666] text-xs tracking-[0] leading-4 break-words">
+                              Last run: {job.lastRun}
+                            </span>
+                          ) : job.nextRun ? (
+                            <span className="[font-family:'Montserrat',Helvetica] font-normal text-[#666666] text-xs tracking-[0] leading-4 break-words">
+                              Next: {job.nextRun}
+                            </span>
+                          ) : null}
+                          {job.duration && (
+                            <span className="[font-family:'Montserrat',Helvetica] font-normal text-[#666666] text-xs tracking-[0] leading-4">
+                              Duration: {job.duration}
+                            </span>
+                          )}
+                        </div>
+                        <div className={`inline-flex items-center gap-1.5 px-2.5 py-0.5 ${js.bg} rounded-full border border-solid ${js.border} flex-shrink-0`}>
+                          <div className={`w-1.5 h-1.5 ${js.dot} rounded-full`} />
+                          <span className={`[font-family:'Montserrat',Helvetica] font-bold ${js.text} text-[10px] tracking-[0] leading-4 whitespace-nowrap`}>
+                            {job.status}
+                          </span>
+                        </div>
+                      </div>
+                      {index < systemJobs.length - 1 && <Separator className="bg-[#e0e0e0]" />}
                     </div>
-                    <div className={`inline-flex items-center gap-1.5 px-2.5 py-0.5 ${job.statusBg} rounded-full border border-solid ${job.statusBorder} flex-shrink-0`}>
-                      <div className={`w-1.5 h-1.5 ${job.statusDotColor} rounded-full`} />
-                      <span className={`[font-family:'Montserrat',Helvetica] font-bold ${job.statusTextColor} text-[10px] tracking-[0] leading-4 whitespace-nowrap`}>
-                        {job.status}
-                      </span>
-                    </div>
-                  </div>
-                  {index < systemJobs.length - 1 && <Separator className="bg-[#e0e0e0]" />}
-                </div>
-              ))}
+                  );
+                })
+              )}
             </CardContent>
           </Card>
         </div>

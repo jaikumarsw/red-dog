@@ -3,6 +3,8 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { ChevronRight, Search, FileText, Sparkles, ClipboardList, Check } from "lucide-react";
+import api from "@/lib/api";
+import { useAuth } from "@/lib/AuthContext";
 
 const OnboardingLogo = () => (
   <div className="flex items-center gap-2.5 mb-8">
@@ -23,10 +25,23 @@ const goalItems = [
   { id: "ai-score", icon: ClipboardList, label: "Get AI-powered grant-fit scoring" },
 ];
 
+const getStoredStep = <T,>(key: string): T | null => {
+  if (typeof window === "undefined") return null;
+  try {
+    const v = sessionStorage.getItem(key);
+    return v ? (JSON.parse(v) as T) : null;
+  } catch {
+    return null;
+  }
+};
+
 export const OnboardingStep5 = () => {
   const router = useRouter();
+  const { updateUser } = useAuth();
   const [selected, setSelected] = useState<Set<string>>(new Set(["discover"]));
   const [goalsError, setGoalsError] = useState<string | null>(null);
+  const [apiError, setApiError] = useState<string | null>(null);
+  const [loading, setLoading] = useState(false);
 
   const allIds = goalItems.map((g) => g.id);
   const allSelected = allIds.every((id) => selected.has(id));
@@ -50,13 +65,53 @@ export const OnboardingStep5 = () => {
     }
   };
 
-  const continueToDashboard = () => {
+  const continueToDashboard = async () => {
     if (selected.size === 0) {
       setGoalsError("Select at least one goal to continue.");
       return;
     }
     setGoalsError(null);
-    router.push("/dashboard");
+    setLoading(true);
+
+    const step1 = getStoredStep<{ opportunityTitle: string; location: string; websiteUrl: string; missionStatement: string }>("rdg_onboarding_step1");
+    const step2 = getStoredStep<{ agencyType: string }>("rdg_onboarding_step2");
+    const step3 = getStoredStep<{ programArea: string }>("rdg_onboarding_step3");
+    const step4 = getStoredStep<{ requestDescription: string; budgetRange: string; timeline: string }>("rdg_onboarding_step4");
+
+    const payload = {
+      opportunityTitle: step1?.opportunityTitle ?? "",
+      location: step1?.location ?? "",
+      websiteUrl: step1?.websiteUrl ?? "",
+      missionStatement: step1?.missionStatement ?? "",
+      agencyTypes: step2?.agencyType ? [step2.agencyType] : [],
+      programAreas: step3?.programArea ? [step3.programArea] : [],
+      specificRequest: step4?.requestDescription ?? "",
+      budgetRange: step4?.budgetRange ?? "under-25k",
+      timeline: step4?.timeline ?? "planned",
+      goals: Array.from(selected),
+    };
+
+    try {
+      const res = await api.post("/onboarding/complete", payload);
+      const { user } = res.data.data;
+
+      const updatedUser = { ...user, onboardingCompleted: true };
+      updateUser(updatedUser);
+
+      sessionStorage.removeItem("rdg_onboarding_step1");
+      sessionStorage.removeItem("rdg_onboarding_step2");
+      sessionStorage.removeItem("rdg_onboarding_step3");
+      sessionStorage.removeItem("rdg_onboarding_step4");
+
+      router.push("/dashboard");
+    } catch (err: unknown) {
+      const msg =
+        (err as { response?: { data?: { message?: string } } })?.response?.data?.message ??
+        "Failed to complete onboarding. Please try again.";
+      setApiError(msg);
+    } finally {
+      setLoading(false);
+    }
   };
 
   const rowClass = (active: boolean) =>
@@ -101,16 +156,20 @@ export const OnboardingStep5 = () => {
             </span>
           </button>
         </div>
+
         {goalsError && (
           <p className="[font-family:'Montserrat',Helvetica] text-sm text-red-600">{goalsError}</p>
+        )}
+        {apiError && (
+          <p className="[font-family:'Montserrat',Helvetica] text-sm text-red-600 bg-red-50 border border-red-200 rounded-lg px-3 py-2">{apiError}</p>
         )}
 
         <div className="flex flex-col gap-3 pt-1 sm:flex-row sm:items-center sm:justify-between">
           <button type="button" onClick={() => router.push("/onboarding/step4")} className="[font-family:'Montserrat',Helvetica] font-medium text-sm text-[#6b7280] hover:text-[#374151] transition-colors">
             Back
           </button>
-          <button type="button" onClick={continueToDashboard} className="flex h-10 w-full items-center justify-center gap-1.5 rounded-lg bg-[#ef3e34] px-6 text-white transition-colors hover:bg-[#d63530] sm:w-auto">
-            <span className="[font-family:'Montserrat',Helvetica] font-semibold text-sm">Continue</span>
+          <button type="button" onClick={continueToDashboard} disabled={loading} className="flex h-10 w-full items-center justify-center gap-1.5 rounded-lg bg-[#ef3e34] px-6 text-white transition-colors hover:bg-[#d63530] sm:w-auto disabled:opacity-60">
+            <span className="[font-family:'Montserrat',Helvetica] font-semibold text-sm">{loading ? "Saving..." : "Continue"}</span>
             <ChevronRight size={15} />
           </button>
         </div>

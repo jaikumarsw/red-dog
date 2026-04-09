@@ -46,7 +46,17 @@ export const OnboardingStep4 = () => {
     defaultValues: { requestDescription: "" },
   });
 
-  const onSubmit = () => {
+  const onSubmit = (data: OnboardingStep4FormValues) => {
+    if (typeof window !== "undefined") {
+      sessionStorage.setItem(
+        "rdg_onboarding_step4",
+        JSON.stringify({
+          requestDescription: data.requestDescription,
+          budgetRange: selectedBudget,
+          timeline: selectedTimeline,
+        })
+      );
+    }
     router.push("/onboarding/step5");
   };
 

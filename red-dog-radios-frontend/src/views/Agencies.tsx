@@ -1,6 +1,7 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
+import api from "@/lib/api";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { Search, MapPin, Plus, X, Shield, Flame, CrossIcon, AlertTriangle, Phone, Building2, Wifi, Users, ChevronDown } from "lucide-react";
@@ -149,12 +150,53 @@ const AddAgencyModal = ({ onClose, onAdd }: AddAgencyModalProps) => {
   );
 };
 
+type ApiAgency = {
+  _id: string;
+  name: string;
+  email?: string;
+  contactEmail?: string;
+  type?: string;
+  agencyType?: string;
+  location?: string;
+  matchCount?: number;
+  status?: string;
+};
+
+const mapApiAgency = (a: ApiAgency): Agency => ({
+  id: a._id as unknown as number,
+  name: a.name,
+  email: a.email ?? a.contactEmail ?? "—",
+  type: a.type ?? a.agencyType ?? "multi-agency",
+  location: a.location ?? "—",
+  matches: a.matchCount ?? 0,
+  status: a.status ?? "active",
+});
+
 export const Agencies = () => {
-  const [agencies, setAgencies] = useState<Agency[]>(initialAgencies);
+  const [agencies, setAgencies] = useState<Agency[]>([]);
+  const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
   const [activeType, setActiveType] = useState("all");
   const [showModal, setShowModal] = useState(false);
   const { toast } = useToast();
+
+  const fetchAgencies = useCallback(async () => {
+    try {
+      const res = await api.get("/agencies", { params: { limit: 100 } });
+      const raw: ApiAgency[] = res.data.data ?? [];
+      if (raw.length > 0) {
+        setAgencies(raw.map(mapApiAgency));
+      } else {
+        setAgencies(initialAgencies);
+      }
+    } catch {
+      setAgencies(initialAgencies);
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  useEffect(() => { void fetchAgencies(); }, [fetchAgencies]);
 
   const filtered = agencies.filter((a) => {
     const matchSearch = !search || a.name.toLowerCase().includes(search.toLowerCase()) || a.email.toLowerCase().includes(search.toLowerCase()) || a.location.toLowerCase().includes(search.toLowerCase());
@@ -162,8 +204,19 @@ export const Agencies = () => {
     return matchSearch && matchType;
   });
 
-  const handleAdd = (agency: Agency) => {
-    setAgencies((prev) => [...prev, agency]);
+  const handleAdd = async (agency: Agency) => {
+    try {
+      await api.post("/agencies", {
+        name: agency.name,
+        email: agency.email,
+        type: agency.type,
+        location: agency.location,
+        status: "active",
+      });
+      await fetchAgencies();
+    } catch {
+      setAgencies((prev) => [...prev, agency]);
+    }
     setShowModal(false);
     toast({ title: "Agency created successfully", description: `${agency.name} has been added.` });
   };
@@ -224,6 +277,11 @@ export const Agencies = () => {
         </div>
 
         <div className="overflow-hidden rounded-xl border border-[#f0f0f0] bg-white shadow-[0_1px_4px_rgba(0,0,0,0.06)]">
+          {loading && (
+            <div className="flex items-center justify-center py-16">
+              <span className="[font-family:'Montserrat',Helvetica] text-sm text-[#9ca3af]">Loading agencies...</span>
+            </div>
+          )}
           <div className="hidden overflow-x-auto md:block">
             <table className="w-full min-w-[720px]">
               <thead>

@@ -5,11 +5,21 @@ const { AppError } = require('../../middlewares/error.middleware');
 const signToken = (id) =>
   jwt.sign({ id }, process.env.JWT_SECRET, { expiresIn: process.env.JWT_EXPIRES_IN || '7d' });
 
-const register = async ({ firstName, lastName, email, password }) => {
+const register = async ({ fullName, firstName, lastName, email, password }) => {
   const existing = await User.findOne({ email });
   if (existing) throw new AppError('Email already registered', 409);
 
-  const user = await User.create({ firstName, lastName, email, password });
+  const resolvedFullName = fullName || [firstName, lastName].filter(Boolean).join(' ');
+  const resolvedFirst = firstName || (fullName ? fullName.split(' ')[0] : '');
+  const resolvedLast = lastName || (fullName ? fullName.split(' ').slice(1).join(' ') : '');
+
+  const user = await User.create({
+    fullName: resolvedFullName,
+    firstName: resolvedFirst,
+    lastName: resolvedLast,
+    email,
+    password,
+  });
   const token = signToken(user._id);
 
   const safeUser = user.toObject();
@@ -29,7 +39,7 @@ const login = async ({ email, password }) => {
 };
 
 const getMe = async (userId) => {
-  const user = await User.findById(userId);
+  const user = await User.findById(userId).populate('organizationId', 'name location');
   if (!user) throw new AppError('User not found', 404);
   return user;
 };

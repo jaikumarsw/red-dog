@@ -1,7 +1,7 @@
 "use client";
 
 import type { ReactNode } from "react";
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { Bell, Globe, Shield, Trash2, Mail, Zap, Clock, X, CheckCircle, Lock, AlignJustify } from "lucide-react";
@@ -9,6 +9,8 @@ import { useToast } from "@/hooks/use-toast";
 import { useRouter } from "next/navigation";
 import { cn } from "@/lib/utils";
 import { deleteAccountConfirmSchema, settingsSaveSchema, type DeleteAccountConfirmValues, type SettingsSaveFormValues } from "@/lib/validation-schemas";
+import api from "@/lib/api";
+import { useAuth } from "@/lib/AuthContext";
 
 const Toggle = ({ checked, onChange, id }: { checked: boolean; onChange: (v: boolean) => void; id: string }) => (
   <button role="switch" aria-checked={checked} data-testid={`toggle-${id}`} onClick={() => onChange(!checked)}
@@ -105,34 +107,97 @@ const DeleteModal = ({ onClose, onConfirm }: { onClose: () => void; onConfirm: (
 export const Settings = () => {
   const router = useRouter();
   const { toast } = useToast();
+  const { user, logout } = useAuth();
   const {
     register,
     handleSubmit,
+    reset,
     formState: { errors },
   } = useForm<SettingsSaveFormValues>({
     resolver: zodResolver(settingsSaveSchema),
     defaultValues: {
-      firstName: "Red Dog",
-      lastName: "Admin",
-      email: "admin@reddogradios.com",
+      firstName: "",
+      lastName: "",
+      email: "",
       currentPassword: "",
       newPassword: "",
     },
   });
-  const [notifications, setNotifications] = useState({ newGrantMatches: true, deadlineAlerts: true, weeklyDigest: true, outboxUpdates: false, systemAlerts: true });
+  const [notifications, setNotifications] = useState({
+    newGrantMatches: true,
+    deadlineAlerts: true,
+    weeklyDigest: true,
+    outboxUpdates: false,
+    systemAlerts: true,
+  });
   const [showDeleteModal, setShowDeleteModal] = useState(false);
+  const [orgName, setOrgName] = useState<string>("");
+  const [saving, setSaving] = useState(false);
 
-  const toggleNotif = (key: keyof typeof notifications) => setNotifications((prev) => ({ ...prev, [key]: !prev[key] }));
+  const fetchSettings = useCallback(async () => {
+    try {
+      const res = await api.get("/settings");
+      const u = res.data.data;
+      reset({
+        firstName: u.firstName ?? (u.fullName ? u.fullName.split(" ")[0] : "") ?? "",
+        lastName: u.lastName ?? (u.fullName ? u.fullName.split(" ").slice(1).join(" ") : "") ?? "",
+        email: u.email ?? "",
+        currentPassword: "",
+        newPassword: "",
+      });
+      setOrgName(u.organizationId?.name ?? "—");
+      if (u.settings?.notifications) {
+        setNotifications((prev) => ({ ...prev, ...u.settings.notifications }));
+      }
+    } catch {
+      if (user) {
+        reset({
+          firstName: user.firstName ?? (user.fullName ? user.fullName.split(" ")[0] : "") ?? "",
+          lastName: user.lastName ?? (user.fullName ? user.fullName.split(" ").slice(1).join(" ") : "") ?? "",
+          email: user.email ?? "",
+          currentPassword: "",
+          newPassword: "",
+        });
+      }
+    }
+  }, [user, reset]);
 
-  const onSaveValid = () => {
-    toast({ title: "Settings saved successfully", description: "Your preferences have been updated." });
+  useEffect(() => { void fetchSettings(); }, [fetchSettings]);
+
+  const toggleNotif = (key: keyof typeof notifications) =>
+    setNotifications((prev) => ({ ...prev, [key]: !prev[key] }));
+
+  const onSaveValid = async (data: SettingsSaveFormValues) => {
+    setSaving(true);
+    try {
+      await api.put("/settings", {
+        firstName: data.firstName,
+        lastName: data.lastName,
+        email: data.email,
+        notifications,
+      });
+      toast({ title: "Settings saved successfully", description: "Your preferences have been updated." });
+    } catch (err: unknown) {
+      const msg =
+        (err as { response?: { data?: { message?: string } } })?.response?.data?.message ??
+        "Failed to save settings.";
+      toast({ title: "Error", description: msg, variant: "destructive" });
+    } finally {
+      setSaving(false);
+    }
   };
 
   const handleSave = () => {
     void handleSubmit(onSaveValid)();
   };
 
-  const handleDeleteConfirm = () => {
+  const handleDeleteConfirm = async () => {
+    try {
+      await api.delete("/settings/account");
+    } catch {
+      // best effort
+    }
+    logout();
     setShowDeleteModal(false);
     router.push("/login");
   };
@@ -149,6 +214,10 @@ export const Settings = () => {
     { key: "systemAlerts" as const, icon: <Bell size={15} />, label: "System Alerts", desc: "Platform updates and important announcements" },
   ];
 
+  const displayName = user?.fullName ?? [user?.firstName, user?.lastName].filter(Boolean).join(" ") ?? "User";
+  const displayEmail = user?.email ?? "";
+  const initials = displayName.split(" ").map((w) => w[0]).slice(0, 2).join("").toUpperCase() || "U";
+
   return (
     <>
       <div className="flex w-full min-w-0 flex-col gap-6 bg-neutral-50 p-4 pb-10 sm:p-6 lg:p-8">
@@ -157,22 +226,21 @@ export const Settings = () => {
             <h1 className="[font-family:'Oswald',Helvetica] font-bold text-black text-2xl sm:text-3xl tracking-[0.5px] uppercase leading-tight">Settings</h1>
             <p className="[font-family:'Montserrat',Helvetica] font-normal text-[#6b7280] text-sm">Manage your profile, notifications, and preferences</p>
           </div>
-          <button onClick={handleSave} data-testid="button-save-changes"
-            className="flex h-10 w-full shrink-0 items-center justify-center gap-2 rounded-lg bg-[#ef3e34] px-5 [font-family:'Montserrat',Helvetica] text-sm font-semibold text-white transition-colors hover:bg-[#d63530] sm:w-auto sm:justify-center">
-            <Zap size={14} />Save Changes
+          <button onClick={handleSave} disabled={saving} data-testid="button-save-changes"
+            className="flex h-10 w-full shrink-0 items-center justify-center gap-2 rounded-lg bg-[#ef3e34] px-5 [font-family:'Montserrat',Helvetica] text-sm font-semibold text-white transition-colors hover:bg-[#d63530] sm:w-auto sm:justify-center disabled:opacity-60">
+            <Zap size={14} />{saving ? "Saving..." : "Save Changes"}
           </button>
         </div>
 
-        {/* PROFILE */}
         <SectionCard icon={<span className="[font-family:'Montserrat',Helvetica] font-bold text-[#ef3e34] text-xs">A</span>} title="Profile" subtitle="Your personal and account information">
           <div className="mb-5 flex flex-col gap-3 rounded-xl border border-[#f0f0f0] bg-[#fafafa] px-4 py-3 sm:flex-row sm:items-center sm:justify-between">
             <div className="flex min-w-0 items-center gap-3">
               <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-[#ef3e34]">
-                <span className="[font-family:'Montserrat',Helvetica] text-sm font-bold text-white">RD</span>
+                <span className="[font-family:'Montserrat',Helvetica] text-sm font-bold text-white">{initials}</span>
               </div>
               <div className="flex min-w-0 flex-col gap-0.5">
-                <span className="[font-family:'Montserrat',Helvetica] text-sm font-bold text-[#111827]">Red Dog Admin</span>
-                <span className="[font-family:'Montserrat',Helvetica] text-xs font-normal text-[#9ca3af] break-all">admin@reddogradios.com</span>
+                <span className="[font-family:'Montserrat',Helvetica] text-sm font-bold text-[#111827]">{displayName}</span>
+                <span className="[font-family:'Montserrat',Helvetica] text-xs font-normal text-[#9ca3af] break-all">{displayEmail}</span>
               </div>
             </div>
             <span className="inline-flex w-fit items-center gap-1 rounded-full bg-[#dcfce7] px-2.5 py-0.5 [font-family:'Montserrat',Helvetica] text-xs font-semibold text-[#16a34a]">✦ Active</span>
@@ -180,55 +248,31 @@ export const Settings = () => {
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-4">
             <div className="flex flex-col gap-1.5">
               <label className={labelCls}>First Name</label>
-              <input
-                data-testid="input-first-name"
-                className={cn(inputCls, errors.firstName && "border-red-500")}
-                placeholder="First name"
-                {...register("firstName")}
-              />
-              {errors.firstName && (
-                <p className="text-xs text-red-600 [font-family:'Montserrat',Helvetica]">{errors.firstName.message}</p>
-              )}
+              <input data-testid="input-first-name" className={cn(inputCls, errors.firstName && "border-red-500")} placeholder="First name" {...register("firstName")} />
+              {errors.firstName && <p className="text-xs text-red-600 [font-family:'Montserrat',Helvetica]">{errors.firstName.message}</p>}
             </div>
             <div className="flex flex-col gap-1.5">
               <label className={labelCls}>Last Name</label>
-              <input
-                data-testid="input-last-name"
-                className={cn(inputCls, errors.lastName && "border-red-500")}
-                placeholder="Last name"
-                {...register("lastName")}
-              />
-              {errors.lastName && (
-                <p className="text-xs text-red-600 [font-family:'Montserrat',Helvetica]">{errors.lastName.message}</p>
-              )}
+              <input data-testid="input-last-name" className={cn(inputCls, errors.lastName && "border-red-500")} placeholder="Last name" {...register("lastName")} />
+              {errors.lastName && <p className="text-xs text-red-600 [font-family:'Montserrat',Helvetica]">{errors.lastName.message}</p>}
             </div>
           </div>
           <div className="flex flex-col gap-1.5 mb-4">
             <label className={labelCls}>Email Address</label>
             <div className="relative">
               <Mail size={14} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-[#9ca3af]" />
-              <input
-                data-testid="input-email"
-                type="email"
-                autoComplete="email"
-                className={cn(inputCls, "pl-9", errors.email && "border-red-500")}
-                placeholder="Email address"
-                {...register("email")}
-              />
+              <input data-testid="input-email" type="email" autoComplete="email" className={cn(inputCls, "pl-9", errors.email && "border-red-500")} placeholder="Email address" {...register("email")} />
             </div>
-            {errors.email && (
-              <p className="text-xs text-red-600 [font-family:'Montserrat',Helvetica]">{errors.email.message}</p>
-            )}
+            {errors.email && <p className="text-xs text-red-600 [font-family:'Montserrat',Helvetica]">{errors.email.message}</p>}
           </div>
           <div className="flex flex-col gap-1.5">
             <label className={labelCls}>Organization</label>
             <div className="border border-[#e5e7eb] rounded-lg px-4 py-2.5 bg-[#f9fafb]">
-              <span className="[font-family:'Montserrat',Helvetica] font-semibold text-[#111827] text-sm">Red Dog Radio</span>
+              <span className="[font-family:'Montserrat',Helvetica] font-semibold text-[#111827] text-sm">{orgName || "—"}</span>
             </div>
           </div>
         </SectionCard>
 
-        {/* NOTIFICATIONS */}
         <SectionCard icon={<Bell size={15} />} title="Notifications" subtitle="Choose which emails and alerts you receive">
           <div className="flex flex-col divide-y divide-[#f9fafb]">
             {notifRows.map((row) => (
@@ -246,7 +290,6 @@ export const Settings = () => {
           </div>
         </SectionCard>
 
-        {/* PREFERENCES */}
         <SectionCard icon={<AlignJustify size={15} />} title="Preferences" subtitle="Regional settings and display options">
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div className="flex flex-col gap-1.5">
@@ -270,7 +313,6 @@ export const Settings = () => {
           </div>
         </SectionCard>
 
-        {/* SECURITY */}
         <SectionCard icon={<Shield size={15} />} title="Security" subtitle="Authentication and account protection" iconBg="bg-[#fef3c7]" iconCls="text-[#d97706]">
           <div className="flex flex-col gap-3 mb-5">
             <div className="flex items-center gap-3 px-4 py-3 rounded-xl border border-[#bbf7d0] bg-[#f0fdf4]">
@@ -291,36 +333,17 @@ export const Settings = () => {
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div className="flex flex-col gap-1.5">
               <label className={labelCls}>Current Password</label>
-              <input
-                data-testid="input-current-password"
-                type="password"
-                autoComplete="current-password"
-                className={cn(inputCls, errors.currentPassword && "border-red-500")}
-                placeholder="Leave blank if not changing"
-                {...register("currentPassword")}
-              />
-              {errors.currentPassword && (
-                <p className="text-xs text-red-600 [font-family:'Montserrat',Helvetica]">{errors.currentPassword.message}</p>
-              )}
+              <input data-testid="input-current-password" type="password" autoComplete="current-password" className={cn(inputCls, errors.currentPassword && "border-red-500")} placeholder="Leave blank if not changing" {...register("currentPassword")} />
+              {errors.currentPassword && <p className="text-xs text-red-600 [font-family:'Montserrat',Helvetica]">{errors.currentPassword.message}</p>}
             </div>
             <div className="flex flex-col gap-1.5">
               <label className={labelCls}>New Password</label>
-              <input
-                data-testid="input-new-password"
-                type="password"
-                autoComplete="new-password"
-                className={cn(inputCls, errors.newPassword && "border-red-500")}
-                placeholder="Leave blank if not changing"
-                {...register("newPassword")}
-              />
-              {errors.newPassword && (
-                <p className="text-xs text-red-600 [font-family:'Montserrat',Helvetica]">{errors.newPassword.message}</p>
-              )}
+              <input data-testid="input-new-password" type="password" autoComplete="new-password" className={cn(inputCls, errors.newPassword && "border-red-500")} placeholder="Leave blank if not changing" {...register("newPassword")} />
+              {errors.newPassword && <p className="text-xs text-red-600 [font-family:'Montserrat',Helvetica]">{errors.newPassword.message}</p>}
             </div>
           </div>
         </SectionCard>
 
-        {/* DANGER ZONE */}
         <SectionCard icon={<Trash2 size={15} />} title="Danger Zone" subtitle="Irreversible actions – proceed with caution" iconBg="bg-[#fff1f0]" iconCls="text-[#ef4444]">
           <p className="[font-family:'Montserrat',Helvetica] font-normal text-[#6b7280] text-sm leading-6 mb-4">
             Permanently delete all your account data from Grant Intelligence. This removes all organizations, matches, Weekly Summary, and alerts. This action cannot be undone.
@@ -332,7 +355,7 @@ export const Settings = () => {
         </SectionCard>
       </div>
 
-      {showDeleteModal && <DeleteModal onClose={() => setShowDeleteModal(false)} onConfirm={handleDeleteConfirm} />}
+      {showDeleteModal && <DeleteModal onClose={() => setShowDeleteModal(false)} onConfirm={() => { void handleDeleteConfirm(); }} />}
     </>
   );
 };

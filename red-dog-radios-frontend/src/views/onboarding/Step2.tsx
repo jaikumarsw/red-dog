@@ -44,6 +44,13 @@ export const OnboardingStep2 = () => {
         : "border-[#e5e7eb] bg-white hover:border-[#ef3e34]/40"
     }`;
 
+  const handleContinue = () => {
+    if (typeof window !== "undefined") {
+      sessionStorage.setItem("rdg_onboarding_step2", JSON.stringify({ agencyType: selected }));
+    }
+    router.push("/onboarding/step3");
+  };
+
   return (
     <div className="flex min-h-screen flex-col items-center justify-start bg-white px-4 pb-12 pt-6 sm:pt-8">
       <OnboardingLogo />
@@ -87,7 +94,7 @@ export const OnboardingStep2 = () => {
           <button onClick={() => router.push("/onboarding/step1")} className="[font-family:'Montserrat',Helvetica] font-medium text-sm text-[#6b7280] hover:text-[#374151] transition-colors">
             Back
           </button>
-          <button onClick={() => router.push("/onboarding/step3")} className="flex h-10 w-full items-center justify-center gap-1.5 rounded-lg bg-[#ef3e34] px-6 text-white transition-colors hover:bg-[#d63530] sm:w-auto">
+          <button onClick={handleContinue} className="flex h-10 w-full items-center justify-center gap-1.5 rounded-lg bg-[#ef3e34] px-6 text-white transition-colors hover:bg-[#d63530] sm:w-auto">
             <span className="[font-family:'Montserrat',Helvetica] font-semibold text-sm">Continue</span>
             <ChevronRight size={15} />
           </button>

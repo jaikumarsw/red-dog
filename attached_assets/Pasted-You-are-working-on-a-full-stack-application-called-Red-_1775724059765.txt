@@ -1,0 +1,527 @@
+You are working on a full-stack application called "Red Dog Radio Grant 
+Intelligence Platform". The frontend is fully built in React with React Router, 
+dummy/mock data everywhere. The backend is Node.js + Express + MongoDB/Mongoose 
+with JWT auth. Your job is to do the following in this exact order:
+
+=======================================================================
+PHASE 1 — BACKEND AUDIT & COMPLETION
+=======================================================================
+
+First, read ALL existing backend code thoroughly. Then check every item below.
+
+--- 1A. VERIFY THESE BACKEND ROUTES EXIST AND WORK CORRECTLY ---
+
+AUTH:
+  POST /api/auth/register     — creates user, returns JWT
+  POST /api/auth/login        — validates credentials, returns JWT
+  GET  /api/auth/me           — returns current user (JWT required)
+
+ORGANIZATIONS:
+  GET    /api/organizations         — list all, paginated, search by name
+  POST   /api/organizations         — create org (JWT required)
+  GET    /api/organizations/:id     — get single org
+  PUT    /api/organizations/:id     — update org (JWT required)
+  DELETE /api/organizations/:id     — deactivate (admin only)
+
+OPPORTUNITIES:
+  GET    /api/opportunities         — list all, paginated, filter by status/keyword
+  POST   /api/opportunities         — create (JWT required)
+  GET    /api/opportunities/:id     — get single opp
+  PUT    /api/opportunities/:id     — update (JWT required)
+  DELETE /api/opportunities/:id     — delete (admin only)
+
+MATCHES:
+  GET  /api/matches                  — list matches, filter by orgId/oppId
+  POST /api/matches/compute          — compute fit score for one org+opp pair
+  POST /api/matches/compute-all      — compute all opps for one org
+  PUT  /api/matches/:id/approve      — approve match
+  PUT  /api/matches/:id/reject       — reject match
+
+APPLICATIONS:
+  GET  /api/applications             — list applications, filter by status
+  POST /api/applications             — create application
+  GET  /api/applications/:id         — get single application
+  PUT  /api/applications/:id         — update application
+  PUT  /api/applications/:id/submit  — submit application (changes status)
+
+AGENCIES:
+  GET  /api/agencies                 — list agencies, filter by type
+  POST /api/agencies                 — create agency (JWT required)
+  GET  /api/agencies/:id             — get single agency
+  PUT  /api/agencies/:id             — update agency
+  DELETE /api/agencies/:id           — delete (admin only)
+
+ALERTS:
+  GET  /api/alerts                   — list alerts for current user
+  PUT  /api/alerts/read-all          — mark all as read
+  PUT  /api/alerts/:id/read          — mark one as read
+  DELETE /api/alerts/:id             — delete alert
+  POST /api/alerts/generate-deadline — generate deadline alerts (admin)
+  POST /api/alerts/generate-high-fit — generate high-fit alerts (admin)
+
+OUTBOX:
+  GET  /api/outbox                   — list outbox emails (admin)
+  POST /api/outbox/queue             — queue a new email
+  POST /api/outbox/process           — process entire pending queue (admin)
+  POST /api/outbox/:id/send          — send specific email
+  POST /api/outbox/:id/retry         — retry failed email
+
+DIGESTS:
+  GET  /api/digests                  — list all digests (paginated)
+  POST /api/digests/generate         — generate weekly digest for all orgs
+  POST /api/digests/preview          — preview digest for a specific org
+  POST /api/digests/:id/send         — send a specific digest
+  GET  /api/digests/:id              — get single digest with full content
+
+AI:
+  POST /api/ai/generate-summary      — generate AI summary for an opportunity
+  POST /api/ai/generate-email        — generate outreach email (AI)
+  POST /api/ai/generate-application  — generate application content (AI)
+  POST /api/ai/compute-match         — AI-powered fit score explanation
+
+DASHBOARD:
+  GET /api/dashboard/stats           — returns:
+    {
+      totalOrganizations: number,
+      activeOpportunities: number,
+      highFitMatches: number,       (fitScore >= 75)
+      pendingOutbox: number,
+      applicationsSent: number,
+      activeAlerts: number,
+      systemJobs: [
+        { name, status, lastRun, nextRun, duration }
+      ],
+      attentionItems: [
+        { type, priority, orgName, grantName, description, date }
+      ]
+    }
+
+ONBOARDING:
+  POST /api/onboarding/complete      — saves onboarding data to user profile
+    body: {
+      organizationName, location, website, missionStatement,
+      agencyTypes: [],
+      programAreas: [],
+      specificRequest, budgetRange, timeline,
+      goals: []
+    }
+
+SETTINGS:
+  GET  /api/settings                 — get current user settings
+  PUT  /api/settings                 — update settings (name, email, notifications, 
+                                       preferences, reportEmail)
+  DELETE /api/settings/account       — delete account (requires confirmation)
+
+--- 1B. VERIFY THESE MONGOOSE MODELS EXIST WITH CORRECT FIELDS ---
+
+User model must have:
+  - email, password (hashed), fullName, role (user/admin)
+  - organizationId (ref to Organization)
+  - onboardingCompleted (boolean)
+  - settings: {
+      notifications: {
+        highFitAlerts, deadlineReminders, weeklySummary,
+        alertUpdates, systemAlerts  (all booleans)
+      },
+      preferences: { language, country },
+      reportEmail, apiKey
+    }
+
+Organization model must have:
+  - name, location, website, missionStatement
+  - focusAreas (array of strings)
+  - agencyTypes (array of strings)
+  - status (active/inactive)
+  - matchCount (number)
+  - createdBy (ref User)
+  - createdAt, updatedAt
+
+Opportunity model must have:
+  - title, funderName, deadline (Date), maxAmount (number)
+  - sourceUrl, keywords (array), description
+  - status (open/closing/closed)
+  - category (string)
+  - appliedCount (number, defaults 0)
+  - createdAt, updatedAt
+
+Match model must have:
+  - organizationId (ref), opportunityId (ref)
+  - fitScore (0-100), status (pending/approved/rejected)
+  - state (string, from org location)
+  - fitReasons (array of strings)
+  - breakdown: {
+      agencyType, geography, programKeyword,
+      deadlineViability, awardSizeFit, timelineAlignment, dataCompleteness
+    }
+  - lastUpdated
+
+Application model must have:
+  - organizationId (ref), opportunityId (ref)
+  - status (draft/submitted/in_review/awarded/rejected)
+  - orgName, contactName, projectTimeline, contactEmail
+  - amountRequested, projectTitle, projectSummary, communityImpact
+  - submittedAt, createdAt
+
+Agency model must have:
+  - name, type (enum: law_enforcement/fire_services/ems/
+    emergency_management/911_centers/hospitals/
+    public_safety_comms/multi_agency)
+  - location, email, matchCount
+  - status (active/inactive)
+  - createdAt
+
+Alert model must have:
+  - userId (ref), type (deadline/high_fit/no_match/application_update)
+  - priority (high/medium/low)
+  - orgName, grantName, message
+  - read (boolean, default false)
+  - createdAt
+
+Outbox model must have:
+  - recipient (email), subject, body (HTML)
+  - status (pending/sent/failed)
+  - emailType (weekly_digest/alert/manual)
+  - retryCount (number, default 0)
+  - sentAt, errorMessage, providerMessageId
+  - relatedOrganizationId (ref, optional)
+  - createdAt
+
+Digest model must have:
+  - organizationId (ref), orgName
+  - periodStart (Date), periodEnd (Date)
+  - itemCount (number)
+  - status (draft/sent)
+  - htmlContent (string)
+  - aiIntro (string)
+  - opportunities (array of { title, fitScore, amount, deadline })
+  - sentAt, createdAt
+
+--- 1C. VERIFY MATCH SCORING ALGORITHM ---
+
+The /api/matches/compute endpoint must calculate fitScore (0-100) using:
+
+  agencyType match:       20pts — org.agencyTypes overlaps opp.keywords/category
+  geography:              20pts — org.location state appears in opp.keywords
+  programKeyword overlap: 25pts — count matches between org.focusAreas and opp.keywords
+  deadlineViability:      10pts — days until deadline (>30d=10, 14-30d=7, 7-14d=3, <7d=1, past=0)
+  awardSizeFit:           10pts — org budget range vs opp.maxAmount
+  timelineAlignment:      10pts — org timeline preference vs deadline urgency
+  dataCompleteness:        5pts — how many opp fields are populated
+
+Return full breakdown object, not just total score.
+
+--- 1D. VERIFY CRON JOBS ---
+
+node-cron jobs must be scheduled:
+  "0 2 * * *"    — recompute all matches for all active orgs
+  "30 2 * * *"   — generate deadline alerts (deadline within 30 days, fitScore >= 75)
+  "45 2 * * *"   — generate high-fit alerts (fitScore >= 75)
+  "0 * * * *"    — process pending outbox emails
+
+--- 1E. VERIFY AI STUBS ---
+
+When OPENAI_API_KEY is not set, return realistic fallback text:
+  generate-summary: return a 2-paragraph generic grant summary
+  generate-email: return a complete professional outreach email
+  generate-application: return project summary + community impact paragraphs
+  compute-match: return explanation with 3-4 bullet points of fit reasons
+
+--- 1F. CREATE ANY MISSING ROUTES OR MODELS ---
+
+If anything above is missing, create it now following the same patterns 
+as the existing code. Use the same error handling, auth middleware, and 
+response format as existing routes.
+
+Standard response format for all routes:
+  Success: { success: true, data: {...} }
+  List:    { success: true, data: [...], total, page, pages }
+  Error:   { success: false, message: "..." }
+
+=======================================================================
+PHASE 2 — FRONTEND AUDIT
+=======================================================================
+
+Read ALL frontend code. Map every page to what API it needs.
+The frontend currently uses dummy/mock data. Identify:
+  - Which components have hardcoded data arrays
+  - Which useState hooks have static initial values
+  - Which useEffect hooks are missing or never fetch from API
+  - Which forms submit but don't call any API
+
+=======================================================================
+PHASE 3 — FULL FRONTEND-BACKEND INTEGRATION
+=======================================================================
+
+Replace ALL dummy data with real API calls. Do every page below.
+
+--- SETUP: Create a central API service ---
+
+Create /src/services/api.js with:
+  - axios instance with baseURL = process.env.REACT_APP_API_URL 
+    (default: http://localhost:4000)
+  - Request interceptor: attach JWT from localStorage to every request
+    as Authorization: Bearer <token>
+  - Response interceptor: if 401, clear localStorage and redirect to /login
+
+Create these service functions in api.js:
+
+  // Auth
+  export const login = (email, password) => api.post('/api/auth/login', ...)
+  export const register = (data) => api.post('/api/auth/register', ...)
+  export const getMe = () => api.get('/api/auth/me')
+
+  // Dashboard
+  export const getDashboardStats = () => api.get('/api/dashboard/stats')
+
+  // Organizations
+  export const getOrganizations = (params) => api.get('/api/organizations', { params })
+  export const createOrganization = (data) => api.post('/api/organizations', data)
+  export const updateOrganization = (id, data) => api.put('/api/organizations/'+id, data)
+
+  // Opportunities
+  export const getOpportunities = (params) => api.get('/api/opportunities', { params })
+  export const createOpportunity = (data) => api.post('/api/opportunities', data)
+  export const getOpportunity = (id) => api.get('/api/opportunities/'+id)
+
+  // Matches
+  export const getMatches = (params) => api.get('/api/matches', { params })
+  export const computeMatch = (orgId, oppId) => api.post('/api/matches/compute', ...)
+  export const approveMatch = (id) => api.put('/api/matches/'+id+'/approve')
+  export const rejectMatch = (id) => api.put('/api/matches/'+id+'/reject')
+
+  // Applications
+  export const getApplications = (params) => api.get('/api/applications', { params })
+  export const createApplication = (data) => api.post('/api/applications', data)
+  export const submitApplication = (id) => api.put('/api/applications/'+id+'/submit')
+
+  // Agencies
+  export const getAgencies = (params) => api.get('/api/agencies', { params })
+  export const createAgency = (data) => api.post('/api/agencies', data)
+
+  // Alerts
+  export const getAlerts = () => api.get('/api/alerts')
+  export const markAlertRead = (id) => api.put('/api/alerts/'+id+'/read')
+  export const markAllAlertsRead = () => api.put('/api/alerts/read-all')
+  export const deleteAlert = (id) => api.delete('/api/alerts/'+id)
+
+  // Outbox
+  export const getOutbox = () => api.get('/api/outbox')
+  export const retryEmail = (id) => api.post('/api/outbox/'+id+'/retry')
+
+  // Digests
+  export const getDigests = () => api.get('/api/digests')
+  export const previewDigest = (orgId) => api.post('/api/digests/preview', { orgId })
+  export const sendDigest = (id) => api.post('/api/digests/'+id+'/send')
+
+  // AI
+  export const generateSummary = (oppId) => api.post('/api/ai/generate-summary', { oppId })
+  export const generateEmail = (oppId, orgId) => api.post('/api/ai/generate-email', ...)
+  export const generateApplication = (oppId, orgId) => api.post('/api/ai/generate-application', ...)
+
+  // Settings
+  export const getSettings = () => api.get('/api/settings')
+  export const updateSettings = (data) => api.put('/api/settings', data)
+
+  // Onboarding
+  export const completeOnboarding = (data) => api.post('/api/onboarding/complete', data)
+
+--- INTEGRATE EVERY PAGE ---
+
+LOGIN PAGE (/login):
+  - On form submit: call login(email, password)
+  - On success: store JWT in localStorage as 'rdg_token', store user in localStorage
+    as 'rdg_user', redirect to /onboarding if !user.onboardingCompleted else /dashboard
+  - On error: show error message under the form in red text
+
+SIGNUP PAGE (/signup):
+  - On form submit: call register({ fullName, email, password })
+  - On success: store token, redirect to /otp-verification
+  - On error: show error message
+
+OTP PAGE (/otp-verification):
+  — Keep as UI-only for now (email verification is a future feature)
+  — On "CONFIRM OTP" click: redirect to /create-password
+
+CREATE PASSWORD PAGE (/create-password):
+  — Keep as UI-only for now
+  — On confirm: redirect to /login with a success toast
+
+ONBOARDING (all 5 steps):
+  - All steps collect data in React state/context
+  - On final step (step 5) "Continue" button: call completeOnboarding(allStepData)
+  - On success: update localStorage user.onboardingCompleted = true, redirect to /dashboard
+  - Show loading spinner on button while waiting
+
+DASHBOARD (/dashboard):
+  - On mount: call getDashboardStats()
+  - Replace all 6 metric card numbers with real data from API response
+  - Replace "Needs Attention" table with real attentionItems from API
+  - Replace "System Jobs" panel with real systemJobs from API
+  - Show loading skeletons while fetching
+  - Show error state if fetch fails
+
+ORGANIZATIONS (/organizations):
+  - On mount: call getOrganizations() and populate table
+  - Search bar: debounce 400ms, call getOrganizations({ search: value })
+  - "Add Organization" modal: on submit call createOrganization(formData), 
+    on success close modal + show toast + refresh list
+  - Each row shows real data: name, location, focusAreas as pills, matchCount, status
+
+OPPORTUNITIES (/opportunities):
+  - On mount: call getOpportunities() and populate table
+  - Tab clicks (All/Open/Closing/Closed): call getOpportunities({ status: tab })
+  - Keyword pills: clicking one calls getOpportunities({ keyword: pill })
+  - Search bar: debounce 400ms, call getOpportunities({ search: value })
+  - "Add Opportunity" modal: on submit call createOpportunity(formData), 
+    refresh list on success
+  - Clicking a row: show preview panel with that opportunity's real data
+  - "Apply with Ashleen" button in preview: open Ashleen chat panel with oppId
+
+APPLY WITH ASHLEEN (chat panel inside /opportunities):
+  - Step 1: Show real opportunity data (title, funder, amount, deadline) in chat
+  - On "Apply for it!": call createApplication({ opportunityId, organizationId })
+    to create draft application
+  - Step 3 draft form: call generateApplication(oppId, orgId) to get AI content,
+    pre-fill the form fields with returned data
+  - On "Submit": call submitApplication(applicationId), show success toast,
+    add application to Applications page data
+
+MATCHES (/matches):
+  - On mount: call getMatches() and populate table
+  - Fit score color: green if >=75, orange if >=50, red if <50
+  - Search/filter: call getMatches({ search, minScore, maxScore })
+  - Clicking row: show detail panel with breakdown from match data
+  - "Approve Match" button: call approveMatch(matchId), update row status
+  - "Reject Match" button: call rejectMatch(matchId), update row status
+
+APPLICATIONS (/applications):
+  - On mount: call getApplications() and populate list
+  - Tab filters (All/Submitted/In Review/Awarded/Rejected): 
+    call getApplications({ status: tab })
+  - Each card shows real data
+  - "View" link: show application detail (modal or inline expansion)
+
+AGENCIES (/agencies):
+  - On mount: call getAgencies() and populate table
+  - Tab filter clicks: call getAgencies({ type: tab })
+  - Search bar: call getAgencies({ search: value })
+  - "Add Agency" modal: on submit call createAgency(formData),
+    refresh list on success
+
+WEEKLY SUMMARY (/weekly-summary):
+  - On mount: call getDigests() and populate left panel list
+  - Each digest row shows real orgName, period, itemCount, status
+  - Clicking "Preview": call previewDigest(orgId), render returned htmlContent 
+    in the right panel iframe/div
+  - "Send" button: call sendDigest(digestId), update status to "sent"
+
+OUTBOX (/outbox):
+  - On mount: call getOutbox() and populate table
+  - Show real counts in metric cards (pending/sent/failed)
+  - Clicking "Preview": show email details modal with real subject + body
+  - "Retry" action: call retryEmail(id), update row status
+
+ALERTS (/alerts):
+  - On mount: call getAlerts() and populate list
+  - Show unread count as red badge on sidebar bell icon
+  - Clicking an alert: call markAlertRead(id), remove unread styling
+  - "Mark all read" button: call markAllAlertsRead()
+  - Show real priority colors (high=red border, medium=orange, low=gray)
+
+SETTINGS (/settings):
+  - On mount: call getSettings() and pre-fill all form fields
+  - Toggle switches: controlled components bound to settings state
+  - "Save Changes" button: call updateSettings(settingsData), show success toast
+  - "Delete Account" confirm: call deleteAccount(), clear localStorage, redirect /login
+
+SIDEBAR ALERTS BADGE:
+  - Fetch getAlerts() on app mount (in a top-level component or context)
+  - Show count of unread alerts as the red badge number
+  - Refresh every 60 seconds
+
+--- AUTHENTICATION GUARDS ---
+
+Create a ProtectedRoute component:
+  - Reads JWT from localStorage
+  - If no token: redirect to /login
+  - If token exists: render the child route
+
+Create a PublicRoute component:
+  - If token exists AND onboardingCompleted: redirect to /dashboard
+  - If token exists AND !onboardingCompleted: redirect to /onboarding
+  - Otherwise: render the public page (login, signup, etc.)
+
+Wrap all routes in App.js:
+  /login, /signup, /forgot-password, /otp-verification, /create-password 
+    → PublicRoute
+  /onboarding, /onboarding/step1 through step5 
+    → ProtectedRoute (but no sidebar)
+  /dashboard, /organizations, /opportunities, /applications, /matches, 
+  /agencies, /weekly-summary, /outbox, /alerts, /settings 
+    → ProtectedRoute (with sidebar)
+
+--- LOADING & ERROR STATES ---
+
+Every page that fetches data must show:
+  1. Loading: skeleton cards/rows (gray animated blocks) while fetching
+  2. Error: a red banner "Failed to load data. Try again." with a retry button
+  3. Empty: an illustration-free empty state message when list is empty
+
+--- TOAST NOTIFICATIONS ---
+
+Use a simple toast system (or react-hot-toast if already installed):
+  - Success toast: green, bottom-right, auto-dismiss 3s
+  - Error toast: red, bottom-right, auto-dismiss 5s
+
+Show success toasts after:
+  - Organization created
+  - Agency created
+  - Application submitted
+  - Settings saved
+  - Digest sent
+
+Show error toasts when API calls fail.
+
+=======================================================================
+PHASE 4 — ENVIRONMENT CONFIGURATION
+=======================================================================
+
+Create frontend .env file (if not exists):
+  REACT_APP_API_URL=http://localhost:4000
+
+Verify backend .env.example has all variables documented:
+  MONGO_URI=
+  JWT_SECRET=
+  JWT_EXPIRES_IN=7d
+  PORT=4000
+  CLOUDINARY_CLOUD_NAME=
+  CLOUDINARY_API_KEY=
+  CLOUDINARY_API_SECRET=
+  SMTP_HOST=
+  SMTP_USER=
+  SMTP_PASS=
+  SMTP_FROM=
+  OPENAI_API_KEY=
+
+Add CORS configuration in backend server.js to allow requests from:
+  http://localhost:3000 (React dev server)
+
+=======================================================================
+PHASE 5 — FINAL VERIFICATION
+=======================================================================
+
+After completing all changes:
+
+1. List every backend route that was MISSING and was just created
+2. List every backend route that had a BUG and was just fixed
+3. List every frontend page that was just integrated with real APIs
+4. List any remaining items that need manual configuration 
+   (e.g., real SMTP credentials, real OpenAI key, MongoDB URI)
+5. Confirm the seed script creates enough data to test every page
+
+DO NOT change the visual design of any frontend component.
+DO NOT change any colors, layouts, or styling.
+Only add/modify logic, data fetching, and API connections.
+
+Start with Phase 1 now. Work through each phase completely before 
+moving to the next. Report what you find and what you're fixing as you go.

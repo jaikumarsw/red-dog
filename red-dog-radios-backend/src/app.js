@@ -20,16 +20,24 @@ const alertRoutes = require('./modules/alerts/alert.route');
 const outboxRoutes = require('./modules/outbox/outbox.route');
 const digestRoutes = require('./modules/digests/digest.route');
 const aiRoutes = require('./modules/ai/ai.route');
+const dashboardRoutes = require('./modules/dashboard/dashboard.route');
+const onboardingRoutes = require('./modules/onboarding/onboarding.route');
+const settingsRoutes = require('./modules/settings/settings.route');
 
 const app = express();
 
 app.use(helmet());
-app.use(cors({ origin: process.env.CORS_ORIGIN || '*', credentials: true }));
+app.use(cors({
+  origin: process.env.CORS_ORIGIN || '*',
+  credentials: true,
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
+  allowedHeaders: ['Content-Type', 'Authorization'],
+}));
 app.use(morgan(process.env.NODE_ENV === 'production' ? 'combined' : 'dev'));
 app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ extended: true }));
 
-const limiter = rateLimit({ windowMs: 15 * 60 * 1000, max: 200, standardHeaders: true, legacyHeaders: false });
+const limiter = rateLimit({ windowMs: 15 * 60 * 1000, max: 500, standardHeaders: true, legacyHeaders: false });
 app.use('/api', limiter);
 
 // Swagger
@@ -79,6 +87,9 @@ app.use('/api/alerts', alertRoutes);
 app.use('/api/outbox', outboxRoutes);
 app.use('/api/digests', digestRoutes);
 app.use('/api/ai', aiRoutes);
+app.use('/api/dashboard', dashboardRoutes);
+app.use('/api/onboarding', onboardingRoutes);
+app.use('/api/settings', settingsRoutes);
 
 app.use(notFoundHandler);
 app.use(errorHandler);
