@@ -1,6 +1,7 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState } from "react";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { Search, MapPin, Plus, X } from "lucide-react";
@@ -11,6 +12,7 @@ import { useToast } from "@/hooks/use-toast";
 import { cn } from "@/lib/utils";
 import { organizationFormSchema, type OrganizationFormValues } from "@/lib/validation-schemas";
 import api from "@/lib/api";
+import { qk } from "@/lib/queryKeys";
 
 type Org = {
   id: string;
@@ -51,12 +53,11 @@ const mapOrg = (o: ApiOrg): Org => {
 
 interface AddOrgModalProps {
   onClose: () => void;
-  onAdd: (org: Org) => void;
+  onSuccess: () => void;
 }
 
-const AddOrganizationModal = ({ onClose, onAdd }: AddOrgModalProps) => {
+const AddOrganizationModal = ({ onClose, onSuccess }: AddOrgModalProps) => {
   const { toast } = useToast();
-  const [loading, setLoading] = useState(false);
   const {
     register,
     handleSubmit,
@@ -66,17 +67,10 @@ const AddOrganizationModal = ({ onClose, onAdd }: AddOrgModalProps) => {
     defaultValues: { name: "", location: "", website: "", mission: "", focusAreas: "" },
   });
 
-  useEffect(() => {
-    const handleKey = (e: KeyboardEvent) => { if (e.key === "Escape") onClose(); };
-    document.addEventListener("keydown", handleKey);
-    return () => document.removeEventListener("keydown", handleKey);
-  }, [onClose]);
-
-  const onValid = async (data: OrganizationFormValues) => {
-    setLoading(true);
-    try {
+  const createMutation = useMutation({
+    mutationFn: (data: OrganizationFormValues) => {
       const areas = data.focusAreas.split(",").map((s) => s.trim()).filter(Boolean);
-      const res = await api.post("/organizations", {
+      return api.post("/organizations", {
         name: data.name.trim(),
         location: data.location.trim(),
         website: data.website.trim() || undefined,
@@ -84,17 +78,18 @@ const AddOrganizationModal = ({ onClose, onAdd }: AddOrgModalProps) => {
         focusAreas: areas,
         status: "active",
       });
-      const created = res.data.data as ApiOrg;
-      onAdd(mapOrg(created));
-    } catch (err: unknown) {
+    },
+    onSuccess: (_data, variables) => {
+      toast({ title: "Organization created successfully", description: `${variables.name.trim()} has been added.` });
+      onSuccess();
+    },
+    onError: (err: unknown) => {
       const msg =
         (err as { response?: { data?: { message?: string } } })?.response?.data?.message ??
         "Failed to create organization.";
       toast({ title: "Error", description: msg, variant: "destructive" });
-    } finally {
-      setLoading(false);
-    }
-  };
+    },
+  });
 
   const inputClass = (name: keyof OrganizationFormValues) =>
     cn(
@@ -114,7 +109,7 @@ const AddOrganizationModal = ({ onClose, onAdd }: AddOrgModalProps) => {
           </button>
         </div>
 
-        <form onSubmit={handleSubmit(onValid)} className="flex flex-col" noValidate>
+        <form onSubmit={handleSubmit((data) => createMutation.mutate(data))} className="flex flex-col" noValidate>
           <div className="px-7 py-6 flex flex-col gap-5">
             <div className="flex flex-col gap-1.5">
               <Label className="[font-family:'Montserrat',Helvetica] font-medium text-sm text-[#111827]">Organization Name</Label>
@@ -156,9 +151,9 @@ const AddOrganizationModal = ({ onClose, onAdd }: AddOrgModalProps) => {
               className="px-4 py-2 [font-family:'Montserrat',Helvetica] text-sm font-medium text-[#6b7280] transition-colors hover:text-[#374151]">
               Cancel
             </button>
-            <button type="submit" disabled={loading} data-testid="button-create-org"
+            <button type="submit" disabled={createMutation.isPending} data-testid="button-create-org"
               className="h-10 rounded-lg bg-[#ef3e34] px-5 text-white [font-family:'Montserrat',Helvetica] text-sm font-semibold transition-colors hover:bg-[#d63530] active:bg-[#c02c28] disabled:opacity-60">
-              {loading ? "Creating..." : "Create Organization"}
+              {createMutation.isPending ? "Creating..." : "Create Organization"}
             </button>
           </div>
         </form>
@@ -168,32 +163,24 @@ const AddOrganizationModal = ({ onClose, onAdd }: AddOrgModalProps) => {
 };
 
 export const Organizations = () => {
-  const [orgs, setOrgs] = useState<Org[]>([]);
-  const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
   const [showModal, setShowModal] = useState(false);
-  const { toast } = useToast();
+  const queryClient = useQueryClient();
 
-  const fetchOrgs = useCallback(async () => {
-    try {
+  const { data: orgs = [], isLoading: loading } = useQuery<Org[]>({
+    queryKey: qk.organizations(),
+    queryFn: async () => {
       const res = await api.get("/organizations", { params: { limit: 100 } });
       const raw: ApiOrg[] = res.data.data ?? [];
-      setOrgs(raw.map(mapOrg));
-    } catch {
-      // keep empty
-    } finally {
-      setLoading(false);
-    }
-  }, []);
-
-  useEffect(() => { void fetchOrgs(); }, [fetchOrgs]);
+      return raw.map(mapOrg);
+    },
+  });
 
   const filtered = orgs.filter((o) => o.name.toLowerCase().includes(search.toLowerCase()));
 
-  const handleAdd = (org: Org) => {
-    setOrgs((prev) => [...prev, org]);
+  const handleSuccess = () => {
+    queryClient.invalidateQueries({ queryKey: qk.organizations() });
     setShowModal(false);
-    toast({ title: "Organization created successfully", description: `${org.name} has been added.` });
   };
 
   return (
@@ -339,7 +326,7 @@ export const Organizations = () => {
         </div>
       </div>
 
-      {showModal && <AddOrganizationModal onClose={() => setShowModal(false)} onAdd={handleAdd} />}
+      {showModal && <AddOrganizationModal onClose={() => setShowModal(false)} onSuccess={handleSuccess} />}
     </>
   );
 };

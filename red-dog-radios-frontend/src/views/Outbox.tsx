@@ -1,9 +1,11 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState } from "react";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Clock, X, Zap, RefreshCw } from "lucide-react";
 import api from "@/lib/api";
 import { useToast } from "@/hooks/use-toast";
+import { qk } from "@/lib/queryKeys";
 
 type Email = {
   id: string;
@@ -56,12 +58,6 @@ const statusBadge = (s: string) => {
 };
 
 const EmailDetailsModal = ({ email, onClose }: { email: Email; onClose: () => void }) => {
-  useEffect(() => {
-    const handleKey = (e: KeyboardEvent) => { if (e.key === "Escape") onClose(); };
-    document.addEventListener("keydown", handleKey);
-    return () => document.removeEventListener("keydown", handleKey);
-  }, [onClose]);
-
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40"
       onClick={(e) => e.target === e.currentTarget && onClose()}>
@@ -118,38 +114,31 @@ const EmailDetailsModal = ({ email, onClose }: { email: Email; onClose: () => vo
 };
 
 export const Outbox = () => {
-  const [emails, setEmails] = useState<Email[]>([]);
-  const [loading, setLoading] = useState(true);
   const [previewEmail, setPreviewEmail] = useState<Email | null>(null);
-  const [retrying, setRetrying] = useState<string | null>(null);
   const { toast } = useToast();
+  const queryClient = useQueryClient();
 
-  const fetchEmails = useCallback(async () => {
-    try {
+  const { data: emails = [], isLoading: loading } = useQuery<Email[]>({
+    queryKey: qk.outbox(),
+    queryFn: async () => {
       const res = await api.get("/outbox", { params: { limit: 100 } });
       const raw: ApiEmail[] = res.data.data ?? [];
-      setEmails(raw.map(mapEmail));
-    } catch {
-      // keep empty
-    } finally {
-      setLoading(false);
-    }
-  }, []);
+      return raw.map(mapEmail);
+    },
+  });
 
-  useEffect(() => { void fetchEmails(); }, [fetchEmails]);
-
-  const handleRetry = async (id: string) => {
-    setRetrying(id);
-    try {
-      await api.post(`/outbox/${id}/retry`);
-      setEmails((prev) => prev.map((e) => e.id === id ? { ...e, status: "pending" } : e));
+  const retryMutation = useMutation({
+    mutationFn: (id: string) => api.post(`/outbox/${id}/retry`),
+    onSuccess: (_data, id) => {
+      queryClient.setQueryData<Email[]>(qk.outbox(), (prev = []) =>
+        prev.map((e) => e.id === id ? { ...e, status: "pending" } : e)
+      );
       toast({ title: "Email queued for retry" });
-    } catch {
+    },
+    onError: () => {
       toast({ title: "Retry failed", variant: "destructive" });
-    } finally {
-      setRetrying(null);
-    }
-  };
+    },
+  });
 
   const pending = emails.filter((e) => e.status === "pending").length;
   const sent = emails.filter((e) => e.status === "sent").length;
@@ -168,155 +157,85 @@ export const Outbox = () => {
         </div>
 
         <div className="grid grid-cols-1 gap-3 sm:grid-cols-3 sm:gap-4">
-          <div className="flex flex-col gap-0.5 rounded-xl border border-[#fef08a] bg-[#fefce8] px-4 py-4 sm:px-5">
-            <span className="[font-family:'Oswald',Helvetica] text-2xl font-bold leading-tight text-[#b45309] sm:text-3xl">{loading ? "—" : pending}</span>
-            <span className="[font-family:'Montserrat',Helvetica] text-xs font-semibold uppercase tracking-[0.6px] text-[#b45309]">Pending</span>
-          </div>
-          <div className="flex flex-col gap-0.5 rounded-xl border border-[#bbf7d0] bg-[#f0fdf4] px-4 py-4 sm:px-5">
-            <span className="[font-family:'Oswald',Helvetica] text-2xl font-bold leading-tight text-[#16a34a] sm:text-3xl">{loading ? "—" : sent}</span>
-            <span className="[font-family:'Montserrat',Helvetica] text-xs font-semibold uppercase tracking-[0.6px] text-[#16a34a]">Sent</span>
-          </div>
-          <div className="flex flex-col gap-0.5 rounded-xl border border-[#fecaca] bg-[#fff1f0] px-4 py-4 sm:px-5">
-            <span className="[font-family:'Oswald',Helvetica] text-2xl font-bold leading-tight text-[#dc2626] sm:text-3xl">{loading ? "—" : failed}</span>
-            <span className="[font-family:'Montserrat',Helvetica] text-xs font-semibold uppercase tracking-[0.6px] text-[#dc2626]">Failed</span>
-          </div>
+          {[
+            { label: "Pending", value: pending, Icon: Clock, iconBg: "bg-[#fff7ed]", iconCls: "text-[#f59e0b]", valueCls: "text-[#f59e0b]" },
+            { label: "Sent", value: sent, Icon: Zap, iconBg: "bg-[#f0fdf4]", iconCls: "text-[#16a34a]", valueCls: "text-[#16a34a]" },
+            { label: "Failed", value: failed, Icon: X, iconBg: "bg-[#fff1f0]", iconCls: "text-[#ef4444]", valueCls: "text-[#ef4444]" },
+          ].map((s) => (
+            <div key={s.label} className="bg-white rounded-xl border border-[#f0f0f0] shadow-[0_1px_4px_rgba(0,0,0,0.05)] p-4 sm:p-5 flex items-center gap-3 sm:gap-4">
+              <div className={`w-10 h-10 sm:w-11 sm:h-11 rounded-xl ${s.iconBg} flex items-center justify-center flex-shrink-0`}>
+                <s.Icon size={20} className={s.iconCls} />
+              </div>
+              <div className="flex flex-col gap-0.5">
+                <span className={`[font-family:'Oswald',Helvetica] font-bold text-xl sm:text-2xl tabular-nums leading-tight ${s.valueCls}`}>
+                  {loading ? "—" : s.value}
+                </span>
+                <span className="[font-family:'Montserrat',Helvetica] font-normal text-[#9ca3af] text-xs leading-snug">{s.label}</span>
+              </div>
+            </div>
+          ))}
         </div>
 
-        <div className="overflow-hidden rounded-xl border border-[#f0f0f0] bg-white shadow-[0_1px_4px_rgba(0,0,0,0.06)]">
-          <div className="border-b border-[#f3f4f6] px-4 py-3 sm:px-5">
-            <span className="[font-family:'Montserrat',Helvetica] text-xs font-semibold uppercase tracking-[0.6px] text-[#9ca3af]">
-              {loading ? "Loading..." : `${emails.length} Emails`}
-            </span>
+        <div className="flex min-h-0 flex-1 flex-col overflow-hidden rounded-xl border border-[#f0f0f0] bg-white shadow-[0_1px_4px_rgba(0,0,0,0.05)]">
+          <div className="flex items-center gap-2 border-b border-[#f3f4f6] px-4 py-4 sm:px-5">
+            <span className="[font-family:'Montserrat',Helvetica] font-semibold text-[#9ca3af] text-xs tracking-[0.6px] uppercase">All Emails</span>
           </div>
 
-          {loading ? (
-            <div className="flex items-center justify-center py-16">
-              <span className="[font-family:'Montserrat',Helvetica] text-sm text-[#9ca3af]">Loading outbox...</span>
-            </div>
-          ) : (
-            <>
-              <div className="hidden overflow-x-auto md:block">
-                <table className="w-full min-w-[680px]">
-                  <thead>
-                    <tr className="border-b border-[#f3f4f6]">
-                      {["Recipient", "Subject", "Status", "Created", "Actions"].map((h) => (
-                        <th key={h} className="px-4 py-3 text-left lg:px-5">
-                          <span className="[font-family:'Montserrat',Helvetica] text-xs font-semibold uppercase tracking-[0.6px] text-[#9ca3af]">
-                            {h}
-                          </span>
-                        </th>
-                      ))}
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {emails.map((email, idx) => (
-                      <tr
-                        key={email.id}
-                        data-testid={`row-email-${email.id}`}
-                        className={`transition-colors hover:bg-[#fafafa] ${idx < emails.length - 1 ? "border-b border-[#f9fafb]" : ""}`}
-                      >
-                        <td className="px-4 py-4 lg:px-5">
-                          <span className="[font-family:'Montserrat',Helvetica] text-sm font-semibold break-all text-[#111827]">{email.to}</span>
-                        </td>
-                        <td className="px-4 py-4 lg:px-5">
-                          <span className="[font-family:'Montserrat',Helvetica] text-sm font-normal break-words text-[#374151]">{email.subject}</span>
-                        </td>
-                        <td className="whitespace-nowrap px-4 py-4 lg:px-5">
-                          <span className={`inline-flex items-center rounded-full px-2.5 py-0.5 [font-family:'Montserrat',Helvetica] text-xs font-semibold capitalize ${statusBadge(email.status)}`}>
-                            {email.status.charAt(0).toUpperCase() + email.status.slice(1)}
-                          </span>
-                        </td>
-                        <td className="whitespace-nowrap px-4 py-4 lg:px-5">
-                          <div className="flex items-center gap-1.5">
-                            <Clock size={12} className="shrink-0 text-[#9ca3af]" />
-                            <span className="[font-family:'Montserrat',Helvetica] text-sm font-normal text-[#9ca3af]">{email.created}</span>
-                          </div>
-                        </td>
-                        <td className="whitespace-nowrap px-4 py-4 lg:px-5">
-                          <div className="flex items-center gap-3">
-                            <button
-                              type="button"
-                              onClick={() => setPreviewEmail(email)}
-                              data-testid={`button-preview-email-${email.id}`}
-                              className="flex items-center gap-1 [font-family:'Montserrat',Helvetica] text-sm font-semibold text-[#ef3e34] hover:underline"
-                            >
-                              <Zap size={12} className="shrink-0" />
-                              Preview
-                            </button>
-                            {email.status === "failed" && (
-                              <button
-                                type="button"
-                                onClick={() => void handleRetry(email.id)}
-                                disabled={retrying === email.id}
-                                data-testid={`button-retry-email-${email.id}`}
-                                className="flex items-center gap-1 [font-family:'Montserrat',Helvetica] text-sm font-semibold text-[#f97316] hover:underline disabled:opacity-50"
-                              >
-                                <RefreshCw size={12} className={`shrink-0 ${retrying === email.id ? "animate-spin" : ""}`} />
-                                {retrying === email.id ? "Retrying..." : "Retry"}
-                              </button>
-                            )}
-                          </div>
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
+          <div className="min-h-0 flex-1 overflow-y-auto">
+            {loading ? (
+              <div className="flex items-center justify-center py-16">
+                <span className="[font-family:'Montserrat',Helvetica] text-sm text-[#9ca3af]">Loading emails...</span>
               </div>
-
-              <ul className="m-0 flex list-none flex-col divide-y divide-[#f9fafb] p-0 md:hidden">
+            ) : emails.length === 0 ? (
+              <div className="flex items-center justify-center py-16">
+                <span className="[font-family:'Montserrat',Helvetica] text-sm text-[#9ca3af]">No emails in outbox</span>
+              </div>
+            ) : (
+              <div className="divide-y divide-[#f9fafb]">
                 {emails.map((email) => (
-                  <li key={email.id} data-testid={`row-email-${email.id}`} className="p-4">
-                    <div className="flex flex-col gap-3">
-                      <div className="min-w-0">
-                        <p className="[font-family:'Montserrat',Helvetica] text-xs font-semibold uppercase tracking-[0.5px] text-[#9ca3af]">Recipient</p>
-                        <p className="mt-0.5 [font-family:'Montserrat',Helvetica] text-sm font-semibold break-all text-[#111827]">{email.to}</p>
-                      </div>
-                      <div className="min-w-0">
-                        <p className="[font-family:'Montserrat',Helvetica] text-xs font-semibold uppercase tracking-[0.5px] text-[#9ca3af]">Subject</p>
-                        <p className="mt-0.5 [font-family:'Montserrat',Helvetica] text-sm font-normal break-words text-[#374151]">{email.subject}</p>
-                      </div>
-                      <div className="flex flex-wrap items-center justify-between gap-2">
-                        <span className={`inline-flex items-center rounded-full px-2.5 py-0.5 [font-family:'Montserrat',Helvetica] text-xs font-semibold capitalize ${statusBadge(email.status)}`}>
+                  <div key={email.id} className="flex min-w-0 items-start justify-between gap-3 px-4 py-4 sm:px-5 hover:bg-[#fafafa] transition-colors">
+                    <div className="min-w-0 flex flex-col gap-1">
+                      <div className="flex flex-wrap items-center gap-2">
+                        <span className="[font-family:'Montserrat',Helvetica] font-semibold text-[#111827] text-sm truncate max-w-[200px] sm:max-w-none">
+                          {email.subject}
+                        </span>
+                        <span className={`inline-flex items-center px-2 py-0.5 rounded-full [font-family:'Montserrat',Helvetica] font-semibold text-xs flex-shrink-0 ${statusBadge(email.status)}`}>
                           {email.status.charAt(0).toUpperCase() + email.status.slice(1)}
                         </span>
-                        <div className="flex items-center gap-1.5">
-                          <Clock size={12} className="shrink-0 text-[#9ca3af]" />
-                          <span className="[font-family:'Montserrat',Helvetica] text-xs font-normal text-[#9ca3af]">{email.created}</span>
-                        </div>
                       </div>
-                      <div className="flex flex-col gap-2">
-                        <button
-                          type="button"
-                          onClick={() => setPreviewEmail(email)}
-                          data-testid={`button-preview-email-${email.id}`}
-                          className="flex w-full items-center justify-center gap-1.5 rounded-lg border border-[#ef3e34]/30 bg-[#fff4f4] py-2.5 [font-family:'Montserrat',Helvetica] text-sm font-semibold text-[#ef3e34] transition-colors hover:bg-[#ffe8e8]"
-                        >
-                          <Zap size={14} className="shrink-0" />
-                          Preview
-                        </button>
-                        {email.status === "failed" && (
-                          <button
-                            type="button"
-                            onClick={() => void handleRetry(email.id)}
-                            disabled={retrying === email.id}
-                            data-testid={`button-retry-email-${email.id}`}
-                            className="flex w-full items-center justify-center gap-1.5 rounded-lg border border-[#f97316]/30 bg-[#fff7ed] py-2.5 [font-family:'Montserrat',Helvetica] text-sm font-semibold text-[#f97316] transition-colors hover:bg-[#ffedd5] disabled:opacity-50"
-                          >
-                            <RefreshCw size={14} className={`shrink-0 ${retrying === email.id ? "animate-spin" : ""}`} />
-                            {retrying === email.id ? "Retrying..." : "Retry"}
-                          </button>
-                        )}
-                      </div>
+                      <span className="[font-family:'Montserrat',Helvetica] font-normal text-[#9ca3af] text-xs">To: {email.to}</span>
+                      <span className="[font-family:'Montserrat',Helvetica] font-normal text-[#9ca3af] text-xs">Created: {email.created}</span>
                     </div>
-                  </li>
+
+                    <div className="flex flex-shrink-0 items-center gap-2">
+                      {email.status === "failed" && (
+                        <button
+                          onClick={() => retryMutation.mutate(email.id)}
+                          disabled={retryMutation.isPending && retryMutation.variables === email.id}
+                          className="flex items-center gap-1 h-8 px-3 rounded-lg border border-[#e5e7eb] bg-white hover:bg-[#f3f4f6] [font-family:'Montserrat',Helvetica] font-medium text-xs text-[#374151] transition-colors disabled:opacity-50"
+                        >
+                          <RefreshCw size={12} className={retryMutation.isPending && retryMutation.variables === email.id ? "animate-spin" : ""} />
+                          Retry
+                        </button>
+                      )}
+                      <button
+                        onClick={() => setPreviewEmail(email)}
+                        className="h-8 px-3 rounded-lg bg-[#ef3e34] hover:bg-[#d63530] text-white [font-family:'Montserrat',Helvetica] font-semibold text-xs transition-colors"
+                      >
+                        View
+                      </button>
+                    </div>
+                  </div>
                 ))}
-              </ul>
-            </>
-          )}
+              </div>
+            )}
+          </div>
         </div>
       </div>
 
-      {previewEmail && <EmailDetailsModal email={previewEmail} onClose={() => setPreviewEmail(null)} />}
+      {previewEmail && (
+        <EmailDetailsModal email={previewEmail} onClose={() => setPreviewEmail(null)} />
+      )}
     </>
   );
 };

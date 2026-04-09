@@ -1,9 +1,10 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Bell, Shield, Clock, X } from "lucide-react";
 import api from "@/lib/api";
 import { useToast } from "@/hooks/use-toast";
+import { qk } from "@/lib/queryKeys";
 
 type Alert = {
   id: string;
@@ -115,41 +116,42 @@ const AlertCard = ({
 };
 
 export const Alerts = () => {
-  const [alerts, setAlerts] = useState<Alert[]>([]);
-  const [loading, setLoading] = useState(true);
   const { toast } = useToast();
+  const queryClient = useQueryClient();
 
-  const fetchAlerts = useCallback(async () => {
-    try {
+  const { data: alerts = [], isLoading: loading } = useQuery<Alert[]>({
+    queryKey: qk.alerts(),
+    queryFn: async () => {
       const res = await api.get("/alerts", { params: { limit: 50 } });
       const raw: ApiAlert[] = res.data.data ?? [];
-      setAlerts(raw.map(mapAlert));
-    } catch {
-      // keep empty
-    } finally {
-      setLoading(false);
-    }
-  }, []);
+      return raw.map(mapAlert);
+    },
+  });
 
-  useEffect(() => { void fetchAlerts(); }, [fetchAlerts]);
-
-  const dismiss = async (id: string) => {
-    try {
-      await api.delete(`/alerts/${id}`);
-      setAlerts((prev) => prev.filter((a) => a.id !== id));
-    } catch {
+  const dismissMutation = useMutation({
+    mutationFn: (id: string) => api.delete(`/alerts/${id}`),
+    onSuccess: (_data, id) => {
+      queryClient.setQueryData<Alert[]>(qk.alerts(), (prev = []) =>
+        prev.filter((a) => a.id !== id)
+      );
+      queryClient.invalidateQueries({ queryKey: qk.alertsUnread() });
+    },
+    onError: () => {
       toast({ title: "Failed to dismiss alert", variant: "destructive" });
-    }
-  };
+    },
+  });
 
-  const markRead = async (id: string) => {
-    try {
-      await api.put(`/alerts/${id}/read`);
-      setAlerts((prev) => prev.map((a) => a.id === id ? { ...a, read: true } : a));
-    } catch {
-      setAlerts((prev) => prev.map((a) => a.id === id ? { ...a, read: true } : a));
-    }
-  };
+  const markReadMutation = useMutation({
+    mutationFn: (id: string) => api.put(`/alerts/${id}/read`),
+    onMutate: (id) => {
+      queryClient.setQueryData<Alert[]>(qk.alerts(), (prev = []) =>
+        prev.map((a) => a.id === id ? { ...a, read: true } : a)
+      );
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: qk.alertsUnread() });
+    },
+  });
 
   return (
     <div className="flex min-h-full min-w-0 flex-col gap-6 bg-neutral-50 p-4 sm:p-6 lg:p-8">
@@ -181,7 +183,11 @@ export const Alerts = () => {
           ) : (
             alerts.map((alert) => (
               <div key={alert.id} className="px-4 py-3 border-b border-[#f9fafb] last:border-b-0">
-                <AlertCard alert={alert} onDismiss={dismiss} onRead={markRead} />
+                <AlertCard
+                  alert={alert}
+                  onDismiss={(id) => dismissMutation.mutate(id)}
+                  onRead={(id) => { if (!alert.read) markReadMutation.mutate(id); }}
+                />
               </div>
             ))
           )}

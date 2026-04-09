@@ -1,11 +1,13 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState } from "react";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Search, RefreshCw, X, Zap } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { MobileFilterSelect } from "@/components/MobileFilterSelect";
 import { useToast } from "@/hooks/use-toast";
 import api from "@/lib/api";
+import { qk } from "@/lib/queryKeys";
 
 type Match = {
   id: string;
@@ -103,12 +105,6 @@ interface MatchPreviewModalProps {
 const MatchPreviewModal = ({ match, onClose, onApprove, onReject }: MatchPreviewModalProps) => {
   const sc = scoreColor(match.score);
 
-  useEffect(() => {
-    const handleKey = (e: KeyboardEvent) => { if (e.key === "Escape") onClose(); };
-    document.addEventListener("keydown", handleKey);
-    return () => document.removeEventListener("keydown", handleKey);
-  }, [onClose]);
-
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40"
       onClick={(e) => e.target === e.currentTarget && onClose()}>
@@ -175,27 +171,48 @@ const filterTabs = ["all", "pending", "approved", "rejected"] as const;
 type FilterTab = typeof filterTabs[number];
 
 export const Matches = () => {
-  const [matches, setMatches] = useState<Match[]>([]);
-  const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
   const [sortBy, setSortBy] = useState<"newest" | "highest">("newest");
   const [activeFilter, setActiveFilter] = useState<FilterTab>("all");
   const [previewMatch, setPreviewMatch] = useState<Match | null>(null);
   const { toast } = useToast();
+  const queryClient = useQueryClient();
 
-  const fetchMatches = useCallback(async () => {
-    try {
+  const { data: matches = [], isLoading: loading, refetch } = useQuery<Match[]>({
+    queryKey: qk.matches(),
+    queryFn: async () => {
       const res = await api.get("/matches", { params: { limit: 100 } });
       const raw: ApiMatch[] = res.data.data ?? [];
-      setMatches(raw.map(mapMatch));
-    } catch {
-      // keep empty
-    } finally {
-      setLoading(false);
-    }
-  }, []);
+      return raw.map(mapMatch);
+    },
+  });
 
-  useEffect(() => { void fetchMatches(); }, [fetchMatches]);
+  const approveMutation = useMutation({
+    mutationFn: (id: string) => api.put(`/matches/${id}/approve`),
+    onSuccess: (_data, id) => {
+      queryClient.setQueryData<Match[]>(qk.matches(), (prev = []) =>
+        prev.map((m) => m.id === id ? { ...m, status: "approved" } : m)
+      );
+      setPreviewMatch(null);
+      toast({ title: "Match approved successfully", description: "The match has been approved and is now active." });
+    },
+    onError: () => {
+      toast({ title: "Failed to approve match", variant: "destructive" });
+    },
+  });
+
+  const rejectMutation = useMutation({
+    mutationFn: (id: string) => api.put(`/matches/${id}/reject`),
+    onSuccess: (_data, id) => {
+      queryClient.setQueryData<Match[]>(qk.matches(), (prev = []) =>
+        prev.map((m) => m.id === id ? { ...m, status: "rejected" } : m)
+      );
+      setPreviewMatch(null);
+    },
+    onError: () => {
+      toast({ title: "Failed to reject match", variant: "destructive" });
+    },
+  });
 
   const filtered = matches.filter((m) => {
     const matchSearch = !search || m.org.toLowerCase().includes(search.toLowerCase()) || m.opportunity.toLowerCase().includes(search.toLowerCase()) || m.funder.toLowerCase().includes(search.toLowerCase());
@@ -206,27 +223,6 @@ export const Matches = () => {
   const sorted = [...filtered].sort((a, b) =>
     sortBy === "highest" ? b.score - a.score : 0
   );
-
-  const handleApprove = async (id: string) => {
-    try {
-      await api.put(`/matches/${id}/approve`);
-      setMatches((prev) => prev.map((m) => m.id === id ? { ...m, status: "approved" } : m));
-      setPreviewMatch(null);
-      toast({ title: "Match approved successfully", description: "The match has been approved and is now active." });
-    } catch {
-      toast({ title: "Failed to approve match", variant: "destructive" });
-    }
-  };
-
-  const handleReject = async (id: string) => {
-    try {
-      await api.put(`/matches/${id}/reject`);
-      setMatches((prev) => prev.map((m) => m.id === id ? { ...m, status: "rejected" } : m));
-      setPreviewMatch(null);
-    } catch {
-      toast({ title: "Failed to reject match", variant: "destructive" });
-    }
-  };
 
   return (
     <>
@@ -243,10 +239,10 @@ export const Matches = () => {
           <button
             type="button"
             aria-label="Force global refresh"
-            onClick={() => { setLoading(true); void fetchMatches(); }}
+            onClick={() => void refetch()}
             className="flex h-10 w-full shrink-0 items-center justify-center gap-2 rounded-lg bg-[#ef3e34] px-4 text-white transition-colors hover:bg-[#d63530] sm:w-auto"
           >
-            <RefreshCw size={14} className="shrink-0" />
+            <RefreshCw size={14} className={`shrink-0 ${loading ? "animate-spin" : ""}`} />
             <span className="[font-family:'Montserrat',Helvetica] text-sm font-semibold sm:hidden">Refresh</span>
             <span className="[font-family:'Montserrat',Helvetica] hidden text-sm font-semibold sm:inline">Force Global Refresh</span>
           </button>
@@ -424,8 +420,8 @@ export const Matches = () => {
         <MatchPreviewModal
           match={previewMatch}
           onClose={() => setPreviewMatch(null)}
-          onApprove={handleApprove}
-          onReject={handleReject}
+          onApprove={(id) => approveMutation.mutate(id)}
+          onReject={(id) => rejectMutation.mutate(id)}
         />
       )}
     </>

@@ -1,7 +1,8 @@
 "use client";
 
 import type { ReactNode } from "react";
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect } from "react";
+import { useQuery, useMutation } from "@tanstack/react-query";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { Bell, Globe, Shield, Trash2, Mail, Zap, Clock, X, CheckCircle, Lock, AlignJustify } from "lucide-react";
@@ -11,6 +12,7 @@ import { cn } from "@/lib/utils";
 import { deleteAccountConfirmSchema, settingsSaveSchema, type DeleteAccountConfirmValues, type SettingsSaveFormValues } from "@/lib/validation-schemas";
 import api from "@/lib/api";
 import { useAuth } from "@/lib/AuthContext";
+import { qk } from "@/lib/queryKeys";
 
 const Toggle = ({ checked, onChange, id }: { checked: boolean; onChange: (v: boolean) => void; id: string }) => (
   <button role="switch" aria-checked={checked} data-testid={`toggle-${id}`} onClick={() => onChange(!checked)}
@@ -104,6 +106,15 @@ const DeleteModal = ({ onClose, onConfirm }: { onClose: () => void; onConfirm: (
   );
 };
 
+type ApiSettings = {
+  firstName?: string;
+  lastName?: string;
+  fullName?: string;
+  email?: string;
+  organizationId?: { name?: string } | null;
+  settings?: { notifications?: Record<string, boolean> };
+};
+
 export const Settings = () => {
   const router = useRouter();
   const { toast } = useToast();
@@ -132,12 +143,18 @@ export const Settings = () => {
   });
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [orgName, setOrgName] = useState<string>("");
-  const [saving, setSaving] = useState(false);
 
-  const fetchSettings = useCallback(async () => {
-    try {
+  const { data: settingsData } = useQuery<ApiSettings>({
+    queryKey: qk.settings(),
+    queryFn: async () => {
       const res = await api.get("/settings");
-      const u = res.data.data;
+      return res.data.data as ApiSettings;
+    },
+  });
+
+  useEffect(() => {
+    if (settingsData) {
+      const u = settingsData;
       reset({
         firstName: u.firstName ?? (u.fullName ? u.fullName.split(" ")[0] : "") ?? "",
         lastName: u.lastName ?? (u.fullName ? u.fullName.split(" ").slice(1).join(" ") : "") ?? "",
@@ -147,59 +164,52 @@ export const Settings = () => {
       });
       setOrgName(u.organizationId?.name ?? "—");
       if (u.settings?.notifications) {
-        setNotifications((prev) => ({ ...prev, ...u.settings.notifications }));
+        setNotifications((prev) => ({ ...prev, ...u.settings!.notifications }));
       }
-    } catch {
-      if (user) {
-        reset({
-          firstName: user.firstName ?? (user.fullName ? user.fullName.split(" ")[0] : "") ?? "",
-          lastName: user.lastName ?? (user.fullName ? user.fullName.split(" ").slice(1).join(" ") : "") ?? "",
-          email: user.email ?? "",
-          currentPassword: "",
-          newPassword: "",
-        });
-      }
+    } else if (user) {
+      reset({
+        firstName: user.firstName ?? (user.fullName ? user.fullName.split(" ")[0] : "") ?? "",
+        lastName: user.lastName ?? (user.fullName ? user.fullName.split(" ").slice(1).join(" ") : "") ?? "",
+        email: user.email ?? "",
+        currentPassword: "",
+        newPassword: "",
+      });
     }
-  }, [user, reset]);
+  }, [settingsData, user, reset]);
 
-  useEffect(() => { void fetchSettings(); }, [fetchSettings]);
-
-  const toggleNotif = (key: keyof typeof notifications) =>
-    setNotifications((prev) => ({ ...prev, [key]: !prev[key] }));
-
-  const onSaveValid = async (data: SettingsSaveFormValues) => {
-    setSaving(true);
-    try {
-      await api.put("/settings", {
+  const saveMutation = useMutation({
+    mutationFn: (data: SettingsSaveFormValues) =>
+      api.put("/settings", {
         firstName: data.firstName,
         lastName: data.lastName,
         email: data.email,
         notifications,
-      });
+      }),
+    onSuccess: () => {
       toast({ title: "Settings saved successfully", description: "Your preferences have been updated." });
-    } catch (err: unknown) {
+    },
+    onError: (err: unknown) => {
       const msg =
         (err as { response?: { data?: { message?: string } } })?.response?.data?.message ??
         "Failed to save settings.";
       toast({ title: "Error", description: msg, variant: "destructive" });
-    } finally {
-      setSaving(false);
-    }
-  };
+    },
+  });
+
+  const deleteMutation = useMutation({
+    mutationFn: () => api.delete("/settings/account"),
+    onSettled: () => {
+      logout();
+      setShowDeleteModal(false);
+      router.push("/login");
+    },
+  });
+
+  const toggleNotif = (key: keyof typeof notifications) =>
+    setNotifications((prev) => ({ ...prev, [key]: !prev[key] }));
 
   const handleSave = () => {
-    void handleSubmit(onSaveValid)();
-  };
-
-  const handleDeleteConfirm = async () => {
-    try {
-      await api.delete("/settings/account");
-    } catch {
-      // best effort
-    }
-    logout();
-    setShowDeleteModal(false);
-    router.push("/login");
+    void handleSubmit((data) => saveMutation.mutate(data))();
   };
 
   const inputCls =
@@ -226,9 +236,9 @@ export const Settings = () => {
             <h1 className="[font-family:'Oswald',Helvetica] font-bold text-black text-2xl sm:text-3xl tracking-[0.5px] uppercase leading-tight">Settings</h1>
             <p className="[font-family:'Montserrat',Helvetica] font-normal text-[#6b7280] text-sm">Manage your profile, notifications, and preferences</p>
           </div>
-          <button onClick={handleSave} disabled={saving} data-testid="button-save-changes"
+          <button onClick={handleSave} disabled={saveMutation.isPending} data-testid="button-save-changes"
             className="flex h-10 w-full shrink-0 items-center justify-center gap-2 rounded-lg bg-[#ef3e34] px-5 [font-family:'Montserrat',Helvetica] text-sm font-semibold text-white transition-colors hover:bg-[#d63530] sm:w-auto sm:justify-center disabled:opacity-60">
-            <Zap size={14} />{saving ? "Saving..." : "Save Changes"}
+            <Zap size={14} />{saveMutation.isPending ? "Saving..." : "Save Changes"}
           </button>
         </div>
 
@@ -355,7 +365,7 @@ export const Settings = () => {
         </SectionCard>
       </div>
 
-      {showDeleteModal && <DeleteModal onClose={() => setShowDeleteModal(false)} onConfirm={() => { void handleDeleteConfirm(); }} />}
+      {showDeleteModal && <DeleteModal onClose={() => setShowDeleteModal(false)} onConfirm={() => deleteMutation.mutate()} />}
     </>
   );
 };

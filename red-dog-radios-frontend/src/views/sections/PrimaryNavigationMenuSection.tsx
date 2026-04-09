@@ -1,9 +1,10 @@
 "use client";
 
-import { useEffect, useState, useCallback } from "react";
+import { useQuery } from "@tanstack/react-query";
 import { useRouter, usePathname } from "next/navigation";
 import { useAuth } from "@/lib/AuthContext";
 import api from "@/lib/api";
+import { qk } from "@/lib/queryKeys";
 
 const menuItems = [
   { id: "dashboard", label: "Dashboard", icon: "/figmaAssets/svg-8.svg", path: "/dashboard" },
@@ -21,22 +22,15 @@ export const PrimaryNavigationMenuSection = () => {
   const router = useRouter();
   const pathname = usePathname();
   const { logout } = useAuth();
-  const [unreadCount, setUnreadCount] = useState<number | null>(null);
 
-  const fetchUnread = useCallback(async () => {
-    try {
+  const { data: unreadCount } = useQuery<number>({
+    queryKey: qk.alertsUnread(),
+    queryFn: async () => {
       const res = await api.get("/alerts", { params: { isRead: false, limit: 1 } });
-      setUnreadCount(res.data.pagination?.total ?? 0);
-    } catch {
-      setUnreadCount(null);
-    }
-  }, []);
-
-  useEffect(() => {
-    void fetchUnread();
-    const interval = setInterval(() => void fetchUnread(), 60_000);
-    return () => clearInterval(interval);
-  }, [fetchUnread]);
+      return (res.data.pagination?.total ?? 0) as number;
+    },
+    refetchInterval: 60_000,
+  });
 
   const handleSignOut = () => {
     logout();

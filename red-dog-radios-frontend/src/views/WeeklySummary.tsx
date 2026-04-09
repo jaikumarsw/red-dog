@@ -1,8 +1,10 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState } from "react";
+import { useQuery } from "@tanstack/react-query";
 import { FileText, Eye, Calendar, Zap, Mail } from "lucide-react";
 import api from "@/lib/api";
+import { qk } from "@/lib/queryKeys";
 
 type DigestOpp = {
   title: string;
@@ -144,23 +146,16 @@ const LivePreview = ({ digest }: { digest: Digest | null }) => {
 };
 
 export const WeeklySummary = () => {
-  const [digests, setDigests] = useState<Digest[]>([]);
-  const [loading, setLoading] = useState(true);
   const [selected, setSelected] = useState<Digest | null>(null);
 
-  const fetchDigests = useCallback(async () => {
-    try {
+  const { data: digests = [], isLoading: loading } = useQuery<Digest[]>({
+    queryKey: qk.digests(),
+    queryFn: async () => {
       const res = await api.get("/digests", { params: { limit: 20 } });
       const raw: ApiDigest[] = res.data.data ?? [];
-      setDigests(raw.map(mapDigest));
-    } catch {
-      // keep empty
-    } finally {
-      setLoading(false);
-    }
-  }, []);
-
-  useEffect(() => { void fetchDigests(); }, [fetchDigests]);
+      return raw.map(mapDigest);
+    },
+  });
 
   return (
     <div className="flex h-full min-w-0 flex-col gap-6 bg-neutral-50 p-4 sm:p-6 lg:p-8">

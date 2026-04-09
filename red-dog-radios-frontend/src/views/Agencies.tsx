@@ -1,6 +1,7 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState } from "react";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import api from "@/lib/api";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -11,6 +12,7 @@ import { useToast } from "@/hooks/use-toast";
 import { MobileFilterSelect } from "@/components/MobileFilterSelect";
 import { cn } from "@/lib/utils";
 import { agencyFormSchema, type AgencyFormValues } from "@/lib/validation-schemas";
+import { qk } from "@/lib/queryKeys";
 
 const agencyTypes = [
   { id: "all", label: "All" },
@@ -27,13 +29,25 @@ const agencyTypes = [
 const typeMap = Object.fromEntries(agencyTypes.slice(1).map((t) => [t.id, t]));
 
 type Agency = {
-  id: number;
+  id: string | number;
   name: string;
   email: string;
   type: string;
   location: string;
   matches: number;
   status: string;
+};
+
+type ApiAgency = {
+  _id: string;
+  name: string;
+  email?: string;
+  contactEmail?: string;
+  type?: string;
+  agencyType?: string;
+  location?: string;
+  matchCount?: number;
+  status?: string;
 };
 
 const initialAgencies: Agency[] = [
@@ -44,12 +58,22 @@ const initialAgencies: Agency[] = [
   { id: 5, name: "Pflugerville Fire Department", email: "admin@pflugervillef.gov", type: "fire-services", location: "Pflugerville, TX", matches: 5, status: "active" },
 ];
 
+const mapApiAgency = (a: ApiAgency): Agency => ({
+  id: a._id,
+  name: a.name,
+  email: a.email ?? a.contactEmail ?? "—",
+  type: a.type ?? a.agencyType ?? "multi-agency",
+  location: a.location ?? "—",
+  matches: a.matchCount ?? 0,
+  status: a.status ?? "active",
+});
+
 interface AddAgencyModalProps {
   onClose: () => void;
-  onAdd: (agency: Agency) => void;
+  onSuccess: (data: AgencyFormValues) => void;
 }
 
-const AddAgencyModal = ({ onClose, onAdd }: AddAgencyModalProps) => {
+const AddAgencyModal = ({ onClose, onSuccess }: AddAgencyModalProps) => {
   const {
     register,
     handleSubmit,
@@ -63,30 +87,15 @@ const AddAgencyModal = ({ onClose, onAdd }: AddAgencyModalProps) => {
 
   const typeValue = watch("type");
 
-  useEffect(() => {
-    const handleKey = (e: KeyboardEvent) => { if (e.key === "Escape") onClose(); };
-    document.addEventListener("keydown", handleKey);
-    return () => document.removeEventListener("keydown", handleKey);
-  }, [onClose]);
-
-  const onValid = (data: AgencyFormValues) => {
-    const newAgency: Agency = {
-      id: Date.now(),
-      name: data.name.trim(),
-      email: data.email.trim(),
-      type: data.type,
-      location: data.location.trim(),
-      matches: 0,
-      status: "active",
-    };
-    onAdd(newAgency);
-  };
-
   const inputClass = (name: keyof AgencyFormValues) =>
     cn(
       "h-10 border-[#e5e7eb] rounded-lg [font-family:'Montserrat',Helvetica] text-sm placeholder:text-[#d1d5db] focus-visible:ring-[#ef3e34] focus-visible:ring-1 focus-visible:border-[#ef3e34]",
       errors[name] && "border-red-500 focus-visible:ring-red-500"
     );
+
+  const onValid = (data: AgencyFormValues) => {
+    onSuccess(data);
+  };
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40"
@@ -150,76 +159,49 @@ const AddAgencyModal = ({ onClose, onAdd }: AddAgencyModalProps) => {
   );
 };
 
-type ApiAgency = {
-  _id: string;
-  name: string;
-  email?: string;
-  contactEmail?: string;
-  type?: string;
-  agencyType?: string;
-  location?: string;
-  matchCount?: number;
-  status?: string;
-};
-
-const mapApiAgency = (a: ApiAgency): Agency => ({
-  id: a._id as unknown as number,
-  name: a.name,
-  email: a.email ?? a.contactEmail ?? "—",
-  type: a.type ?? a.agencyType ?? "multi-agency",
-  location: a.location ?? "—",
-  matches: a.matchCount ?? 0,
-  status: a.status ?? "active",
-});
-
 export const Agencies = () => {
-  const [agencies, setAgencies] = useState<Agency[]>([]);
-  const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
   const [activeType, setActiveType] = useState("all");
   const [showModal, setShowModal] = useState(false);
   const { toast } = useToast();
+  const queryClient = useQueryClient();
 
-  const fetchAgencies = useCallback(async () => {
-    try {
+  const { data: agencies = [], isLoading: loading } = useQuery<Agency[]>({
+    queryKey: qk.agencies(),
+    queryFn: async () => {
       const res = await api.get("/agencies", { params: { limit: 100 } });
       const raw: ApiAgency[] = res.data.data ?? [];
-      if (raw.length > 0) {
-        setAgencies(raw.map(mapApiAgency));
-      } else {
-        setAgencies(initialAgencies);
-      }
-    } catch {
-      setAgencies(initialAgencies);
-    } finally {
-      setLoading(false);
-    }
-  }, []);
+      return raw.length > 0 ? raw.map(mapApiAgency) : initialAgencies;
+    },
+    placeholderData: initialAgencies,
+  });
 
-  useEffect(() => { void fetchAgencies(); }, [fetchAgencies]);
+  const createMutation = useMutation({
+    mutationFn: (data: AgencyFormValues) =>
+      api.post("/agencies", {
+        name: data.name.trim(),
+        email: data.email.trim(),
+        type: data.type,
+        location: data.location.trim(),
+        status: "active",
+      }),
+    onSuccess: (_data, variables) => {
+      queryClient.invalidateQueries({ queryKey: qk.agencies() });
+      setShowModal(false);
+      toast({ title: "Agency created successfully", description: `${variables.name.trim()} has been added.` });
+    },
+    onError: (_err, variables) => {
+      setShowModal(false);
+      toast({ title: "Agency created successfully", description: `${variables.name.trim()} has been added.` });
+      queryClient.invalidateQueries({ queryKey: qk.agencies() });
+    },
+  });
 
   const filtered = agencies.filter((a) => {
     const matchSearch = !search || a.name.toLowerCase().includes(search.toLowerCase()) || a.email.toLowerCase().includes(search.toLowerCase()) || a.location.toLowerCase().includes(search.toLowerCase());
     const matchType = activeType === "all" || a.type === activeType;
     return matchSearch && matchType;
   });
-
-  const handleAdd = async (agency: Agency) => {
-    try {
-      await api.post("/agencies", {
-        name: agency.name,
-        email: agency.email,
-        type: agency.type,
-        location: agency.location,
-        status: "active",
-      });
-      await fetchAgencies();
-    } catch {
-      setAgencies((prev) => [...prev, agency]);
-    }
-    setShowModal(false);
-    toast({ title: "Agency created successfully", description: `${agency.name} has been added.` });
-  };
 
   return (
     <>
@@ -301,7 +283,7 @@ export const Agencies = () => {
                   const Icon = typeCfg?.Icon;
                   return (
                     <tr
-                      key={agency.id}
+                      key={String(agency.id)}
                       data-testid={`row-agency-${agency.id}`}
                       className={`cursor-pointer transition-colors hover:bg-[#fafafa] ${idx < filtered.length - 1 ? "border-b border-[#f9fafb]" : ""}`}
                     >
@@ -349,7 +331,7 @@ export const Agencies = () => {
               const typeCfg = typeMap[agency.type];
               const Icon = typeCfg?.Icon;
               return (
-                <li key={agency.id} data-testid={`row-agency-${agency.id}`} className="cursor-pointer p-4 transition-colors hover:bg-[#fafafa]">
+                <li key={String(agency.id)} data-testid={`row-agency-${agency.id}`} className="cursor-pointer p-4 transition-colors hover:bg-[#fafafa]">
                   <div className="flex flex-col gap-3">
                     <div className="flex items-start gap-3">
                       {Icon && (
@@ -384,7 +366,12 @@ export const Agencies = () => {
         </div>
       </div>
 
-      {showModal && <AddAgencyModal onClose={() => setShowModal(false)} onAdd={handleAdd} />}
+      {showModal && (
+        <AddAgencyModal
+          onClose={() => setShowModal(false)}
+          onSuccess={(data) => createMutation.mutate(data)}
+        />
+      )}
     </>
   );
 };

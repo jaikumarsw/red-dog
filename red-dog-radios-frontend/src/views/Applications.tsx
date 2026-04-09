@@ -1,10 +1,12 @@
 "use client";
 
 import type { ElementType } from "react";
-import { useState, useEffect, useCallback } from "react";
+import { useState } from "react";
+import { useQuery } from "@tanstack/react-query";
 import { FileText, Award, Clock, Eye, Pencil, CalendarClock } from "lucide-react";
 import { MobileFilterSelect } from "@/components/MobileFilterSelect";
 import api from "@/lib/api";
+import { qk } from "@/lib/queryKeys";
 
 type Status = "drafting" | "submitted" | "under-review" | "awarded" | "declined" | "in_review";
 
@@ -99,7 +101,7 @@ const statusConfig: Record<string, {
     iconCls: "text-[#f59e0b]",
     msgBg: "bg-[#eff6ff] border-[#dbeafe]",
   },
-  in_review: {
+  "in_review": {
     label: "Under Review",
     badgeCls: "bg-[#fef9c3] text-[#b45309]",
     iconBg: "bg-[#fff7ed]",
@@ -107,35 +109,35 @@ const statusConfig: Record<string, {
     iconCls: "text-[#f59e0b]",
     msgBg: "bg-[#eff6ff] border-[#dbeafe]",
   },
-  awarded: {
-    label: "Awarded 🏆",
+  "awarded": {
+    label: "Awarded",
     badgeCls: "bg-[#dcfce7] text-[#16a34a]",
     iconBg: "bg-[#f0fdf4]",
     Icon: Award,
     iconCls: "text-[#16a34a]",
     msgBg: "bg-[#f0fdf4] border-[#bbf7d0]",
   },
-  submitted: {
+  "submitted": {
     label: "Submitted",
     badgeCls: "bg-[#dbeafe] text-[#1d4ed8]",
     iconBg: "bg-[#eff6ff]",
     Icon: FileText,
     iconCls: "text-[#3b82f6]",
-    msgBg: "bg-[#f9fafb] border-[#f0f0f0]",
+    msgBg: "bg-[#f8fafc] border-[#e2e8f0]",
   },
-  drafting: {
+  "drafting": {
     label: "Drafting",
     badgeCls: "bg-[#f3f4f6] text-[#6b7280]",
     iconBg: "bg-[#f3f4f6]",
     Icon: Pencil,
-    iconCls: "text-[#6b7280]",
-    msgBg: "bg-[#f9fafb] border-[#f0f0f0]",
+    iconCls: "text-[#9ca3af]",
+    msgBg: "bg-[#f8fafc] border-[#e2e8f0]",
   },
-  declined: {
+  "declined": {
     label: "Declined",
     badgeCls: "bg-[#fee2e2] text-[#dc2626]",
     iconBg: "bg-[#fff1f0]",
-    Icon: FileText,
+    Icon: CalendarClock,
     iconCls: "text-[#ef4444]",
     msgBg: "bg-[#fff1f0] border-[#fecaca]",
   },
@@ -147,7 +149,7 @@ const defaultCfg = {
   iconBg: "bg-[#eff6ff]",
   Icon: FileText,
   iconCls: "text-[#3b82f6]",
-  msgBg: "bg-[#f9fafb] border-[#f0f0f0]",
+  msgBg: "bg-[#f8fafc] border-[#e2e8f0]",
 };
 
 const filterTabs: { label: string; value: string }[] = [
@@ -161,42 +163,34 @@ const filterTabs: { label: string; value: string }[] = [
 
 const AppCard = ({ app }: { app: AppItem }) => {
   const cfg = statusConfig[app.status] ?? defaultCfg;
-  const { Icon } = cfg;
-
   return (
-    <div className="bg-white rounded-xl border border-[#e5e7eb] p-4 sm:p-5 flex flex-col gap-4 min-w-0">
-      <div className="flex flex-col gap-3 min-[480px]:flex-row min-[480px]:items-start min-[480px]:justify-between">
-        <div className="flex items-start gap-3 min-w-0 flex-1">
-          <div className={`w-10 h-10 rounded-full ${cfg.iconBg} flex items-center justify-center flex-shrink-0 mt-0.5`}>
-            <Icon size={18} className={cfg.iconCls} />
+    <div className="bg-white rounded-xl border border-[#f0f0f0] shadow-[0_1px_4px_rgba(0,0,0,0.05)] p-4 sm:p-5 flex flex-col gap-4">
+      <div className="flex min-w-0 items-start justify-between gap-3">
+        <div className="flex min-w-0 items-start gap-3 sm:gap-4">
+          <div className={`w-10 h-10 sm:w-11 sm:h-11 rounded-xl ${cfg.iconBg} flex items-center justify-center flex-shrink-0 mt-0.5`}>
+            <cfg.Icon size={20} className={cfg.iconCls} />
           </div>
-          <div className="flex min-w-0 flex-1 flex-col gap-0.5">
-            <p className="[font-family:'Montserrat',Helvetica] font-bold text-[#111827] text-sm leading-snug break-words">
-              {app.grant}
-            </p>
-            <p className="[font-family:'Montserrat',Helvetica] font-normal text-[#9ca3af] text-xs break-words">
-              {app.funder} · {app.amount} · {app.org}
-            </p>
-            <div className="flex flex-wrap items-center gap-x-3 gap-y-1 mt-1">
-              <div className="flex items-center gap-1 min-w-0">
-                <CalendarClock size={11} className="text-[#ef3e34] flex-shrink-0" />
-                <span className="[font-family:'Montserrat',Helvetica] font-semibold text-[#ef3e34] text-xs">
-                  Applied {app.appliedDate}
-                </span>
-              </div>
-              <span className="[font-family:'Montserrat',Helvetica] font-normal text-[#9ca3af] text-xs break-words">
-                {app.category}
-              </span>
+          <div className="min-w-0 flex flex-col gap-1">
+            <p className="[font-family:'Montserrat',Helvetica] font-semibold text-[#111827] text-sm sm:text-base leading-snug break-words">{app.grant}</p>
+            <div className="flex flex-wrap items-center gap-x-3 gap-y-0.5">
+              <span className="[font-family:'Montserrat',Helvetica] font-normal text-[#9ca3af] text-xs">{app.funder}</span>
+              <span className="[font-family:'Montserrat',Helvetica] font-semibold text-[#111827] text-xs">{app.amount}</span>
             </div>
           </div>
         </div>
-        <span className={`inline-flex w-fit max-w-full items-center px-3 py-1 rounded-full [font-family:'Montserrat',Helvetica] font-semibold text-xs flex-shrink-0 ${cfg.badgeCls}`}>
+        <span className={`inline-flex items-center rounded-full px-2.5 py-0.5 [font-family:'Montserrat',Helvetica] text-xs font-semibold flex-shrink-0 ${cfg.badgeCls}`}>
           {cfg.label}
         </span>
       </div>
 
-      <div className={`flex items-start gap-2.5 rounded-lg p-3 border min-w-0 ${cfg.msgBg}`}>
-        <div className="w-7 h-7 rounded-full bg-[#ef3e34] flex items-center justify-center flex-shrink-0">
+      <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-xs [font-family:'Montserrat',Helvetica]">
+        <span className="text-[#9ca3af]">Org: <span className="text-[#374151] font-medium">{app.org}</span></span>
+        <span className="text-[#9ca3af]">Category: <span className="text-[#374151] font-medium">{app.category}</span></span>
+        <span className="text-[#9ca3af]">Applied: <span className="text-[#374151] font-medium">{app.appliedDate}</span></span>
+      </div>
+
+      <div className={`flex items-start gap-2.5 rounded-xl border ${cfg.msgBg} px-3 py-2.5 sm:px-4 sm:py-3`}>
+        <div className="w-6 h-6 rounded-full bg-[#ef3e34] flex items-center justify-center flex-shrink-0 mt-0.5">
           <span className="[font-family:'Montserrat',Helvetica] font-bold text-white text-[10px]">A</span>
         </div>
         <p className="min-w-0 flex-1 [font-family:'Montserrat',Helvetica] font-normal text-[#374151] text-xs leading-5 pt-0.5 break-words">
@@ -219,23 +213,18 @@ const AppCard = ({ app }: { app: AppItem }) => {
 };
 
 export const Applications = () => {
-  const [apps, setApps] = useState<AppItem[]>([]);
-  const [loading, setLoading] = useState(true);
   const [activeFilter, setActiveFilter] = useState("all");
 
-  const fetchApps = useCallback(async () => {
-    try {
+  const { data: rawApps = [], isLoading: loading } = useQuery<AppItem[]>({
+    queryKey: qk.applications(),
+    queryFn: async () => {
       const res = await api.get("/applications", { params: { limit: 100 } });
       const raw: ApiApp[] = res.data.data ?? [];
-      setApps(raw.map(mapApp));
-    } catch {
-      // keep empty
-    } finally {
-      setLoading(false);
-    }
-  }, []);
+      return raw.map(mapApp);
+    },
+  });
 
-  useEffect(() => { void fetchApps(); }, [fetchApps]);
+  const apps = rawApps;
 
   const filtered = apps.filter(
     (a) => activeFilter === "all" || a.status === activeFilter || (activeFilter === "under-review" && a.status === "in_review")

@@ -1,12 +1,14 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState } from "react";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { Separator } from "@/components/ui/separator";
 import { RefreshCw, AlertTriangle } from "lucide-react";
 import api from "@/lib/api";
+import { qk } from "@/lib/queryKeys";
 
 type StatCards = {
   totalOrganizations: number;
@@ -68,33 +70,26 @@ const SkeletonBox = ({ className }: { className?: string }) => (
 
 export const PlatformDashboardSection = () => {
   const router = useRouter();
+  const queryClient = useQueryClient();
   const [refreshing, setRefreshing] = useState(false);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState(false);
-  const [stats, setStats] = useState<DashboardStats | null>(null);
 
-  const fetchStats = useCallback(async () => {
-    setError(false);
-    try {
+  const { data: stats, isLoading, isError, refetch } = useQuery<DashboardStats>({
+    queryKey: qk.dashboard(),
+    queryFn: async () => {
       const res = await api.get("/dashboard/stats");
-      setStats(res.data.data as DashboardStats);
-    } catch {
-      setError(true);
-    } finally {
-      setLoading(false);
-    }
-  }, []);
-
-  useEffect(() => {
-    void fetchStats();
-  }, [fetchStats]);
+      return res.data.data as DashboardStats;
+    },
+  });
 
   const handleRefresh = async () => {
     setRefreshing(true);
-    setLoading(true);
-    await fetchStats();
+    await queryClient.invalidateQueries({ queryKey: qk.dashboard() });
+    await refetch();
     setTimeout(() => setRefreshing(false), 600);
   };
+
+  const loading = isLoading;
+  const error = isError;
 
   const statValues: StatCards = {
     totalOrganizations: stats?.totalOrganizations ?? 0,

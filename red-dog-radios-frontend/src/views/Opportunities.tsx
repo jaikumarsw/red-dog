@@ -1,7 +1,9 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect } from "react";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import api from "@/lib/api";
+import { qk } from "@/lib/queryKeys";
 import { createPortal } from "react-dom";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -209,23 +211,21 @@ const AddOpportunityModal = ({ onClose, onCreate }: { onClose: () => void; onCre
   const field = (name: keyof AddOpportunityFormValues) =>
     cn(inputClass, errors[name] && "border-red-500 focus-visible:ring-red-500");
 
-  const [submitting, setSubmitting] = useState(false);
   const [serverError, setServerError] = useState("");
 
-  const onValid = async (data: AddOpportunityFormValues) => {
-    setSubmitting(true);
-    setServerError("");
-    try {
+  const parseDeadline = (v: string) => {
+    if (!v) return undefined;
+    const parts = v.split("/");
+    if (parts.length !== 3) return undefined;
+    const [m, d, y] = parts;
+    const dt = new Date(`${y}-${m.padStart(2, "0")}-${d.padStart(2, "0")}`);
+    return isNaN(dt.getTime()) ? undefined : dt.toISOString();
+  };
+
+  const createMutation = useMutation({
+    mutationFn: (data: AddOpportunityFormValues) => {
       const kwds = data.keywords.split(",").map((s) => s.trim()).filter(Boolean);
-      const parseDeadline = (v: string) => {
-        if (!v) return undefined;
-        const parts = v.split("/");
-        if (parts.length !== 3) return undefined;
-        const [m, d, y] = parts;
-        const dt = new Date(`${y}-${m.padStart(2, "0")}-${d.padStart(2, "0")}`);
-        return isNaN(dt.getTime()) ? undefined : dt.toISOString();
-      };
-      await api.post("/opportunities", {
+      return api.post("/opportunities", {
         title: data.title.trim(),
         funder: data.funder.trim(),
         deadline: parseDeadline(data.deadline),
@@ -235,15 +235,21 @@ const AddOpportunityModal = ({ onClose, onCreate }: { onClose: () => void; onCre
         description: data.description.trim(),
         status: "open",
       });
-      onCreate(data.title.trim());
-    } catch (err: unknown) {
+    },
+    onSuccess: (_data, variables) => {
+      onCreate(variables.title.trim());
+    },
+    onError: (err: unknown) => {
       const msg =
         (err as { response?: { data?: { message?: string } } })?.response?.data?.message ??
         "Failed to create opportunity.";
       setServerError(msg);
-    } finally {
-      setSubmitting(false);
-    }
+    },
+  });
+
+  const onValid = (data: AddOpportunityFormValues) => {
+    setServerError("");
+    createMutation.mutate(data);
   };
 
   const node = (
@@ -319,8 +325,8 @@ const AddOpportunityModal = ({ onClose, onCreate }: { onClose: () => void; onCre
             <button type="button" onClick={onClose} className="h-10 w-full rounded-lg px-4 py-2 [font-family:'Montserrat',Helvetica] text-sm font-medium text-[#6b7280] transition-colors hover:bg-[#f9fafb] hover:text-[#374151] sm:h-auto sm:w-auto sm:hover:bg-transparent">
               Cancel
             </button>
-            <button type="submit" disabled={submitting} className="h-10 w-full rounded-lg bg-[#ef3e34] px-5 [font-family:'Montserrat',Helvetica] text-sm font-semibold text-white transition-colors hover:bg-[#d63530] sm:w-auto disabled:opacity-60">
-              {submitting ? "Creating..." : "Create Opportunity"}
+            <button type="submit" disabled={createMutation.isPending} className="h-10 w-full rounded-lg bg-[#ef3e34] px-5 [font-family:'Montserrat',Helvetica] text-sm font-semibold text-white transition-colors hover:bg-[#d63530] sm:w-auto disabled:opacity-60">
+              {createMutation.isPending ? "Creating..." : "Create Opportunity"}
             </button>
           </div>
         </form>
@@ -429,9 +435,8 @@ const ashleenDraftDefaults = (o: Opportunity): AshleenApplicationDraftValues => 
 const AshleenModal = ({ opp, onClose }: { opp: Opportunity; onClose: () => void }) => {
   const [step, setStep] = useState(0);
   const [appId, setAppId] = useState<string | null>(null);
-  const [creating, setCreating] = useState(false);
-  const [submitting, setSubmitting] = useState(false);
   const { toast } = useToast();
+  const queryClient = useQueryClient();
 
   const {
     register,
@@ -454,44 +459,42 @@ const AshleenModal = ({ opp, onClose }: { opp: Opportunity; onClose: () => void 
     if (step === 2) reset(ashleenDraftDefaults(opp));
   }, [step, opp, reset]);
 
-  const handleApplyForMe = async () => {
-    setCreating(true);
-    try {
+  const applyMutation = useMutation({
+    mutationFn: () => {
       const stored = typeof window !== "undefined" ? localStorage.getItem("rdg_user") : null;
       const user = stored ? (JSON.parse(stored) as { organizationId?: string; organization?: string }) : {};
       const orgId = user.organizationId ?? user.organization ?? undefined;
-      const res = await api.post("/applications", {
+      return api.post("/applications", {
         opportunity: String(opp.id),
         organization: orgId,
         projectTitle: opp.grant,
         status: "draft",
       });
+    },
+    onSuccess: (res) => {
       const id = (res.data.data?._id ?? res.data.data?.id ?? null) as string | null;
       setAppId(id);
       setStep(2);
-    } catch {
+    },
+    onError: () => {
       setStep(2);
-    } finally {
-      setCreating(false);
-    }
-  };
+    },
+  });
 
-  const handleSubmitApplication = async () => {
-    setSubmitting(true);
-    try {
+  const submitMutation = useMutation({
+    mutationFn: () => {
       if (appId) {
         const vals = getValues();
-        await api.put(`/applications/${appId}/submit`, vals);
+        return api.put(`/applications/${appId}/submit`, vals);
       }
+      return Promise.resolve(null);
+    },
+    onSettled: () => {
       toast({ title: "Application submitted!", description: `Your application for "${opp.grant}" has been submitted.` });
+      queryClient.invalidateQueries({ queryKey: qk.applications() });
       onClose();
-    } catch {
-      toast({ title: "Application submitted!", description: `Your application for "${opp.grant}" has been submitted.` });
-      onClose();
-    } finally {
-      setSubmitting(false);
-    }
-  };
+    },
+  });
 
   const draftField = (name: keyof AshleenApplicationDraftValues) =>
     cn(inputClass, errors[name] && "border-red-500 focus-visible:ring-red-500");
@@ -561,11 +564,11 @@ const AshleenModal = ({ opp, onClose }: { opp: Opportunity; onClose: () => void 
             <AshleenMsg text={`I found a great opportunity: "${opp.grant}" from ${opp.funder}. This is a ${opp.amount} grant for ${opp.category.toLowerCase()} initiatives.`} />
             <AshleenMsg text="Would you like more information about this grant opportunity?" />
             <button
-              onClick={() => void handleApplyForMe()}
-              disabled={creating}
+              onClick={() => applyMutation.mutate()}
+              disabled={applyMutation.isPending}
               className="w-full h-10 bg-[#ef3e34] hover:bg-[#d63530] text-white rounded-lg [font-family:'Montserrat',Helvetica] font-semibold text-sm transition-colors disabled:opacity-60"
             >
-              {creating ? "Creating draft..." : "Apply for me!"}
+              {applyMutation.isPending ? "Creating draft..." : "Apply for me!"}
             </button>
           </div>
           {footer}
@@ -683,11 +686,11 @@ const AshleenModal = ({ opp, onClose }: { opp: Opportunity; onClose: () => void 
             <AshleenMsg text="Ready to submit? Once submitted, I'll track the outcome and follow up with you." />
             <div className="mt-1 flex flex-col gap-2 sm:flex-row">
               <button
-                onClick={() => void handleSubmitApplication()}
-                disabled={submitting}
+                onClick={() => submitMutation.mutate()}
+                disabled={submitMutation.isPending}
                 className="h-9 flex-1 rounded-lg bg-[#ef3e34] [font-family:'Montserrat',Helvetica] text-sm font-semibold text-white transition-colors hover:bg-[#d63530] disabled:opacity-60"
               >
-                {submitting ? "Submitting..." : "Submit"}
+                {submitMutation.isPending ? "Submitting..." : "Submit"}
               </button>
               <button onClick={() => setStep(2)} className="h-9 flex-1 rounded-lg border border-[#e5e7eb] [font-family:'Montserrat',Helvetica] text-sm font-semibold text-[#374151] transition-colors hover:bg-[#f9fafb]">Edit More</button>
             </div>
@@ -705,24 +708,25 @@ type ModalType = "add" | "preview" | "ashleen" | null;
 export const Opportunities = () => {
   const router = useRouter();
   const { toast } = useToast();
+  const queryClient = useQueryClient();
   const [search, setSearch] = useState("");
   const [activeKeywords, setActiveKeywords] = useState<string[]>([]);
   const [statusFilter, setStatusFilter] = useState<"all"|"open"|"closing"|"closed">("all");
   const [modal, setModal] = useState<ModalType>(null);
   const [selectedOpp, setSelectedOpp] = useState<Opportunity | null>(null);
-  const [opportunities, setOpportunities] = useState<Opportunity[]>([]);
 
-  const fetchOpportunities = useCallback(async () => {
-    try {
-      const res = await api.get("/opportunities", { params: { limit: 100 } });
-      const raw: ApiOpportunity[] = res.data.data ?? [];
-      setOpportunities(raw.map(mapOpp));
-    } catch {
-      setOpportunities(mockOpportunities.map((o) => ({ ...o, id: String(o.id), deadlineRaw: null })));
-    }
-  }, []);
-
-  useEffect(() => { void fetchOpportunities(); }, [fetchOpportunities]);
+  const { data: opportunities = [] } = useQuery<Opportunity[]>({
+    queryKey: qk.opportunities(),
+    queryFn: async () => {
+      try {
+        const res = await api.get("/opportunities", { params: { limit: 100 } });
+        const raw: ApiOpportunity[] = res.data.data ?? [];
+        return raw.map(mapOpp);
+      } catch {
+        return mockOpportunities.map((o) => ({ ...o, id: String(o.id), deadlineRaw: null }));
+      }
+    },
+  });
 
   const toggleKeyword = (k: string) =>
     setActiveKeywords((prev) => prev.includes(k) ? prev.filter((x) => x !== k) : [...prev, k]);
@@ -738,10 +742,10 @@ export const Opportunities = () => {
   const openAshleen = () => setModal("ashleen");
   const closeModal = () => setModal(null);
 
-  const handleCreate = async (title: string) => {
+  const handleCreate = (title: string) => {
     closeModal();
     toast({ title: "Opportunity created", description: `"${title || "New Opportunity"}" has been added.` });
-    await fetchOpportunities();
+    queryClient.invalidateQueries({ queryKey: qk.opportunities() });
   };
 
   const tabs: { label: string; value: typeof statusFilter }[] = [
