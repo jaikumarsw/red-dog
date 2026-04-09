@@ -19,7 +19,7 @@ export const OnboardingStep1 = () => {
   } = useForm<OnboardingStep1FormValues>({
     resolver: zodResolver(onboardingStep1Schema),
     defaultValues: {
-      opportunityTitle: "",
+      organizationName: "",
       location: "",
       websiteUrl: "",
       missionStatement: "",
@@ -72,19 +72,19 @@ export const OnboardingStep1 = () => {
 
         <div className="flex flex-col gap-1.5">
           <Label className="[font-family:'Montserrat',Helvetica] font-medium text-sm text-[#111827]">
-            Opportunity Title <span className="text-[#ef3e34]">*</span>
+            Organization Name <span className="text-[#ef3e34]">*</span>
           </Label>
           <Input
             type="text"
-            placeholder="e.g. Red Dog"
+            placeholder="e.g. Red Dog Radio"
             className={cn(
               "h-10 border-[#e5e7eb] rounded-lg [font-family:'Montserrat',Helvetica] text-sm placeholder:text-[#d1d5db] focus-visible:ring-[#ef3e34] focus-visible:ring-1 focus-visible:border-[#ef3e34]",
-              border("opportunityTitle")
+              border("organizationName")
             )}
-            {...register("opportunityTitle")}
+            {...register("organizationName")}
           />
-          {errors.opportunityTitle && (
-            <p className="[font-family:'Montserrat',Helvetica] text-xs text-red-600">{errors.opportunityTitle.message}</p>
+          {errors.organizationName && (
+            <p className="[font-family:'Montserrat',Helvetica] text-xs text-red-600">{errors.organizationName.message}</p>
           )}
         </div>
 

@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, useCallback } from "react";
 import { useRouter, usePathname } from "next/navigation";
 import { useAuth } from "@/lib/AuthContext";
 import api from "@/lib/api";
@@ -23,17 +23,20 @@ export const PrimaryNavigationMenuSection = () => {
   const { logout } = useAuth();
   const [unreadCount, setUnreadCount] = useState<number | null>(null);
 
-  useEffect(() => {
-    const fetchUnread = async () => {
-      try {
-        const res = await api.get("/alerts", { params: { isRead: false, limit: 1 } });
-        setUnreadCount(res.data.pagination?.total ?? 0);
-      } catch {
-        setUnreadCount(null);
-      }
-    };
-    void fetchUnread();
+  const fetchUnread = useCallback(async () => {
+    try {
+      const res = await api.get("/alerts", { params: { isRead: false, limit: 1 } });
+      setUnreadCount(res.data.pagination?.total ?? 0);
+    } catch {
+      setUnreadCount(null);
+    }
   }, []);
+
+  useEffect(() => {
+    void fetchUnread();
+    const interval = setInterval(() => void fetchUnread(), 60_000);
+    return () => clearInterval(interval);
+  }, [fetchUnread]);
 
   const handleSignOut = () => {
     logout();

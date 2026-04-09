@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { Separator } from "@/components/ui/separator";
-import { RefreshCw } from "lucide-react";
+import { RefreshCw, AlertTriangle } from "lucide-react";
 import api from "@/lib/api";
 
 type StatCards = {
@@ -62,17 +62,26 @@ const jobStatusStyle = (status: string) => {
   return { bg: "bg-[#f0f4f9]", border: "border-[#e1e8f0]", dot: "bg-[#90a1b8]", text: "text-[#45556c]" };
 };
 
+const SkeletonBox = ({ className }: { className?: string }) => (
+  <div className={`animate-pulse bg-[#f3f4f6] rounded ${className ?? ""}`} />
+);
+
 export const PlatformDashboardSection = () => {
   const router = useRouter();
   const [refreshing, setRefreshing] = useState(false);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(false);
   const [stats, setStats] = useState<DashboardStats | null>(null);
 
   const fetchStats = useCallback(async () => {
+    setError(false);
     try {
       const res = await api.get("/dashboard/stats");
       setStats(res.data.data as DashboardStats);
     } catch {
-      // silent — keep previous data
+      setError(true);
+    } finally {
+      setLoading(false);
     }
   }, []);
 
@@ -82,6 +91,7 @@ export const PlatformDashboardSection = () => {
 
   const handleRefresh = async () => {
     setRefreshing(true);
+    setLoading(true);
     await fetchStats();
     setTimeout(() => setRefreshing(false), 600);
   };
@@ -142,13 +152,29 @@ export const PlatformDashboardSection = () => {
           </div>
         </div>
 
+        {/* Error Banner */}
+        {error && (
+          <div className="flex w-full items-center gap-3 rounded-xl border border-[#fecaca] bg-[#fff1f0] px-4 py-3">
+            <AlertTriangle size={16} className="shrink-0 text-[#dc2626]" />
+            <span className="min-w-0 flex-1 [font-family:'Montserrat',Helvetica] text-sm font-normal text-[#dc2626]">
+              Failed to load dashboard data.
+            </span>
+            <button
+              onClick={() => void handleRefresh()}
+              className="shrink-0 [font-family:'Montserrat',Helvetica] text-sm font-semibold text-[#dc2626] hover:underline"
+            >
+              Retry
+            </button>
+          </div>
+        )}
+
         {/* Stat Cards Grid */}
         <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-3 sm:gap-6 self-stretch w-full">
           {statCardConfig.map((card, index) => (
             <Card
               key={index}
               data-testid={`card-stat-${index}`}
-              onClick={() => router.push(card.path)}
+              onClick={() => !loading && router.push(card.path)}
               className="flex min-w-0 items-center gap-3 sm:gap-4 p-4 sm:p-6 bg-white rounded-xl border border-solid border-[#0000001a] shadow-none cursor-pointer hover:shadow-md hover:border-[#ef3e3433] transition-all"
             >
               <CardContent className="flex min-w-0 flex-1 items-center gap-3 sm:gap-4 p-0 w-full">
@@ -157,9 +183,13 @@ export const PlatformDashboardSection = () => {
                   <span className="[font-family:'Montserrat',Helvetica] font-medium text-black text-xs sm:text-sm tracking-[0] leading-snug sm:leading-5 break-words">
                     {card.label}
                   </span>
-                  <span className={`[font-family:'Oswald',Helvetica] font-bold ${card.valueColor} text-2xl sm:text-3xl tracking-[-0.75px] leading-tight sm:leading-9 tabular-nums`}>
-                    {statValues[card.key]}
-                  </span>
+                  {loading ? (
+                    <SkeletonBox className="h-8 w-12 mt-1" />
+                  ) : (
+                    <span className={`[font-family:'Oswald',Helvetica] font-bold ${card.valueColor} text-2xl sm:text-3xl tracking-[-0.75px] leading-tight sm:leading-9 tabular-nums`}>
+                      {statValues[card.key]}
+                    </span>
+                  )}
                 </div>
               </CardContent>
             </Card>
@@ -179,7 +209,19 @@ export const PlatformDashboardSection = () => {
               </div>
             </CardHeader>
             <CardContent className="flex flex-col items-start self-stretch w-full p-0 bg-white">
-              {attentionItems.length === 0 ? (
+              {loading ? (
+                <div className="flex flex-col gap-0 w-full">
+                  {[1, 2, 3].map((i) => (
+                    <div key={i} className="flex items-start gap-3 p-4 sm:p-5 border-b border-[#0000000d]">
+                      <div className="flex flex-col gap-2 w-full">
+                        <SkeletonBox className="h-4 w-24" />
+                        <SkeletonBox className="h-4 w-full" />
+                        <SkeletonBox className="h-3 w-32" />
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              ) : attentionItems.length === 0 ? (
                 <div className="flex flex-col items-center justify-center py-12 gap-2 w-full">
                   <p className="[font-family:'Montserrat',Helvetica] font-normal text-[#9ca3af] text-sm">No attention items</p>
                 </div>
@@ -229,7 +271,16 @@ export const PlatformDashboardSection = () => {
               </div>
             </CardHeader>
             <CardContent className="flex flex-col items-start gap-4 p-4 sm:p-5 self-stretch w-full bg-white">
-              {systemJobs.length === 0 ? (
+              {loading ? (
+                <div className="flex flex-col gap-4 w-full">
+                  {[1, 2].map((i) => (
+                    <div key={i} className="flex flex-col gap-2 w-full">
+                      <SkeletonBox className="h-4 w-32" />
+                      <SkeletonBox className="h-3 w-24" />
+                    </div>
+                  ))}
+                </div>
+              ) : systemJobs.length === 0 ? (
                 <p className="[font-family:'Montserrat',Helvetica] font-normal text-[#9ca3af] text-sm">No jobs scheduled</p>
               ) : (
                 systemJobs.map((job, index) => {
@@ -249,7 +300,11 @@ export const PlatformDashboardSection = () => {
                             <span className="[font-family:'Montserrat',Helvetica] font-normal text-[#666666] text-xs tracking-[0] leading-4 break-words">
                               Next: {job.nextRun}
                             </span>
-                          ) : null}
+                          ) : (
+                            <span className="[font-family:'Montserrat',Helvetica] font-normal text-[#9ca3af] text-xs tracking-[0] leading-4">
+                              Not yet run
+                            </span>
+                          )}
                           {job.duration && (
                             <span className="[font-family:'Montserrat',Helvetica] font-normal text-[#666666] text-xs tracking-[0] leading-4">
                               Duration: {job.duration}

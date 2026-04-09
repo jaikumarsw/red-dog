@@ -1,7 +1,15 @@
 import type { NextConfig } from "next";
 
+const replitDomain = process.env.REPLIT_DEV_DOMAIN ?? "";
+
 const nextConfig: NextConfig = {
-  allowedDevOrigins: ["*"],
+  allowedDevOrigins: [
+    "*.replit.dev",
+    "*.worf.replit.dev",
+    ...(replitDomain ? [replitDomain] : []),
+    "localhost",
+    "127.0.0.1",
+  ],
   async rewrites() {
     return [
       {

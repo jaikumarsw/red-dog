@@ -13,7 +13,6 @@ export function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;
 
   if (
-    PUBLIC_PATHS.some((p) => pathname.startsWith(p)) ||
     pathname.startsWith("/_next") ||
     pathname.startsWith("/api") ||
     pathname.startsWith("/figmaAssets") ||
@@ -25,16 +24,24 @@ export function middleware(request: NextRequest) {
 
   const token = request.cookies.get("rdg_token")?.value;
   const onboardingCookie = request.cookies.get("rdg_onboarding")?.value;
+  const isPublicPath = PUBLIC_PATHS.some((p) => pathname.startsWith(p));
 
-  if (!token) {
+  if (token && isPublicPath) {
+    if (onboardingCookie === "0") {
+      return NextResponse.redirect(new URL("/onboarding", request.url));
+    }
+    return NextResponse.redirect(new URL("/dashboard", request.url));
+  }
+
+  if (!token && !isPublicPath) {
     return NextResponse.redirect(new URL("/login", request.url));
   }
 
-  if (onboardingCookie === "0" && !pathname.startsWith("/onboarding")) {
+  if (token && onboardingCookie === "0" && !pathname.startsWith("/onboarding")) {
     return NextResponse.redirect(new URL("/onboarding", request.url));
   }
 
-  if (onboardingCookie === "1" && pathname.startsWith("/onboarding")) {
+  if (token && onboardingCookie === "1" && pathname.startsWith("/onboarding")) {
     return NextResponse.redirect(new URL("/dashboard", request.url));
   }
 

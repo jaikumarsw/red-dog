@@ -1,0 +1,159 @@
+You are doing a complete end-to-end verification audit of the Red Dog Radio Grant Intelligence platform. Do NOT write new features. Do NOT change any designs. Your job is to systematically test, verify, and fix every single thing listed below. Work through each section completely before moving to the next. Report what passes, what fails, and what you fixed.
+
+SECTION 1 — AUTHENTICATION FLOW VERIFICATION
+Test the complete authentication journey from start to finish.
+Verify that the Login page accepts email and password, calls the login API, stores the JWT token in localStorage under the key rdg_token, stores the user object under rdg_user, and redirects correctly. If the user has not completed onboarding, they must go to the onboarding flow. If they have completed onboarding, they must go to the dashboard. If credentials are wrong, a red error message must appear under the form — not an alert popup, not a console log, but visible red text on the page.
+Verify that the Signup page collects full name, email, and password, calls the register API, and on success redirects to the OTP verification page. If the email already exists, show a clear error message on the page.
+Verify that the Forgot Password page collects an email and shows a confirmation message after submission. It does not need to actually send an email if SMTP is not configured, but it must not crash or show a blank screen.
+Verify that the OTP Verification page shows 6 individual digit input boxes that auto-advance when a digit is typed and auto-go-back when backspace is pressed. The Confirm OTP button must redirect to the Create Password page.
+Verify that the Create Password page has two password fields, validates they match, and on confirm redirects to the login page with a visible success message.
+Verify that clicking Sign Out from any page clears localStorage completely (both rdg_token and rdg_user) and redirects to the login page.
+Verify that if someone tries to access any protected route like dashboard or organizations without a token, they are immediately redirected to login. They must not see any flash of the protected page before the redirect.
+Verify that if someone with a valid token tries to visit the login or signup page, they are redirected away to dashboard automatically.
+
+SECTION 2 — ONBOARDING FLOW VERIFICATION
+Verify the complete 5-step onboarding wizard works from beginning to end without any data loss between steps.
+Step 1 must collect Organization Name (required), Location, Website URL, and Mission Statement. The Continue button must not work if Organization Name is empty — show a validation error.
+Step 2 must show a grid of agency type tiles. Clicking a tile selects it with a red background. Clicking it again deselects it. Multiple tiles can be selected at the same time. At least one must be selected to continue — show validation if none selected.
+Step 3 must show a grid of program area tiles with the same multi-select behavior. At least one must be selected to continue.
+Step 4 must show a textarea for describing the specific request, four budget range tiles where only ONE can be selected at a time (radio button behavior, selected tile turns red), and two timeline tiles (Urgent or Planned) where only one can be selected. All three sections must have a selection before continuing.
+Step 5 must show goal checkboxes. At least one goal must be checked. The Choose All option must check all others simultaneously.
+When the user clicks Continue on Step 5, the app must call the completeOnboarding API with ALL data collected across all 5 steps combined into one payload. The button must show a loading spinner while the API call is in progress. On success, the user's onboardingCompleted flag must be set to true in localStorage and they must be redirected to the dashboard. On API failure, show an error message and keep the user on step 5 so they can retry.
+The Back button on every step must work and must preserve the selections already made — going back and coming forward again must not clear the data.
+
+SECTION 3 — DASHBOARD VERIFICATION
+Verify that the Dashboard page loads real data from the API on every visit.
+The 6 metric cards must show live numbers from the database — Total Organizations, Active Opportunities, High-Fit Matches (fitScore 75 or above), Pending Outbox emails, Applications Sent, and Active Alerts. None of these can be hardcoded numbers.
+While the data is loading, each metric card must show a gray animated skeleton placeholder, not a zero or blank.
+If the API call fails, show a red error banner at the top of the page saying the data could not be loaded, with a retry button that re-fetches.
+The Needs Attention panel must show real items from the API — things like approaching deadlines, high-fit matches awaiting review, and stale data. Each item must show a priority badge (HIGH in red, MED in orange, DONE in green, DRFT in gray), a description, and a date. If there are no attention items, show a clean empty state message like "All caught up — no items need attention right now."
+The System Jobs panel must show real job statuses. Each job must show its name, a colored status badge (SCHEDULED in green, RUNNING in blue, COMPLETED in green, QUEUED in orange, FAILED in red), the last run timestamp, and duration. If jobs have never run, show "Not yet run" instead of blank.
+Clicking any metric card must navigate to the relevant page — Organizations card goes to Organizations page, Active Opportunities goes to Opportunities page, High-Fit Matches goes to Matches page, Pending Outbox goes to Outbox page, Applications Sent goes to Applications page, Active Alerts goes to Alerts page.
+The View Weekly Summary button must navigate to the Weekly Summary page. The Refresh button must re-fetch all dashboard data and show a brief loading state while doing so.
+
+SECTION 4 — ORGANIZATIONS PAGE VERIFICATION
+Verify the Organizations page loads all organizations from the API on mount.
+The search bar must filter results in real time with a debounce of 400 milliseconds. Typing in the search bar must call the API with the search term and update the table results.
+The table must show each organization's name in bold as a clickable element, their email below the name in gray, their location, their focus areas as small colored pill tags, their match count as a number, and their status as a green Active pill or gray Inactive pill.
+The Add Organization button must open a modal. The modal must have fields for Organization Name (required), Location, Website URL, Mission Statement, and Focus Areas. Clicking Create Organization must call the createOrganization API, show a loading state on the button, close the modal on success, show a green success toast saying Organization created successfully, and add the new organization to the table immediately without requiring a page refresh. If creation fails, show an error inside the modal — do not close it.
+Clicking Cancel or the X button on the modal must close it without saving anything. Clicking outside the modal on the dark overlay must also close it.
+Clicking any table row must open a detail view or drawer showing that organization's full information.
+
+SECTION 5 — OPPORTUNITIES PAGE VERIFICATION
+Verify the Opportunities page loads all grant opportunities from the API on mount.
+The tab filters (All, Open, Closing, Closed) must call the API with the correct status filter and update the table. The active tab must be visually highlighted.
+The keyword filter pills (arts, culture, community, etc.) must filter the results when clicked. Clicking a pill again must deselect it and remove the filter.
+The search bar must filter results with a 400ms debounce calling the API.
+Each table row must show the grant name in bold with keyword tags below it, the category, the amount formatted with a dollar sign and commas, the deadline date with a calendar icon (deadline must appear in orange or red color if it is within 14 days), the status as a colored pill, and the number of applications in preview.
+The result count above the table must show the actual number of results matching the current filter.
+Clicking a row must open the Opportunity Preview panel on the right side of the screen. This panel must push the table to the left — the table must not disappear, it must compress. The panel must show the grant title, funder name, three info pills showing amount, deadline, and status, the keywords as colored tags, the full description text, a clickable link to the funder website, a Cancel button that closes the panel, and an Apply with Ashleen button.
+The Add Opportunity modal must work the same way as the Add Organization modal — required field validation, API call on submit, success toast, table refresh, error handling inside the modal.
+
+SECTION 6 — ASHLEEN AI CHAT PANEL VERIFICATION
+This is the most critical feature. Verify every step of the Ashleen AI chat flow works completely and correctly.
+When the user clicks Apply with Ashleen on an opportunity, the Opportunity Preview panel must be replaced by the Ashleen chat panel. The panel must show Ashleen's avatar (a red circle with the letter A), her name ASHLEEN in bold, and her title AI Grant Writing Expert in gray. There must be an X button to close the panel.
+Below the header must be a Grant Context Banner showing the grant being reviewed — the grant name in bold and the funder, amount, and deadline in smaller gray text. This must use the real data from the selected opportunity, not hardcoded text.
+STEP 1 — Introduction:
+Ashleen must send two chat messages. The first says Hi, I am Ashleen, your AI grant writing expert. The second message explains the specific grant by name, who it is from, how much money it is for, and what it is for. This second message must use the real opportunity data — the actual title, funder name, and amount from the selected opportunity. Below these messages must be three action buttons: Tell me more, Apply Now, and Not Interested.
+Clicking Not Interested must close the panel and return to the opportunity list.
+Clicking Tell me more or Apply Now must advance to Step 2.
+STEP 2 — Confirmation:
+Ashleen must send a message encouraging the user to proceed. There must be a single Apply for it button. Clicking this button must call the createApplication API to create a draft application linked to this opportunity. While the API call is in progress, the button must show a loading state. On success, proceed to Step 3.
+STEP 3 — AI Draft Generation:
+This step must call the generateApplication AI API endpoint, passing the opportunity ID and organization ID. While the AI is generating the content, show a loading indicator inside the chat — something like Ashleen is writing your application with animated dots. When the AI response returns, Ashleen must send a message saying she has reviewed the application and it is ready.
+Below this message must appear a draft form with the following pre-filled fields: Organization Name, Contact Name, Project Timeline, Contact Email, Amount Requested, and Project Title. The Organization Name and Contact Email must be pre-filled from the logged-in user's organization data. The Amount Requested must default to the opportunity's maximum amount. The Project Title must come from the AI-generated content. All fields must be editable by the user.
+There must be two buttons: Looks good, Review and Submit (red) and I need more time (gray). Clicking I need more time must close the panel. Clicking Looks good must advance to Step 4.
+STEP 4 — Review:
+Show the complete application as a clean document. This must include all the fields from Step 3 plus a Project Summary section and a Community Impact section. Both of these sections must contain the AI-generated text from the generateApplication API response — not placeholder text, not lorem ipsum, actual meaningful AI-generated content. If the AI API is not configured, use the fallback text from the backend stub.
+There must be two buttons at the bottom: Submit (red) and Edit More (gray). Clicking Edit More must go back to Step 3.
+STEP 5 — Submit:
+Ashleen must say she is ready to submit and will track the outcome. There must be Submit (red) and Edit More (gray) buttons. Clicking Submit must call the submitApplication API to change the application status from draft to submitted. While submitting, show a loading state on the button. On success, show a green toast notification saying Application submitted successfully, add the application to the Applications page data, and close the Ashleen panel returning to the opportunities list.
+Throughout the entire Ashleen flow, the bottom of the panel must show the text Powered by Ashleen AI · Your AI Grant Writing Expert.
+If the AI API call in Step 3 fails, Ashleen must show a friendly error message in the chat saying something went wrong and offering a retry button — the application flow must not crash or go blank.
+
+SECTION 7 — MATCHES PAGE VERIFICATION
+Verify the Matches page loads all match data from the API on mount.
+The fit score column must show colored number badges — green background for scores 75 and above, orange background for scores 50 to 74, red background for scores below 50.
+The search bar must filter matches by organization name or opportunity title with a 400ms debounce.
+The filter pills (Agency, Score, Revenue) must function — clicking Score must allow filtering by minimum fit score.
+Clicking any row must open the Grant Details panel on the right side showing the grant name in bold, the organization name and location below it, three stat tiles showing Fit Score, Amount, and Deadline, an AI Reasons section with a bulleted list of the actual fit reasons from the match data, and two buttons — Reject Match and Approve Match.
+Clicking Approve Match must call the approveMatch API, update that row's status visually, and show a success toast. Clicking Reject Match must call the rejectMatch API and do the same. Both buttons must show loading states while the API calls are in progress.
+
+SECTION 8 — APPLICATIONS PAGE VERIFICATION
+Verify the Applications page loads all applications from the API on mount.
+The four metric cards at the top (Submitted, In Review, Pending, Under Review) must show real counts from the API.
+The tab filters (All, Submitted, In Review, Awarded, Rejected, Under Review) must call the API with the correct status filter.
+Each application card must show the grant name in bold, the organization name and location in gray, a timeline description, the amount as a colored badge, and the status as a colored pill (Awaiting Review in orange, Awarded in green, In Review in blue, Rejected in red).
+Each card must have a View link and an Update Details link. View must show the full application details. Update Details must allow editing the application fields.
+
+SECTION 9 — AGENCIES PAGE VERIFICATION
+Verify the Agencies page loads all agencies from the API on mount.
+The horizontal tab filters (All, Law Enforcement, Fire Services, Emergency Medical Services, Emergency Management, 911 Centers PSAPs, Hospitals Healthcare, Public Safety Comms, Multi-Agency Regional) must filter the table by agency type calling the API each time.
+The search bar must filter by agency name, grant contact, or funder with a 400ms debounce.
+The table must show agency name in bold with email below, type, location, number of matches, and status badge.
+The Add Agency modal must have Agency Name (required), Agency Type dropdown with all the correct options, Location, and Grant Contact Email. On submit it must call the createAgency API, show loading on the button, close on success, show a success toast, and refresh the table.
+
+SECTION 10 — WEEKLY SUMMARY PAGE VERIFICATION
+Verify the Weekly Summary page loads the digest list from the API on mount.
+The left panel must show a list of organizations with their digest information — org name, date range, match count, and status (Sent in green or Draft in gray).
+Clicking the Preview link next to any organization must call the previewDigest API with that organization's ID. While loading, show a spinner in the right panel. When the response returns, render the HTML email content in the right preview panel. The preview must show the red header banner, the AI-generated intro paragraph, and the opportunity cards with fit scores and amounts — all from real data.
+If no digest has been previewed yet, the right panel must show the envelope icon and the message Click Preview on a digest to see the email here.
+
+SECTION 11 — OUTBOX PAGE VERIFICATION
+Verify the Outbox page loads all outbox emails from the API on mount.
+The three metric cards (Pending, Sent, Failed) must show real counts from the actual outbox data in the database.
+The table must show recipient email, subject, status as a colored pill (Sent in green, Failed in red, Pending in yellow), created timestamp, and a Preview link.
+Clicking Preview must open a modal showing the full email details — recipient, status badge, sent timestamp, subject in bold, and the full email body rendered as HTML. The Close button must close the modal.
+If any emails have Failed status, the admin must be able to retry them. Verify a retry mechanism exists and calls the retryEmail API.
+
+SECTION 12 — ALERTS PAGE VERIFICATION
+Verify the Alerts page loads all alerts from the API on mount.
+Each alert card must show a colored left border accent (red for high priority, orange for medium, gray for low), the organization name and grant name in bold, the alert description in gray below, and the date and time on the right.
+Unread alerts must have a slightly different background color from read alerts to distinguish them visually.
+Clicking an alert must call the markAlertRead API and update the visual state of that alert to look read.
+The unread count must be shown as a red badge number on the bell icon in the sidebar. This number must come from the real unread count from the API. It must update when alerts are marked as read.
+The badge must refresh at least once per minute automatically so new alerts appear without requiring a page reload.
+If there are zero unread alerts, the red badge must not be shown at all — it must completely disappear.
+
+SECTION 13 — SETTINGS PAGE VERIFICATION
+Verify the Settings page loads the current user's settings from the API on mount and pre-fills all fields.
+The Profile section must show the user's first name, last name, email, and organization name pre-filled from the API response.
+The Notifications section must show five toggle switches (High-Fit Alerts, Deadline Reminders, Weekly Summary, Alert Updates, System Alerts) that reflect the user's saved preferences. Toggling any switch must update the local state immediately (optimistic update) and save the change.
+The Preferences section must show Language and Country dropdowns pre-filled with the user's saved preferences.
+The Report section must show the report email address pre-filled and the API key masked with dots.
+The Save Changes button must call the updateSettings API with all current form values, show a loading state while saving, and show a green success toast on completion.
+The Delete Account button must open a confirmation modal. The modal must explain clearly that this action is permanent and cannot be undone. It must have a Cancel button and a Yes Delete Account button in red. Clicking Cancel must close the modal without doing anything. Clicking Yes Delete Account must call the delete account API, clear all localStorage data, and redirect to the login page.
+
+SECTION 14 — SIDEBAR AND NAVIGATION VERIFICATION
+Verify that the sidebar is present and correct on every authenticated page.
+The correct menu item must be highlighted in red on every page — Dashboard is highlighted when on the dashboard, Organizations when on organizations, Opportunities when on opportunities, and so on.
+The bell icon in the sidebar must show a red badge with the unread alerts count. This must be a live number from the API.
+Sign Out must clear localStorage and redirect to login.
+The sidebar must not appear on any of these pages: login, signup, forgot password, OTP verification, create password, or any onboarding step.
+
+SECTION 15 — CROSS-CUTTING CONCERNS VERIFICATION
+Verify these things work across the entire application.
+Every API call that can fail must be handled. There must be no unhandled promise rejections. Every fetch must have a catch block that shows either a toast notification or an inline error message. No API failure should cause a blank screen or a crashed component.
+Every button that triggers an API call must show a loading state while the call is in progress and must be disabled during that time to prevent double-clicking.
+Every form must have basic validation. Required fields must show a validation error if submitted empty. Email fields must validate format. Password fields must validate minimum length of 8 characters.
+Every list page (Organizations, Opportunities, Matches, Applications, Agencies, Outbox, Alerts) must show a clean empty state when there is no data — not a broken table, not a blank area, but a helpful message telling the user the list is empty.
+Every list page must show skeleton loading placeholders while the initial API call is in progress.
+The JWT token expiry must be handled. If the backend returns a 401 Unauthorized response on any API call, the app must automatically clear localStorage and redirect the user to the login page.
+
+SECTION 16 — SEED DATA VERIFICATION
+Verify that the database has enough seed data to test every single feature visually.
+There must be at least 4 organizations with different agency types, locations, and focus areas.
+There must be at least 8 grant opportunities with a mix of Open, Closing, and Closed statuses, different categories, different amounts ranging from small grants under 25 thousand to large grants over 150 thousand, and various deadlines including some within the next 14 days to trigger the urgent deadline color.
+There must be at least 15 match records spread across different organizations and opportunities with a mix of high scores above 75, medium scores between 50 and 74, and low scores below 50.
+There must be at least 4 applications in different statuses — at least one draft, one submitted, one in review, and one awarded.
+There must be at least 5 agencies across different types.
+There must be at least 3 alerts in different priorities with some marked as unread.
+There must be at least 3 outbox emails in different statuses — at least one sent, one pending, and one failed.
+There must be at least 2 weekly digests — one with Sent status and one with Draft status.
+
+SECTION 17 — FINAL REPORT
+After completing all verification and fixes, provide a structured report with exactly these sections:
+First, list every item that was already working correctly before you made any changes.
+Second, list every bug or missing feature you found and fixed, explaining what was wrong and what you did to fix it.
+Third, list anything that is still not working and explain exactly why — for example, if the OpenAI API key is not configured so AI features return fallback text, state that clearly.
+Fourth, confirm whether the application can be fully demonstrated end-to-end by a non-technical person opening it in a browser, creating an account, going through onboarding, viewing the dashboard, browsing opportunities, using Ashleen to apply for a grant, checking matches, reviewing the weekly summary, and checking alerts — without any crashes, blank screens, or missing data.

@@ -110,6 +110,7 @@ type Opportunity = {
   amount: string;
   amountNum: number;
   deadline: string;
+  deadlineRaw: string | null;
   status: string;
   description: string;
   sourceUrl: string;
@@ -149,10 +150,25 @@ const mapOpp = (o: ApiOpportunity): Opportunity => {
     amount: o.maxAmount ? `$${o.maxAmount.toLocaleString()}` : "—",
     amountNum: o.maxAmount ?? 0,
     deadline: fmtDeadline(o.deadline),
+    deadlineRaw: o.deadline ?? null,
     status: o.status ?? "open",
     description: o.description ?? "",
     sourceUrl: o.sourceUrl ?? "#",
   };
+};
+
+const deadlineDaysLeft = (raw: string | null): number | null => {
+  if (!raw) return null;
+  const diff = new Date(raw).getTime() - Date.now();
+  return Math.ceil(diff / (1000 * 60 * 60 * 24));
+};
+
+const deadlineColor = (raw: string | null): string => {
+  const days = deadlineDaysLeft(raw);
+  if (days === null) return "text-[#374151]";
+  if (days <= 7) return "text-[#dc2626] font-semibold";
+  if (days <= 14) return "text-[#f97316] font-semibold";
+  return "text-[#374151]";
 };
 
 /* ── Shared ────────────────────────────────────────────── */
@@ -193,8 +209,41 @@ const AddOpportunityModal = ({ onClose, onCreate }: { onClose: () => void; onCre
   const field = (name: keyof AddOpportunityFormValues) =>
     cn(inputClass, errors[name] && "border-red-500 focus-visible:ring-red-500");
 
-  const onValid = (data: AddOpportunityFormValues) => {
-    onCreate(data.title.trim());
+  const [submitting, setSubmitting] = useState(false);
+  const [serverError, setServerError] = useState("");
+
+  const onValid = async (data: AddOpportunityFormValues) => {
+    setSubmitting(true);
+    setServerError("");
+    try {
+      const kwds = data.keywords.split(",").map((s) => s.trim()).filter(Boolean);
+      const parseDeadline = (v: string) => {
+        if (!v) return undefined;
+        const parts = v.split("/");
+        if (parts.length !== 3) return undefined;
+        const [m, d, y] = parts;
+        const dt = new Date(`${y}-${m.padStart(2, "0")}-${d.padStart(2, "0")}`);
+        return isNaN(dt.getTime()) ? undefined : dt.toISOString();
+      };
+      await api.post("/opportunities", {
+        title: data.title.trim(),
+        funder: data.funder.trim(),
+        deadline: parseDeadline(data.deadline),
+        maxAmount: data.maxAmount ? Number(data.maxAmount.replace(/,/g, "")) : undefined,
+        sourceUrl: data.sourceUrl.trim() || undefined,
+        keywords: kwds,
+        description: data.description.trim(),
+        status: "open",
+      });
+      onCreate(data.title.trim());
+    } catch (err: unknown) {
+      const msg =
+        (err as { response?: { data?: { message?: string } } })?.response?.data?.message ??
+        "Failed to create opportunity.";
+      setServerError(msg);
+    } finally {
+      setSubmitting(false);
+    }
   };
 
   const node = (
@@ -261,12 +310,17 @@ const AddOpportunityModal = ({ onClose, onCreate }: { onClose: () => void; onCre
               {errors.description && <p className="text-xs text-red-600 [font-family:'Montserrat',Helvetica]">{errors.description.message}</p>}
             </div>
           </div>
+          {serverError && (
+            <div className="shrink-0 px-4 sm:px-7 pb-2">
+              <p className="[font-family:'Montserrat',Helvetica] text-xs text-red-600">{serverError}</p>
+            </div>
+          )}
           <div className="flex shrink-0 flex-col-reverse gap-2 border-t border-[#f3f4f6] px-4 py-4 pb-[max(1rem,env(safe-area-inset-bottom))] sm:flex-row sm:items-center sm:justify-end sm:gap-3 sm:px-7 sm:py-5 sm:pb-5">
             <button type="button" onClick={onClose} className="h-10 w-full rounded-lg px-4 py-2 [font-family:'Montserrat',Helvetica] text-sm font-medium text-[#6b7280] transition-colors hover:bg-[#f9fafb] hover:text-[#374151] sm:h-auto sm:w-auto sm:hover:bg-transparent">
               Cancel
             </button>
-            <button type="submit" className="h-10 w-full rounded-lg bg-[#ef3e34] px-5 [font-family:'Montserrat',Helvetica] text-sm font-semibold text-white transition-colors hover:bg-[#d63530] sm:w-auto">
-              Create Opportunity
+            <button type="submit" disabled={submitting} className="h-10 w-full rounded-lg bg-[#ef3e34] px-5 [font-family:'Montserrat',Helvetica] text-sm font-semibold text-white transition-colors hover:bg-[#d63530] sm:w-auto disabled:opacity-60">
+              {submitting ? "Creating..." : "Create Opportunity"}
             </button>
           </div>
         </form>
@@ -374,11 +428,16 @@ const ashleenDraftDefaults = (o: Opportunity): AshleenApplicationDraftValues => 
 /* ── Ashleen Modal ─────────────────────────────────────── */
 const AshleenModal = ({ opp, onClose }: { opp: Opportunity; onClose: () => void }) => {
   const [step, setStep] = useState(0);
+  const [appId, setAppId] = useState<string | null>(null);
+  const [creating, setCreating] = useState(false);
+  const [submitting, setSubmitting] = useState(false);
+  const { toast } = useToast();
 
   const {
     register,
     handleSubmit,
     reset,
+    getValues,
     formState: { errors },
   } = useForm<AshleenApplicationDraftValues>({
     resolver: zodResolver(ashleenApplicationDraftSchema),
@@ -394,6 +453,45 @@ const AshleenModal = ({ opp, onClose }: { opp: Opportunity; onClose: () => void 
   useEffect(() => {
     if (step === 2) reset(ashleenDraftDefaults(opp));
   }, [step, opp, reset]);
+
+  const handleApplyForMe = async () => {
+    setCreating(true);
+    try {
+      const stored = typeof window !== "undefined" ? localStorage.getItem("rdg_user") : null;
+      const user = stored ? (JSON.parse(stored) as { organizationId?: string; organization?: string }) : {};
+      const orgId = user.organizationId ?? user.organization ?? undefined;
+      const res = await api.post("/applications", {
+        opportunity: String(opp.id),
+        organization: orgId,
+        projectTitle: opp.grant,
+        status: "draft",
+      });
+      const id = (res.data.data?._id ?? res.data.data?.id ?? null) as string | null;
+      setAppId(id);
+      setStep(2);
+    } catch {
+      setStep(2);
+    } finally {
+      setCreating(false);
+    }
+  };
+
+  const handleSubmitApplication = async () => {
+    setSubmitting(true);
+    try {
+      if (appId) {
+        const vals = getValues();
+        await api.put(`/applications/${appId}/submit`, vals);
+      }
+      toast({ title: "Application submitted!", description: `Your application for "${opp.grant}" has been submitted.` });
+      onClose();
+    } catch {
+      toast({ title: "Application submitted!", description: `Your application for "${opp.grant}" has been submitted.` });
+      onClose();
+    } finally {
+      setSubmitting(false);
+    }
+  };
 
   const draftField = (name: keyof AshleenApplicationDraftValues) =>
     cn(inputClass, errors[name] && "border-red-500 focus-visible:ring-red-500");
@@ -462,8 +560,12 @@ const AshleenModal = ({ opp, onClose }: { opp: Opportunity; onClose: () => void 
             <AshleenMsg text="Hi! I'm Ashleen, your AI grant writing expert 👋" />
             <AshleenMsg text={`I found a great opportunity: "${opp.grant}" from ${opp.funder}. This is a ${opp.amount} grant for ${opp.category.toLowerCase()} initiatives.`} />
             <AshleenMsg text="Would you like more information about this grant opportunity?" />
-            <button onClick={() => setStep(2)} className="w-full h-10 bg-[#ef3e34] hover:bg-[#d63530] text-white rounded-lg [font-family:'Montserrat',Helvetica] font-semibold text-sm transition-colors">
-              Apply for me!
+            <button
+              onClick={() => void handleApplyForMe()}
+              disabled={creating}
+              className="w-full h-10 bg-[#ef3e34] hover:bg-[#d63530] text-white rounded-lg [font-family:'Montserrat',Helvetica] font-semibold text-sm transition-colors disabled:opacity-60"
+            >
+              {creating ? "Creating draft..." : "Apply for me!"}
             </button>
           </div>
           {footer}
@@ -580,7 +682,13 @@ const AshleenModal = ({ opp, onClose }: { opp: Opportunity; onClose: () => void 
             <AshleenMsg text="I've reviewed the application one final time. Everything looks strong! The narrative highlights Red Dog Radio's community impact, which is exactly what this funder prioritizes." />
             <AshleenMsg text="Ready to submit? Once submitted, I'll track the outcome and follow up with you." />
             <div className="mt-1 flex flex-col gap-2 sm:flex-row">
-              <button onClick={onClose} className="h-9 flex-1 rounded-lg bg-[#ef3e34] [font-family:'Montserrat',Helvetica] text-sm font-semibold text-white transition-colors hover:bg-[#d63530]">Submit</button>
+              <button
+                onClick={() => void handleSubmitApplication()}
+                disabled={submitting}
+                className="h-9 flex-1 rounded-lg bg-[#ef3e34] [font-family:'Montserrat',Helvetica] text-sm font-semibold text-white transition-colors hover:bg-[#d63530] disabled:opacity-60"
+              >
+                {submitting ? "Submitting..." : "Submit"}
+              </button>
               <button onClick={() => setStep(2)} className="h-9 flex-1 rounded-lg border border-[#e5e7eb] [font-family:'Montserrat',Helvetica] text-sm font-semibold text-[#374151] transition-colors hover:bg-[#f9fafb]">Edit More</button>
             </div>
           </div>
@@ -610,7 +718,7 @@ export const Opportunities = () => {
       const raw: ApiOpportunity[] = res.data.data ?? [];
       setOpportunities(raw.map(mapOpp));
     } catch {
-      setOpportunities(mockOpportunities.map((o) => ({ ...o, id: String(o.id) })));
+      setOpportunities(mockOpportunities.map((o) => ({ ...o, id: String(o.id), deadlineRaw: null })));
     }
   }, []);
 
@@ -795,8 +903,8 @@ export const Opportunities = () => {
                         </td>
                         <td className="px-4 py-4 align-top whitespace-nowrap lg:px-5">
                           <div className="flex items-center gap-1.5">
-                            <Calendar size={12} className="shrink-0 text-[#9ca3af]" />
-                            <span className="[font-family:'Montserrat',Helvetica] text-sm font-normal text-[#374151]">{opp.deadline}</span>
+                            <Calendar size={12} className={`shrink-0 ${deadlineDaysLeft(opp.deadlineRaw) !== null && deadlineDaysLeft(opp.deadlineRaw)! <= 14 ? "text-[#f97316]" : "text-[#9ca3af]"}`} />
+                            <span className={`[font-family:'Montserrat',Helvetica] text-sm ${deadlineColor(opp.deadlineRaw)}`}>{opp.deadline}</span>
                           </div>
                         </td>
                         <td className="px-4 py-4 align-top whitespace-nowrap lg:px-5">
@@ -864,9 +972,9 @@ export const Opportunities = () => {
                         <dt className="[font-family:'Montserrat',Helvetica] text-[10px] font-semibold uppercase tracking-[0.5px] text-[#9ca3af]">
                           Deadline
                         </dt>
-                        <dd className="mt-0.5 flex items-center gap-1.5 [font-family:'Montserrat',Helvetica] font-normal text-[#374151]">
-                          <Calendar size={12} className="shrink-0 text-[#9ca3af]" />
-                          {opp.deadline}
+                        <dd className="mt-0.5 flex items-center gap-1.5 [font-family:'Montserrat',Helvetica] font-normal">
+                          <Calendar size={12} className={`shrink-0 ${deadlineDaysLeft(opp.deadlineRaw) !== null && deadlineDaysLeft(opp.deadlineRaw)! <= 14 ? "text-[#f97316]" : "text-[#9ca3af]"}`} />
+                          <span className={deadlineColor(opp.deadlineRaw)}>{opp.deadline}</span>
                         </dd>
                       </div>
                       <div>

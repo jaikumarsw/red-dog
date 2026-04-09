@@ -1,8 +1,9 @@
 "use client";
 
 import { useState, useEffect, useCallback } from "react";
-import { Clock, X, Zap } from "lucide-react";
+import { Clock, X, Zap, RefreshCw } from "lucide-react";
 import api from "@/lib/api";
+import { useToast } from "@/hooks/use-toast";
 
 type Email = {
   id: string;
@@ -16,6 +17,7 @@ type Email = {
 
 type ApiEmail = {
   _id: string;
+  recipient?: string;
   to?: string;
   recipientEmail?: string;
   subject?: string;
@@ -23,7 +25,9 @@ type ApiEmail = {
   createdAt?: string;
   sentAt?: string;
   body?: string;
+  htmlBody?: string;
   htmlContent?: string;
+  retryCount?: number;
 };
 
 const fmtDate = (s: string | undefined) => {
@@ -37,12 +41,12 @@ const fmtDate = (s: string | undefined) => {
 
 const mapEmail = (e: ApiEmail): Email => ({
   id: e._id,
-  to: e.to ?? e.recipientEmail ?? "—",
+  to: e.recipient ?? e.to ?? e.recipientEmail ?? "—",
   subject: e.subject ?? "—",
   status: e.status ?? "pending",
   created: fmtDate(e.createdAt),
   sentAt: fmtDate(e.sentAt),
-  body: e.body ?? e.htmlContent ?? "",
+  body: e.htmlBody ?? e.body ?? e.htmlContent ?? "",
 });
 
 const statusBadge = (s: string) => {
@@ -117,6 +121,8 @@ export const Outbox = () => {
   const [emails, setEmails] = useState<Email[]>([]);
   const [loading, setLoading] = useState(true);
   const [previewEmail, setPreviewEmail] = useState<Email | null>(null);
+  const [retrying, setRetrying] = useState<string | null>(null);
+  const { toast } = useToast();
 
   const fetchEmails = useCallback(async () => {
     try {
@@ -131,6 +137,19 @@ export const Outbox = () => {
   }, []);
 
   useEffect(() => { void fetchEmails(); }, [fetchEmails]);
+
+  const handleRetry = async (id: string) => {
+    setRetrying(id);
+    try {
+      await api.post(`/outbox/${id}/retry`);
+      setEmails((prev) => prev.map((e) => e.id === id ? { ...e, status: "pending" } : e));
+      toast({ title: "Email queued for retry" });
+    } catch {
+      toast({ title: "Retry failed", variant: "destructive" });
+    } finally {
+      setRetrying(null);
+    }
+  };
 
   const pending = emails.filter((e) => e.status === "pending").length;
   const sent = emails.filter((e) => e.status === "sent").length;
@@ -177,7 +196,7 @@ export const Outbox = () => {
           ) : (
             <>
               <div className="hidden overflow-x-auto md:block">
-                <table className="w-full min-w-[640px]">
+                <table className="w-full min-w-[680px]">
                   <thead>
                     <tr className="border-b border-[#f3f4f6]">
                       {["Recipient", "Subject", "Status", "Created", "Actions"].map((h) => (
@@ -214,15 +233,29 @@ export const Outbox = () => {
                           </div>
                         </td>
                         <td className="whitespace-nowrap px-4 py-4 lg:px-5">
-                          <button
-                            type="button"
-                            onClick={() => setPreviewEmail(email)}
-                            data-testid={`button-preview-email-${email.id}`}
-                            className="flex items-center gap-1 [font-family:'Montserrat',Helvetica] text-sm font-semibold text-[#ef3e34] hover:underline"
-                          >
-                            <Zap size={12} className="shrink-0" />
-                            Preview
-                          </button>
+                          <div className="flex items-center gap-3">
+                            <button
+                              type="button"
+                              onClick={() => setPreviewEmail(email)}
+                              data-testid={`button-preview-email-${email.id}`}
+                              className="flex items-center gap-1 [font-family:'Montserrat',Helvetica] text-sm font-semibold text-[#ef3e34] hover:underline"
+                            >
+                              <Zap size={12} className="shrink-0" />
+                              Preview
+                            </button>
+                            {email.status === "failed" && (
+                              <button
+                                type="button"
+                                onClick={() => void handleRetry(email.id)}
+                                disabled={retrying === email.id}
+                                data-testid={`button-retry-email-${email.id}`}
+                                className="flex items-center gap-1 [font-family:'Montserrat',Helvetica] text-sm font-semibold text-[#f97316] hover:underline disabled:opacity-50"
+                              >
+                                <RefreshCw size={12} className={`shrink-0 ${retrying === email.id ? "animate-spin" : ""}`} />
+                                {retrying === email.id ? "Retrying..." : "Retry"}
+                              </button>
+                            )}
+                          </div>
                         </td>
                       </tr>
                     ))}
@@ -251,15 +284,29 @@ export const Outbox = () => {
                           <span className="[font-family:'Montserrat',Helvetica] text-xs font-normal text-[#9ca3af]">{email.created}</span>
                         </div>
                       </div>
-                      <button
-                        type="button"
-                        onClick={() => setPreviewEmail(email)}
-                        data-testid={`button-preview-email-${email.id}`}
-                        className="flex w-full items-center justify-center gap-1.5 rounded-lg border border-[#ef3e34]/30 bg-[#fff4f4] py-2.5 [font-family:'Montserrat',Helvetica] text-sm font-semibold text-[#ef3e34] transition-colors hover:bg-[#ffe8e8]"
-                      >
-                        <Zap size={14} className="shrink-0" />
-                        Preview
-                      </button>
+                      <div className="flex flex-col gap-2">
+                        <button
+                          type="button"
+                          onClick={() => setPreviewEmail(email)}
+                          data-testid={`button-preview-email-${email.id}`}
+                          className="flex w-full items-center justify-center gap-1.5 rounded-lg border border-[#ef3e34]/30 bg-[#fff4f4] py-2.5 [font-family:'Montserrat',Helvetica] text-sm font-semibold text-[#ef3e34] transition-colors hover:bg-[#ffe8e8]"
+                        >
+                          <Zap size={14} className="shrink-0" />
+                          Preview
+                        </button>
+                        {email.status === "failed" && (
+                          <button
+                            type="button"
+                            onClick={() => void handleRetry(email.id)}
+                            disabled={retrying === email.id}
+                            data-testid={`button-retry-email-${email.id}`}
+                            className="flex w-full items-center justify-center gap-1.5 rounded-lg border border-[#f97316]/30 bg-[#fff7ed] py-2.5 [font-family:'Montserrat',Helvetica] text-sm font-semibold text-[#f97316] transition-colors hover:bg-[#ffedd5] disabled:opacity-50"
+                          >
+                            <RefreshCw size={14} className={`shrink-0 ${retrying === email.id ? "animate-spin" : ""}`} />
+                            {retrying === email.id ? "Retrying..." : "Retry"}
+                          </button>
+                        )}
+                      </div>
                     </div>
                   </li>
                 ))}

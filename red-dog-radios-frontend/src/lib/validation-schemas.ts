@@ -53,7 +53,7 @@ export const otpSchema = z
   .regex(/^\d{6}$/, "Code must be 6 digits");
 
 export const onboardingStep1Schema = z.object({
-  opportunityTitle: z.string().trim().min(1, "Opportunity title is required"),
+  organizationName: z.string().trim().min(1, "Organization name is required"),
   location: z.string().trim().min(1, "Location is required"),
   websiteUrl: optionalUrlField,
   missionStatement: z
@@ -191,6 +191,7 @@ export type SignUpFormValues = z.infer<typeof signUpSchema>;
 export type ForgotPasswordFormValues = z.infer<typeof forgotPasswordSchema>;
 export type CreatePasswordFormValues = z.infer<typeof createPasswordSchema>;
 export type OnboardingStep1FormValues = z.infer<typeof onboardingStep1Schema>;
+// Legacy alias kept so Step5 completeOnboarding can still spread all fields
 export type OnboardingStep4FormValues = z.infer<typeof onboardingStep4Schema>;
 export type OrganizationFormValues = z.infer<typeof organizationFormSchema>;
 export type AgencyFormValues = z.infer<typeof agencyFormSchema>;

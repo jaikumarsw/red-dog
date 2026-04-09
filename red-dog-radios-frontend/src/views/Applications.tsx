@@ -22,10 +22,13 @@ type AppItem = {
 
 type ApiApp = {
   _id: string;
+  projectTitle?: string;
   title?: string;
   grant?: string;
+  opportunity?: { title?: string; funder?: string; maxAmount?: number; category?: string };
   funder?: string;
   amount?: number;
+  amountRequested?: number;
   organization?: { name?: string };
   orgName?: string;
   submittedAt?: string;
@@ -70,12 +73,12 @@ const fmtAmount = (n: number | undefined) => {
 
 const mapApp = (a: ApiApp): AppItem => ({
   id: a._id,
-  grant: a.title ?? a.grant ?? "Unknown Grant",
-  funder: a.funder ?? "—",
-  amount: a.amount ? fmtAmount(a.amount) : "—",
+  grant: a.projectTitle ?? a.opportunity?.title ?? a.title ?? a.grant ?? "Unknown Grant",
+  funder: a.opportunity?.funder ?? a.funder ?? "—",
+  amount: a.amountRequested ? fmtAmount(a.amountRequested) : (a.amount ? fmtAmount(a.amount) : (a.opportunity?.maxAmount ? fmtAmount(a.opportunity.maxAmount) : "—")),
   org: a.orgName ?? a.organization?.name ?? "—",
   appliedDate: fmtDate(a.submittedAt ?? a.appliedDate ?? a.createdAt),
-  category: a.category ?? "—",
+  category: a.opportunity?.category ?? a.category ?? "—",
   status: a.status ?? "submitted",
   ashleenMsg: a.notes ?? ashleenMsgFor(a.status ?? "submitted"),
 });

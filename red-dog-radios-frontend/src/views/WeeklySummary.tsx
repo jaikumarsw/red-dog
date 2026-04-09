@@ -31,9 +31,11 @@ type ApiDigest = {
   weekEnd?: string;
   status?: string;
   intro?: string;
+  aiIntro?: string;
   opportunities?: {
     title?: string;
     fitScore?: number;
+    amount?: number;
     maxAmount?: number;
     amountRange?: string;
   }[];
@@ -64,11 +66,11 @@ const mapDigest = (d: ApiDigest): Digest => {
     status: d.status ?? "draft",
     previewTitle: `${orgName.toUpperCase()} GRANT INTELLIGENCE`,
     previewSubtitle: `Weekly Digest for ${orgName}`,
-    aiIntro: d.intro ?? `AI-powered introduction: This week we identified high-fit grant opportunities tailored to your organization's mission and focus areas.`,
+    aiIntro: d.aiIntro ?? d.intro ?? `AI-powered introduction: This week we identified high-fit grant opportunities tailored to your organization's mission and focus areas.`,
     opportunities: opps.map((o) => ({
       title: (o.title ?? "Grant Opportunity").toUpperCase(),
       fitScore: o.fitScore ?? 0,
-      amount: o.amountRange ?? (o.maxAmount ? `Up to $${o.maxAmount.toLocaleString()}` : "—"),
+      amount: o.amountRange ?? (o.amount ? `Up to $${o.amount.toLocaleString()}` : (o.maxAmount ? `Up to $${o.maxAmount.toLocaleString()}` : "—")),
     })),
   };
 };
