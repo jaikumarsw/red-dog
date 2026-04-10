@@ -1,0 +1,1740 @@
+# RED DOG GRANT INTELLIGENCE — GAP ANALYSIS + COMPLETE BUILD PROMPT
+
+## WHAT CLIENT WANTS vs WHAT IS CURRENTLY BUILT
+
+### GAPS: What needs to be ADDED or CHANGED
+
+| Client Wants | Currently Built | Gap |
+|---|---|---|
+| Agency profile with population served, coverage area, staff count, current equipment, pain points | Basic org profile | Missing 5 fields |
+| FUNDER database (private library, not grant scraping) | "Opportunities" table | Wrong model - needs rethinking |
+| Funder: mission statement, past grants, contact info, notes | Partial | Missing fields |
+| Application: Problem / Impact / Solution / Outcomes / Urgency / Budget | Basic AI text | Wrong structure |
+| Application Control System (max 5 per funder + queue) | Not built | Entirely new feature |
+| Outreach Email Builder (screen 7 with subject, contact, editable) | Outbox (send only) | Different intent |
+| Submission Tracker with 7 statuses | Basic application statuses | Missing statuses + follow-up date |
+| Follow-up automation (Day 7, Day 14 reminders) | Basic alerts | Not built |
+| Win Database (store winning apps, tag, feed back to AI) | Not built | Entirely new |
+| Export application (copy/download) | Not built | New feature |
+| Funder Alignment (rewrite to match funder tone) | Not built | New AI feature |
+| Dashboard: Total dollars requested + awarded | Not built | New metric |
+
+---
+
+# COMPLETE REPLIT PROMPT — PASTE THIS ENTIRELY
+
+You are working on the **Red Dog Grant Intelligence Platform**. The frontend and backend are partially built. Your job is to:
+1. Update the database models to match the real product requirements
+2. Build all missing backend routes
+3. Update the frontend pages to match the client's screen-by-screen spec
+4. Wire everything together with React Query and real API calls
+
+Work through each phase completely. DO NOT change any visual styling unless instructed.
+
+---
+
+## PHASE 1 — UPDATE BACKEND MODELS
+
+### 1.1 Update Agency/Organization model
+
+The core entity is an AGENCY (public safety organization). Update the existing Organization or Agency model to include ALL these fields:
+
+```js
+// models/Agency.js (or update Organization.js — use whichever exists)
+{
+  // Auth & ownership
+  userId: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true },
+
+  // Basic info
+  agencyName:        { type: String, required: true },
+  agencyType:        { type: String, enum: ['police','fire','ems','sheriff','dispatch','hospital','public_works','school','utility','other'], required: true },
+  city:              String,
+  state:             String,
+  populationServed:  Number,
+  coverageArea:      String,   // e.g. "250 square miles"
+
+  // Staff
+  numberOfStaff:     Number,   // officers / firefighters / staff count
+
+  // Equipment & needs
+  currentEquipment:  String,   // free text describing current radio/comms gear
+  mainProblems:      [String], // e.g. ["dead zones","old equipment","response delays"]
+  fundingPriorities: [String], // e.g. ["new radios","repeater towers","dispatch upgrade"]
+
+  // Metadata
+  status:     { type: String, enum: ['active','inactive'], default: 'active' },
+  createdAt:  { type: Date, default: Date.now },
+  updatedAt:  { type: Date, default: Date.now }
+}
+```
+
+### 1.2 Create Funder model (replaces or supplements Opportunity)
+
+A Funder is a foundation or government program in Red Dog's PRIVATE database. This is NOT auto-scraped — admins add them manually.
+
+```js
+// models/Funder.js
+{
+  // Identity
+  name:              { type: String, required: true },
+  website:           String,
+  contactName:       String,
+  contactEmail:      String,
+  contactPhone:      String,
+
+  // About the funder
+  missionStatement:  String,
+  locationFocus:     [String],   // e.g. ["Texas","California","National"]
+  fundingCategories: [String],   // e.g. ["public safety","community","technology"]
+  agencyTypesFunded: [String],   // e.g. ["police","fire","ems"] — who they fund
+
+  // Grant details
+  avgGrantMin:       Number,     // typical min award
+  avgGrantMax:       Number,     // typical max award
+  deadline:          Date,       // next deadline (null = rolling)
+  cyclesPerYear:     Number,     // how many grant cycles per year
+
+  // History
+  pastGrantsAwarded: [String],   // list of past recipient names/projects
+  notes:             String,     // admin notes
+
+  // Control system
+  maxApplicationsAllowed: { type: Number, default: 5 },
+  currentApplicationCount: { type: Number, default: 0 },
+  isLocked:          { type: Boolean, default: false }, // true when limit reached
+
+  // Status
+  status:    { type: String, enum: ['active','inactive'], default: 'active' },
+  addedBy:   { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
+  createdAt: { type: Date, default: Date.now },
+  updatedAt: { type: Date, default: Date.now }
+}
+```
+
+### 1.3 Create Match model (agency ↔ funder scoring)
+
+```js
+// models/Match.js
+{
+  agencyId:  { type: mongoose.Schema.Types.ObjectId, ref: 'Agency', required: true },
+  funderId:  { type: mongoose.Schema.Types.ObjectId, ref: 'Funder', required: true },
+
+  fitScore:  { type: Number, default: 0, min: 0, max: 100 },
+  tier:      { type: String, enum: ['high','medium','low'], default: 'low' },
+           // high = 80+, medium = 65-79, low = below 65
+
+  scoreBreakdown: {
+    missionMatch:   { type: Number, default: 0 }, // max 35
+    locationMatch:  { type: Number, default: 0 }, // max 35
+    projectMatch:   { type: Number, default: 0 }, // max 30
+  },
+  matchReasons:  [String],  // human-readable explanation strings
+
+  status:        { type: String, enum: ['pending','saved','applied','ignored'], default: 'pending' },
+  createdAt:     { type: Date, default: Date.now },
+  updatedAt:     { type: Date, default: Date.now }
+}
+// Unique index on agencyId + funderId
+```
+
+### 1.4 Update Application model
+
+Applications now have structured AI sections AND a control/queue system:
+
+```js
+// models/Application.js
+{
+  agencyId:  { type: mongoose.Schema.Types.ObjectId, ref: 'Agency', required: true },
+  funderId:  { type: mongoose.Schema.Types.ObjectId, ref: 'Funder', required: true },
+  userId:    { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true },
+
+  // AI-generated content sections
+  problemStatement:   String,  // "The problem we face is..."
+  communityImpact:    String,  // "Our community will benefit by..."
+  proposedSolution:   String,  // "Our solution is..."
+  measurableOutcomes: String,  // "We will measure success by..."
+  urgency:            String,  // "This is urgent because..."
+  budgetSummary:      String,  // "Total budget: $X, breakdown: ..."
+
+  // Funder-aligned version (Stage 5)
+  alignedVersion: {
+    problemStatement:   String,
+    communityImpact:    String,
+    proposedSolution:   String,
+    measurableOutcomes: String,
+    urgency:            String,
+    budgetSummary:      String,
+    generatedAt:        Date
+  },
+
+  // Tracker
+  status: {
+    type: String,
+    enum: ['not_started','drafting','ready_to_submit','submitted','follow_up_needed','awarded','denied'],
+    default: 'drafting'
+  },
+  dateStarted:    { type: Date, default: Date.now },
+  dateSubmitted:  Date,
+  followUpDate:   Date,
+  notes:          String,
+
+  // Win database tagging
+  isWinner:       { type: Boolean, default: false },
+  winTags: {
+    fundingType:  String,  // e.g. "federal", "foundation", "state"
+    agencyType:   String,
+    projectType:  String
+  },
+
+  createdAt: { type: Date, default: Date.now },
+  updatedAt: { type: Date, default: Date.now }
+}
+```
+
+### 1.5 Create OutreachEmail model
+
+```js
+// models/OutreachEmail.js
+{
+  agencyId:    { type: mongoose.Schema.Types.ObjectId, ref: 'Agency', required: true },
+  funderId:    { type: mongoose.Schema.Types.ObjectId, ref: 'Funder', required: true },
+  userId:      { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true },
+
+  subject:     { type: String, required: true },
+  contactName: String,
+  body:        { type: String, required: true },
+
+  status:    { type: String, enum: ['draft','sent'], default: 'draft' },
+  sentAt:    Date,
+  createdAt: { type: Date, default: Date.now }
+}
+```
+
+### 1.6 Create FollowUp model
+
+```js
+// models/FollowUp.js
+{
+  applicationId: { type: mongoose.Schema.Types.ObjectId, ref: 'Application', required: true },
+  userId:        { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true },
+  agencyId:      { type: mongoose.Schema.Types.ObjectId, ref: 'Agency', required: true },
+  funderId:      { type: mongoose.Schema.Types.ObjectId, ref: 'Funder', required: true },
+
+  followUpNumber: { type: Number },     // 1 = day 7, 2 = day 14
+  scheduledFor:   { type: Date, required: true },
+  emailSubject:   String,
+  emailBody:      String,
+  status:         { type: String, enum: ['pending','sent','skipped'], default: 'pending' },
+  sentAt:         Date,
+  createdAt:      { type: Date, default: Date.now }
+}
+```
+
+### 1.7 Create WinDatabase model
+
+```js
+// models/WinDatabase.js
+{
+  applicationId: { type: mongoose.Schema.Types.ObjectId, ref: 'Application' },
+  agencyType:    { type: String, required: true },
+  fundingType:   String,
+  projectType:   String,
+  funderName:    String,
+  awardAmount:   Number,
+
+  // The winning content (stored for AI learning)
+  problemStatement:   String,
+  communityImpact:    String,
+  proposedSolution:   String,
+  measurableOutcomes: String,
+  urgency:            String,
+  budgetSummary:      String,
+
+  // What made it win (admin-tagged)
+  winFactors:    [String],
+  lessonsLearned: String,
+
+  createdAt: { type: Date, default: Date.now }
+}
+```
+
+---
+
+## PHASE 2 — BUILD ALL BACKEND ROUTES
+
+Install any missing packages:
+```bash
+cd backend
+npm install openai@4 cors helmet express-rate-limit node-cron nodemailer
+```
+
+Setup standard response format for ALL routes:
+```js
+// Success single item
+res.json({ success: true, data: result })
+// Success list
+res.json({ success: true, data: items, total, page, pages })
+// Error
+res.status(4xx).json({ success: false, message: 'Description' })
+```
+
+Auth middleware reads JWT from `Authorization: Bearer <token>` header.
+Admin middleware checks `req.user.role === 'admin'`.
+
+---
+
+### ROUTE GROUP: AUTH (routes/auth.js)
+
+**POST /api/auth/register**
+```
+Body: { fullName, email, password }
+- Validate all fields, password >= 8 chars
+- Check email uniqueness
+- Hash password (bcrypt, 12 rounds)
+- Create User with role='user', onboardingCompleted=false
+- Return: { token, user: { id, fullName, email, role, onboardingCompleted } }
+```
+
+**POST /api/auth/login**
+```
+Body: { email, password }
+- Find user, compare password
+- Return: { token, user: { id, fullName, email, role, onboardingCompleted } }
+```
+
+**GET /api/auth/me** (JWT required)
+```
+Return current user with populated agency if exists
+```
+
+---
+
+### ROUTE GROUP: AGENCY PROFILE (routes/agency-profile.js)
+
+**POST /api/agency-profile** (JWT required)
+```
+Body: {
+  agencyName, agencyType, city, state,
+  populationServed, coverageArea, numberOfStaff,
+  currentEquipment, mainProblems, fundingPriorities
+}
+- Create or update Agency for req.user._id
+- Set req.user.onboardingCompleted = true
+- Auto-trigger match computation for this agency against all funders
+- Return: { agency, matchesComputed: number }
+```
+
+**GET /api/agency-profile** (JWT required)
+```
+Return agency for current user (req.user._id)
+```
+
+**PUT /api/agency-profile** (JWT required)
+```
+Body: any agency fields (partial update OK)
+Update agency, re-run match computation
+Return updated agency
+```
+
+---
+
+### ROUTE GROUP: FUNDERS (routes/funders.js)
+
+**GET /api/funders** (JWT required)
+```
+Query params: search, category, location, minScore, page (default 1), limit (default 20)
+- search: regex on name or missionStatement
+- category: filter by fundingCategories contains value
+- location: filter by locationFocus contains value
+- minScore: only return funders where this agency's match score >= minScore
+  (JOIN with matches collection filtered by req.user's agencyId)
+- Sort: by match score DESC if agency exists, else by name
+- Populate match score and tier for the current user's agency
+- Return list with matchScore, tier, matchReasons fields added to each funder
+```
+
+**GET /api/funders/:id** (JWT required)
+```
+Return single funder with full detail
+ALSO include:
+  - This agency's match details (score, reasons)
+  - applicationCount for this agency to this funder
+  - isLocked (funder.currentApplicationCount >= funder.maxApplicationsAllowed)
+```
+
+**POST /api/funders** (JWT + admin required)
+```
+Body: { name, website, contactName, contactEmail, contactPhone, missionStatement,
+        locationFocus, fundingCategories, agencyTypesFunded,
+        avgGrantMin, avgGrantMax, deadline, cyclesPerYear,
+        pastGrantsAwarded, notes, maxApplicationsAllowed }
+- locationFocus, fundingCategories, agencyTypesFunded can be comma-separated string or array
+- Return created funder
+- Trigger match recomputation for all agencies against this new funder
+```
+
+**PUT /api/funders/:id** (JWT + admin required)
+```
+Update funder, return updated
+```
+
+**DELETE /api/funders/:id** (JWT + admin required)
+```
+Set status = 'inactive'
+```
+
+**POST /api/funders/:id/save** (JWT required)
+```
+Save this funder for later (set match status = 'saved')
+Return: { success: true }
+```
+
+---
+
+### ROUTE GROUP: MATCHES (routes/matches.js)
+
+**GET /api/matches** (JWT required)
+```
+Query: tier (high/medium/low), status, page, limit
+- ALWAYS filter by current user's agencyId
+- Populate: funderId (name, avgGrantMin, avgGrantMax, locationFocus, deadline, status)
+- Sort: fitScore DESC
+- Return paginated list
+```
+
+**POST /api/matches/compute-agency** (JWT required)
+```
+Body: { agencyId } (optional — defaults to current user's agency)
+- Load agency + all active funders
+- For each funder, run scoring:
+
+SCORING ALGORITHM (total 100 points):
+
+1. missionMatch (max 35 points):
+   - Load agency.fundingPriorities + agency.agencyType
+   - Load funder.fundingCategories + funder.agencyTypesFunded
+   - If funder.agencyTypesFunded includes agency.agencyType: +15
+   - Count overlap between agency.fundingPriorities and funder.fundingCategories:
+     3+ overlap: +20, 2 overlap: +14, 1 overlap: +8, 0: +0
+   - Build reason: "Funder supports [agency type] agencies and funds [category]"
+
+2. locationMatch (max 35 points):
+   - Extract agency.state from city/state field
+   - If funder.locationFocus includes 'National' or 'Nationwide': +35
+   - If funder.locationFocus includes agency.state: +35
+   - If funder.locationFocus includes agency.city: +35 (city match)
+   - Region match (Southwest, Northeast, etc.): +20
+   - No match: +0
+   - Build reason: "Funder operates in [location]"
+
+3. projectMatch (max 30 points):
+   - Compare agency.mainProblems + agency.fundingPriorities vs funder.fundingCategories
+   - Keywords to match: radio, communications, equipment, technology, infrastructure, safety
+   - 3+ keyword matches: +30, 2 matches: +20, 1 match: +12, 0: +0
+   - Build reason: "Project focus aligns with funder's [categories]"
+
+fitScore = missionMatch + locationMatch + projectMatch (capped 0-100)
+tier = fitScore >= 80 ? 'high' : fitScore >= 65 ? 'medium' : 'low'
+
+- Upsert match records (unique on agencyId + funderId)
+- Only create/update for funders where tier = 'high' or 'medium' (skip low)
+- Return: { computed: number, high: number, medium: number, low: number }
+```
+
+---
+
+### ROUTE GROUP: APPLICATIONS (routes/applications.js)
+
+**GET /api/applications** (JWT required)
+```
+Query: status, funderId, page, limit
+- Filter by current user's agencyId
+- Populate: agencyId (agencyName), funderId (name, avgGrantMax)
+- Sort: updatedAt DESC
+- Return paginated list with status breakdown counts:
+  { data: [...], total, statusCounts: { drafting, submitted, awarded, denied, ... } }
+```
+
+**GET /api/applications/:id** (JWT required)
+```
+Populate agency + funder
+Return full application
+```
+
+**POST /api/applications** (JWT required)
+```
+Body: { funderId }
+- Check funder.isLocked — if true return 423 { message: 'This funder has reached the maximum application limit' }
+- Check if application already exists for this agencyId + funderId
+  If exists and status != 'denied': return existing application
+- Load agency profile for current user
+- Load funder
+- Call AI to generate application content (see AI section)
+- Create application with generated content + status='drafting'
+- Increment funder.currentApplicationCount
+- If funder.currentApplicationCount >= funder.maxApplicationsAllowed: set funder.isLocked = true
+- Schedule follow-up reminders (Day 7 and Day 14 after creation)
+- Return created application
+```
+
+**PUT /api/applications/:id** (JWT required)
+```
+Body: any application fields (for manual editing of generated content)
+Update and return
+```
+
+**PUT /api/applications/:id/status** (JWT required)
+```
+Body: { status, dateSubmitted, followUpDate, notes }
+- Update status
+- If status = 'submitted': set dateSubmitted = now (or body value)
+  Schedule follow-up on dateSubmitted + 7 days and + 14 days
+- If status = 'awarded':
+  Set isWinner = true
+  Save winning content to WinDatabase collection
+- Return updated application
+```
+
+**POST /api/applications/:id/regenerate** (JWT required)
+```
+Re-run AI generation using current agency + funder data
+Update application content fields
+Return updated application
+```
+
+**POST /api/applications/:id/align** (JWT required)
+```
+Stage 5: Funder Alignment
+- Load application + funder
+- Call AI to rewrite content matching funder's tone/mission language
+- Save to application.alignedVersion
+- Return alignedVersion content
+```
+
+**GET /api/applications/:id/export** (JWT required)
+```
+Generate plain text version of the application:
+  GRANT APPLICATION
+  Agency: [name]
+  Funder: [name]
+  Date: [today]
+  ---
+  PROBLEM STATEMENT:
+  [text]
+  ---
+  COMMUNITY IMPACT:
+  [text]
+  ... etc
+
+Return as plain text (Content-Type: text/plain) for download
+```
+
+---
+
+### ROUTE GROUP: OUTREACH EMAILS (routes/outreach.js)
+
+**GET /api/outreach** (JWT required)
+```
+Filter by current user's agencyId
+Populate funderId (name, contactName, contactEmail)
+Return list
+```
+
+**POST /api/outreach/generate** (JWT required)
+```
+Body: { funderId }
+- Load agency + funder
+- Call AI to generate outreach email (see AI section)
+- Save to OutreachEmail with status='draft'
+- Return: { subject, contactName, body, outreachEmailId }
+```
+
+**PUT /api/outreach/:id** (JWT required)
+```
+Body: { subject, contactName, body }
+Update (for manual editing)
+Return updated
+```
+
+**PUT /api/outreach/:id/sent** (JWT required)
+```
+Set status = 'sent', sentAt = now
+Return updated
+```
+
+---
+
+### ROUTE GROUP: SUBMISSION TRACKER (routes/tracker.js)
+
+**GET /api/tracker** (JWT required)
+```
+This is the same as GET /api/applications but formatted for the tracker view
+Return: {
+  data: [
+    {
+      id, funderName, projectTitle (from funder name + agency name),
+      dateStarted, dateSubmitted, status, followUpDate, notes,
+      awardAmount (if awarded)
+    }
+  ],
+  statusCounts: { not_started, drafting, ready_to_submit, submitted, follow_up_needed, awarded, denied }
+}
+```
+
+**GET /api/tracker/stats** (JWT required)
+```
+Return dashboard stats:
+{
+  totalMatchedFunders: count of high+medium matches for this agency,
+  applicationsInProgress: count where status in [drafting, ready_to_submit],
+  submittedApplications: count where status = submitted,
+  awardsWon: count where status = awarded,
+  totalDollarsRequested: sum of funder.avgGrantMax for all submitted apps,
+  totalDollarsAwarded: sum of funder.avgGrantMax for awarded apps (estimate)
+}
+```
+
+---
+
+### ROUTE GROUP: FOLLOW-UPS (routes/followups.js)
+
+**GET /api/followups** (JWT required)
+```
+Filter by current user
+Query: status (pending/sent/skipped), dueToday (boolean)
+Populate: applicationId, funderId (name)
+Return list sorted by scheduledFor ASC
+```
+
+**PUT /api/followups/:id/send** (JWT required)
+```
+Set status = 'sent', sentAt = now
+If SMTP configured: send actual email
+Return updated
+```
+
+**PUT /api/followups/:id/skip** (JWT required)
+```
+Set status = 'skipped'
+Return updated
+```
+
+---
+
+### ROUTE GROUP: DASHBOARD (routes/dashboard.js)
+
+**GET /api/dashboard** (JWT required)
+```
+Aggregate data for current user's agency:
+{
+  agencyProfile: agency object (or null if not set up yet),
+  stats: {
+    totalMatchedFunders,
+    applicationsInProgress,
+    submittedApplications,
+    awardsWon,
+    totalDollarsRequested,
+    totalDollarsAwarded
+  },
+  topMatches: top 5 high-tier matches with funder details,
+  recentActivity: last 5 applications (any status change),
+  followUpsDue: applications where followUpDate <= today + 3 days,
+  alerts: [
+    // Funder deadline within 14 days + this agency has no application
+    { type: 'deadline', funderName, deadline, message }
+    // Application follow-up due
+    { type: 'followup', funderName, applicationId, message }
+    // Funder limit approaching (currentApplicationCount = maxAllowed - 1)
+    { type: 'limit_warning', funderName, message }
+  ]
+}
+```
+
+---
+
+### ROUTE GROUP: AI (routes/ai.js)
+
+```js
+const OpenAI = require('openai');
+const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
+
+async function callAI(systemPrompt, userPrompt, maxTokens = 800) {
+  if (!process.env.OPENAI_API_KEY) return getAIFallback(systemPrompt, userPrompt);
+  const res = await openai.chat.completions.create({
+    model: process.env.OPENAI_MODEL || 'gpt-4o-mini',
+    messages: [
+      { role: 'system', content: systemPrompt },
+      { role: 'user', content: userPrompt }
+    ],
+    max_tokens: maxTokens,
+    temperature: 0.7
+  });
+  return res.choices[0].message.content.trim();
+}
+```
+
+**POST /api/ai/generate-application** (JWT required)
+```
+Body: { agencyId, funderId }
+Load agency + funder.
+
+Build the user prompt:
+"Generate a professional grant application with exactly these 6 labeled sections.
+Return ONLY a JSON object with keys: problemStatement, communityImpact,
+proposedSolution, measurableOutcomes, urgency, budgetSummary.
+
+Agency: [agencyName], [agencyType], [city] [state]
+Population served: [populationServed]
+Coverage area: [coverageArea]
+Number of staff: [numberOfStaff]
+Current equipment: [currentEquipment]
+Main problems: [mainProblems joined with comma]
+Funding priorities: [fundingPriorities joined with comma]
+
+Funder: [funderName]
+Funder mission: [missionStatement]
+Funder categories: [fundingCategories joined with comma]
+Typical grant: $[avgGrantMin] - $[avgGrantMax]
+
+Write each section in the first person as the agency. Be specific, outcome-focused,
+and compelling. Keep each section 3-5 sentences."
+
+System: "You are an expert grant writer specializing in public safety and communications for police, fire, and EMS agencies. Write professional, specific, persuasive grant applications. Always return valid JSON only."
+
+Parse JSON response.
+Return: { problemStatement, communityImpact, proposedSolution, measurableOutcomes, urgency, budgetSummary }
+
+FALLBACK (no API key):
+Return structured fallback text for each section based on agency type.
+```
+
+**POST /api/ai/align-to-funder** (JWT required)
+```
+Body: { applicationId }
+Load application + funder.
+
+System: "You are an expert grant writer. Rewrite grant applications to perfectly mirror a funder's language, tone, and priorities while keeping the facts intact."
+
+User prompt:
+"Rewrite these grant application sections to align with this funder's mission and tone.
+Match their vocabulary and priorities exactly.
+
+Funder name: [funderName]
+Funder mission: [missionStatement]
+Funder categories: [fundingCategories]
+
+Original sections: [JSON.stringify of all 6 sections]
+
+Return a JSON object with the same 6 keys but rewritten to match the funder's voice."
+
+Parse JSON, save to application.alignedVersion, return it.
+```
+
+**POST /api/ai/generate-outreach** (JWT required)
+```
+Body: { agencyId, funderId }
+Load agency + funder.
+
+User prompt:
+"Write a short, professional outreach email from [agencyName] to [funderName].
+The agency is a [agencyType] serving [populationServed] people.
+Their main challenge is: [mainProblems[0]].
+The funder supports: [fundingCategories].
+
+Return JSON with keys: subject (string), contactName (string), body (string, plain text under 200 words).
+The email should introduce the agency, briefly state the need, and request a conversation."
+
+Return: { subject, contactName, body }
+```
+
+**POST /api/ai/generate-summary** (JWT required)
+```
+Body: { agencyId }
+Load agency.
+
+Return a 2-paragraph "Agency Profile Summary" that could be used as a cover page:
+Paragraph 1: Who we are (agency type, location, population, staff)
+Paragraph 2: Our mission and funding priorities
+
+Return: { summary: string }
+```
+
+**FALLBACK FUNCTION** for all AI calls when no API key:
+```js
+function getAIFallback(systemPrompt, userPrompt) {
+  // Detect which generation type is needed from the prompt content
+  if (userPrompt.includes('grant application') || userPrompt.includes('problemStatement')) {
+    return JSON.stringify({
+      problemStatement: "Our agency faces critical communications infrastructure challenges that directly impact emergency response capabilities. Outdated radio equipment creates dangerous dead zones throughout our coverage area, delaying response times and putting both officers and the public at risk. Without reliable communications, our ability to coordinate effectively during major incidents is severely compromised.",
+      communityImpact: "Our community of [population] residents depends on our agency for immediate emergency response. Improved communications will reduce average response times by an estimated 20-30%, potentially saving lives during critical incidents. The entire coverage area will benefit from seamless radio communications that ensure no call goes unanswered.",
+      proposedSolution: "We propose to replace our aging radio fleet with modern P25-compatible digital radios and install repeater infrastructure to eliminate dead zones. This solution will provide interoperability with neighboring agencies and state emergency management systems. The upgrade includes portable radios, mobile units, and a dispatch console upgrade.",
+      measurableOutcomes: "Within 12 months we will eliminate identified dead zones, achieve 99.9% radio coverage across our jurisdiction, and reduce communications-related response delays by 25%. We will track and report quarterly on coverage maps, response time data, and inter-agency coordination incidents. All outcomes will be documented and reported to the funder.",
+      urgency: "Our current equipment is beyond its service life and replacement parts are no longer available. Three critical radio failures in the past year have highlighted the immediate danger this poses to officer safety. Continued delay increases the risk of a communications failure during a major incident when reliable coordination is most critical.",
+      budgetSummary: "Total project budget: Requested from funder. Funds will cover hardware procurement, installation, programming, and 12 months of technical support. All equipment meets APCO P25 standards for public safety interoperability. A detailed line-item budget is available upon request."
+    });
+  }
+  if (userPrompt.includes('outreach') || userPrompt.includes('subject')) {
+    return JSON.stringify({
+      subject: "Partnership Opportunity: Communications Infrastructure for Public Safety",
+      contactName: "Program Officer",
+      body: "Dear Program Officer,\n\nI am reaching out on behalf of our agency to express our strong interest in partnering with your foundation. Our agency serves a community facing significant communications infrastructure challenges that directly impact emergency response.\n\nWe believe our mission closely aligns with your foundation's commitment to public safety and community resilience. We would welcome the opportunity to discuss how grant funding could help us address these critical needs.\n\nWould you be available for a brief conversation in the coming weeks? I would be happy to share more details about our agency's needs and how your support would make a measurable difference.\n\nThank you for your consideration.\n\nSincerely,\n[Agency Representative]"
+    });
+  }
+  return "AI content generation requires OPENAI_API_KEY to be configured. Please add your OpenAI API key to the .env file.";
+}
+```
+
+---
+
+### ROUTE GROUP: WIN DATABASE (routes/wins.js)
+
+**GET /api/wins** (JWT required)
+```
+Return all win database entries
+Can filter by: agencyType, fundingType, projectType
+Sort: createdAt DESC
+```
+
+**GET /api/wins/insights** (JWT required)
+```
+Return:
+{
+  totalWins: count,
+  totalAwarded: sum of awardAmount,
+  winsByAgencyType: { police: 3, fire: 2, ... },
+  winsByFundingType: { federal: 4, foundation: 1, ... },
+  topFunders: [{ name, winCount }],
+  commonWinFactors: most frequent winFactors tags
+}
+```
+
+---
+
+### ROUTE GROUP: ADMIN FUNDER DATABASE (routes/admin.js)
+
+**GET /api/admin/funders** (admin required)
+```
+All funders including inactive
+Include: currentApplicationCount, isLocked, applicationHistory count
+```
+
+**POST /api/admin/funders/import** (admin required)
+```
+Body: { funders: [array of funder objects] }
+Bulk insert funders
+Return: { created: number, errors: [] }
+```
+
+**GET /api/admin/stats** (admin required)
+```
+{
+  totalAgencies, totalFunders, totalApplications,
+  applicationsByStatus: { ... },
+  awardsWon, totalAwarded,
+  topMatchedFunders: [{ funderName, matchCount }],
+  recentSignups: [last 5 users]
+}
+```
+
+---
+
+### ROUTE GROUP: CRON JOBS (jobs/scheduler.js)
+
+```js
+const cron = require('node-cron');
+
+// Daily at 8 AM — send due follow-up emails
+cron.schedule('0 8 * * *', async () => {
+  const today = new Date();
+  const due = await FollowUp.find({
+    status: 'pending',
+    scheduledFor: { $lte: today }
+  }).populate('applicationId funderId userId');
+  for (const followUp of due) {
+    // Generate follow-up email content if not already set
+    if (!followUp.emailBody) {
+      // Create a brief follow-up message
+    }
+    // If SMTP configured: send email
+    // Mark as sent
+    followUp.status = 'sent';
+    followUp.sentAt = new Date();
+    await followUp.save();
+    // Create alert for user
+    await Alert.create({
+      userId: followUp.userId,
+      type: 'followup_sent',
+      message: `Follow-up #${followUp.followUpNumber} sent to ${followUp.funderId.name}`
+    });
+  }
+});
+
+// Daily at 9 AM — check for funders with deadlines in 14 days
+cron.schedule('0 9 * * *', async () => {
+  const twoWeeks = new Date(Date.now() + 14 * 24 * 60 * 60 * 1000);
+  const urgentFunders = await Funder.find({
+    status: 'active',
+    deadline: { $lte: twoWeeks, $gte: new Date() }
+  });
+  for (const funder of urgentFunders) {
+    // Find agencies with high/medium match but no application yet
+    const matches = await Match.find({
+      funderId: funder._id,
+      tier: { $in: ['high','medium'] }
+    });
+    for (const match of matches) {
+      const hasApp = await Application.findOne({ agencyId: match.agencyId, funderId: funder._id });
+      if (!hasApp) {
+        await Alert.create({
+          userId: match.agencyId, // Will need actual userId lookup
+          type: 'deadline',
+          priority: 'high',
+          message: `Deadline alert: ${funder.name} closes in ${Math.ceil((funder.deadline - new Date()) / 86400000)} days`,
+        });
+      }
+    }
+  }
+});
+```
+
+---
+
+### SEED DATA
+
+Update seed.js to create:
+```
+1 Admin user: admin@reddogradios.com / Admin1234!
+2 Agency users: 
+  - chief@austinfire.com / Test1234! (fire agency, Austin TX)
+  - captain@dallasPD.com / Test1234! (police agency, Dallas TX)
+
+3 Agencies with FULL profiles:
+  1. Austin Fire District 4 — fire, Austin TX, pop: 45000, 
+     coverage: 180 sq mi, staff: 42,
+     equipment: "2010 Motorola XTS2500 portables, aging Kenwood mobiles",
+     problems: ["dead zones in industrial area", "poor interop with EMS"],
+     priorities: ["P25 radios", "repeater upgrade", "dispatch console"]
+  
+  2. Dallas Police North Division — police, Dallas TX, pop: 120000,
+     staff: 180, coverage: 85 sq mi,
+     equipment: "mixed fleet of 2015 APX6000 and older handhelds",
+     problems: ["equipment age", "no encryption"],
+     priorities: ["APX replacement", "encryption upgrade"]
+  
+  3. Travis County EMS — ems, Travis County TX, pop: 95000, staff: 65
+
+8 Funders with full details:
+  1. FEMA Hazard Mitigation Grant Program — national, public safety, avg $50k-$500k
+  2. DOJ COPS Technology Program — national, law enforcement, avg $100k-$1M
+  3. DHS/FEMA BSIR Grant — national, public safety comms, avg $250k-$2M
+  4. Motorola Solutions Foundation — national/regional, technology, avg $25k-$100k
+  5. Walmart Foundation Safety Grant — regional, community safety, avg $10k-$50k
+  6. Texas Governor's Division of Emergency Management — Texas only, avg $50k-$500k
+  7. AT&T Foundation FirstNet Grant — national, communications, avg $25k-$150k
+  8. Community Foundation Safety Initiative — Texas, community, avg $5k-$25k
+
+Compute matches for all agency+funder combinations after seeding.
+Create 3 sample applications (one drafted, one submitted, one awarded).
+Create 2 outreach emails.
+Create 5 alerts for the fire chief user.
+```
+
+---
+
+## PHASE 3 — FRONTEND: SETUP (React Query + Services)
+
+```bash
+cd frontend
+npm install @tanstack/react-query@5 @tanstack/react-query-devtools axios
+```
+
+### Create src/lib/axios.js
+```js
+import axios from 'axios';
+
+const api = axios.create({
+  baseURL: (typeof import !== 'undefined' && import.meta?.env?.VITE_API_URL) 
+    || process.env.REACT_APP_API_URL 
+    || 'http://localhost:4000',
+  headers: { 'Content-Type': 'application/json' }
+});
+
+api.interceptors.request.use(config => {
+  const token = localStorage.getItem('rdg_token');
+  if (token) config.headers.Authorization = `Bearer ${token}`;
+  return config;
+});
+
+api.interceptors.response.use(
+  res => res,
+  err => {
+    if (err.response?.status === 401) {
+      localStorage.removeItem('rdg_token');
+      localStorage.removeItem('rdg_user');
+      window.location.href = '/login';
+    }
+    return Promise.reject(err);
+  }
+);
+
+export default api;
+```
+
+### Create all service files:
+
+**src/services/authService.js**
+```js
+import api from '../lib/axios';
+export const login = d => api.post('/api/auth/login', d);
+export const register = d => api.post('/api/auth/register', d);
+export const getMe = () => api.get('/api/auth/me');
+```
+
+**src/services/agencyService.js**
+```js
+import api from '../lib/axios';
+export const getAgencyProfile = () => api.get('/api/agency-profile');
+export const createAgencyProfile = d => api.post('/api/agency-profile', d);
+export const updateAgencyProfile = d => api.put('/api/agency-profile', d);
+```
+
+**src/services/funderService.js**
+```js
+import api from '../lib/axios';
+export const getFunders = p => api.get('/api/funders', { params: p });
+export const getFunder = id => api.get(`/api/funders/${id}`);
+export const saveFunder = id => api.post(`/api/funders/${id}/save`);
+export const createFunder = d => api.post('/api/funders', d);
+export const updateFunder = (id, d) => api.put(`/api/funders/${id}`, d);
+```
+
+**src/services/matchService.js**
+```js
+import api from '../lib/axios';
+export const getMatches = p => api.get('/api/matches', { params: p });
+export const computeMatches = d => api.post('/api/matches/compute-agency', d);
+```
+
+**src/services/applicationService.js**
+```js
+import api from '../lib/axios';
+export const getApplications = p => api.get('/api/applications', { params: p });
+export const getApplication = id => api.get(`/api/applications/${id}`);
+export const createApplication = d => api.post('/api/applications', d);
+export const updateApplication = (id, d) => api.put(`/api/applications/${id}`, d);
+export const updateApplicationStatus = (id, d) => api.put(`/api/applications/${id}/status`, d);
+export const regenerateApplication = id => api.post(`/api/applications/${id}/regenerate`);
+export const alignToFunder = id => api.post(`/api/applications/${id}/align`);
+export const exportApplication = id => api.get(`/api/applications/${id}/export`, { responseType: 'blob' });
+```
+
+**src/services/outreachService.js**
+```js
+import api from '../lib/axios';
+export const getOutreachEmails = p => api.get('/api/outreach', { params: p });
+export const generateOutreach = d => api.post('/api/outreach/generate', d);
+export const updateOutreach = (id, d) => api.put(`/api/outreach/${id}`, d);
+export const markOutreachSent = id => api.put(`/api/outreach/${id}/sent`);
+```
+
+**src/services/dashboardService.js**
+```js
+import api from '../lib/axios';
+export const getDashboard = () => api.get('/api/dashboard');
+```
+
+**src/services/trackerService.js**
+```js
+import api from '../lib/axios';
+export const getTracker = p => api.get('/api/tracker', { params: p });
+export const getTrackerStats = () => api.get('/api/tracker/stats');
+```
+
+**src/services/followupService.js**
+```js
+import api from '../lib/axios';
+export const getFollowUps = p => api.get('/api/followups', { params: p });
+export const sendFollowUp = id => api.put(`/api/followups/${id}/send`);
+export const skipFollowUp = id => api.put(`/api/followups/${id}/skip`);
+```
+
+**src/services/aiService.js**
+```js
+import api from '../lib/axios';
+export const generateApplication = d => api.post('/api/ai/generate-application', d);
+export const alignToFunder = d => api.post('/api/ai/align-to-funder', d);
+export const generateOutreach = d => api.post('/api/ai/generate-outreach', d);
+export const generateAgencySummary = d => api.post('/api/ai/generate-summary', d);
+```
+
+**src/services/winService.js**
+```js
+import api from '../lib/axios';
+export const getWins = p => api.get('/api/wins', { params: p });
+export const getWinInsights = () => api.get('/api/wins/insights');
+```
+
+### Setup React Query in main.jsx / index.js
+```jsx
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
+import { ReactQueryDevtools } from '@tanstack/react-query-devtools';
+
+const queryClient = new QueryClient({
+  defaultOptions: {
+    queries: {
+      staleTime: 30000,
+      retry: 1,
+      refetchOnWindowFocus: false,
+    }
+  }
+});
+
+// Wrap app:
+<QueryClientProvider client={queryClient}>
+  <AuthProvider>
+    <ToastProvider>
+      <App />
+    </ToastProvider>
+  </AuthProvider>
+  {process.env.NODE_ENV === 'development' && <ReactQueryDevtools />}
+</QueryClientProvider>
+```
+
+### Create src/context/AuthContext.jsx
+```jsx
+import { createContext, useContext, useState } from 'react';
+
+const AuthContext = createContext(null);
+
+export function AuthProvider({ children }) {
+  const [user, setUser] = useState(() => {
+    try { return JSON.parse(localStorage.getItem('rdg_user')); } catch { return null; }
+  });
+
+  const loginUser = (token, userData) => {
+    localStorage.setItem('rdg_token', token);
+    localStorage.setItem('rdg_user', JSON.stringify(userData));
+    setUser(userData);
+  };
+
+  const logoutUser = () => {
+    localStorage.removeItem('rdg_token');
+    localStorage.removeItem('rdg_user');
+    setUser(null);
+  };
+
+  const updateUser = (updates) => {
+    const updated = { ...user, ...updates };
+    localStorage.setItem('rdg_user', JSON.stringify(updated));
+    setUser(updated);
+  };
+
+  return (
+    <AuthContext.Provider value={{
+      user,
+      isAuthenticated: !!user,
+      loginUser,
+      logoutUser,
+      updateUser
+    }}>
+      {children}
+    </AuthContext.Provider>
+  );
+}
+
+export const useAuth = () => useContext(AuthContext);
+```
+
+### Create src/context/ToastContext.jsx
+```jsx
+import { createContext, useContext, useState, useCallback } from 'react';
+
+const ToastContext = createContext(null);
+
+export function ToastProvider({ children }) {
+  const [toasts, setToasts] = useState([]);
+
+  const toast = useCallback((message, type = 'success') => {
+    const id = Date.now() + Math.random();
+    setToasts(t => [...t, { id, message, type }]);
+    setTimeout(() => setToasts(t => t.filter(x => x.id !== id)),
+      type === 'error' ? 5000 : 3000);
+  }, []);
+
+  const colors = { success: '#2E7D32', error: '#c62828', info: '#1565C0', warning: '#E65100' };
+
+  return (
+    <ToastContext.Provider value={toast}>
+      {children}
+      <div style={{ position:'fixed', bottom:24, right:24, zIndex:9999, display:'flex', flexDirection:'column', gap:8 }}>
+        {toasts.map(t => (
+          <div key={t.id} style={{
+            padding:'12px 20px', borderRadius:8, color:'#fff',
+            fontSize:14, maxWidth:360, boxShadow:'0 4px 12px rgba(0,0,0,0.2)',
+            background: colors[t.type] || colors.success
+          }}>{t.message}</div>
+        ))}
+      </div>
+    </ToastContext.Provider>
+  );
+}
+
+export const useToast = () => useContext(ToastContext);
+```
+
+### Create src/components/RouteGuards.jsx
+```jsx
+import { Navigate } from 'react-router-dom';
+import { useAuth } from '../context/AuthContext';
+
+export function ProtectedRoute({ children }) {
+  const { isAuthenticated } = useAuth();
+  if (!isAuthenticated) return <Navigate to="/login" replace />;
+  return children;
+}
+
+export function PublicRoute({ children }) {
+  const { isAuthenticated, user } = useAuth();
+  if (isAuthenticated) {
+    return <Navigate to={user?.onboardingCompleted ? '/dashboard' : '/onboarding'} replace />;
+  }
+  return children;
+}
+
+export function OnboardingRoute({ children }) {
+  const { isAuthenticated, user } = useAuth();
+  if (!isAuthenticated) return <Navigate to="/login" replace />;
+  if (user?.onboardingCompleted) return <Navigate to="/dashboard" replace />;
+  return children;
+}
+```
+
+Apply route guards in App.js to all routes.
+
+---
+
+## PHASE 4 — INTEGRATE EVERY SCREEN
+
+For each screen, find the existing component. Replace all hardcoded dummy data with React Query hooks. Keep all JSX and styling unchanged.
+
+---
+
+### SCREEN 1: Login
+```jsx
+import { useMutation } from '@tanstack/react-query';
+import { login } from '../services/authService';
+import { useAuth } from '../context/AuthContext';
+import { useToast } from '../context/ToastContext';
+
+const { loginUser } = useAuth();
+const toast = useToast();
+const [email, setEmail] = useState('');
+const [password, setPassword] = useState('');
+const [error, setError] = useState('');
+
+const { mutate: doLogin, isPending } = useMutation({
+  mutationFn: () => login({ email, password }),
+  onSuccess: (res) => {
+    loginUser(res.data.token, res.data.data.user);
+    navigate(res.data.data.user.onboardingCompleted ? '/dashboard' : '/onboarding');
+  },
+  onError: (err) => setError(err.response?.data?.message || 'Invalid email or password')
+});
+// Button: onClick={() => doLogin()}, disabled={isPending}
+// Show error string below password field when error is set
+```
+
+---
+
+### SCREEN 2: Agency Setup (Onboarding)
+This is the most important screen to get right. 
+
+```jsx
+import { useMutation } from '@tanstack/react-query';
+import { createAgencyProfile } from '../services/agencyService';
+import { useAuth } from '../context/AuthContext';
+
+// ALL FIELDS must be captured in form state:
+const [form, setForm] = useState({
+  agencyName: '', agencyType: 'police', city: '', state: '',
+  populationServed: '', coverageArea: '', numberOfStaff: '',
+  currentEquipment: '', mainProblems: [], fundingPriorities: []
+});
+
+const { mutate: saveProfile, isPending } = useMutation({
+  mutationFn: () => createAgencyProfile(form),
+  onSuccess: (res) => {
+    updateUser({ onboardingCompleted: true });
+    toast('Agency profile saved! Finding your matches...');
+    navigate('/dashboard');
+  },
+  onError: (err) => toast(err.response?.data?.message || 'Failed to save profile', 'error')
+});
+
+// "Save Profile" + "Continue" button both call saveProfile()
+// Show spinner when isPending
+```
+
+---
+
+### SCREEN 3: Dashboard
+```jsx
+import { useQuery } from '@tanstack/react-query';
+import { getDashboard } from '../services/dashboardService';
+
+const { data, isLoading, isError, refetch } = useQuery({
+  queryKey: ['dashboard'],
+  queryFn: () => getDashboard().then(r => r.data.data),
+  refetchInterval: 2 * 60 * 1000, // refresh every 2 minutes
+});
+
+// 6 stat cards — replace hardcoded numbers with:
+// data?.stats.totalMatchedFunders
+// data?.stats.applicationsInProgress
+// data?.stats.submittedApplications
+// data?.stats.awardsWon
+// data?.stats.totalDollarsRequested — format as $X,XXX,XXX
+// data?.stats.totalDollarsAwarded — format as $X,XXX,XXX
+
+// Top Matches section: map data?.topMatches
+// Each match: match.funderId.name, match.fitScore, match.tier (color badge)
+
+// Recent Activity: map data?.recentActivity
+// Each: app.funderId.name, app.status, app.updatedAt
+
+// Follow-ups Due: map data?.followUpsDue
+// Each: show funder name, follow-up date
+
+// Alerts: map data?.alerts
+// Each: alert.type (deadline=red, followup=orange), alert.message
+
+// While isLoading: show skeleton cards (gray animated blocks)
+// On error: show retry button
+```
+
+---
+
+### SCREEN 4: Funder Matches
+```jsx
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { getMatches } from '../services/matchService';
+import { saveFunder } from '../services/funderService';
+
+const [tierFilter, setTierFilter] = useState('all'); // all, high, medium
+
+const { data: matches, isLoading, isError, refetch } = useQuery({
+  queryKey: ['matches', tierFilter],
+  queryFn: () => getMatches({ ...(tierFilter !== 'all' && { tier: tierFilter }) }).then(r => r.data.data),
+});
+
+const saveMutation = useMutation({
+  mutationFn: (funderId) => saveFunder(funderId),
+  onSuccess: () => {
+    toast('Funder saved');
+    queryClient.invalidateQueries({ queryKey: ['matches'] });
+  }
+});
+
+// Render matches as list
+// match.funderId.name → funder name
+// match.fitScore → score badge: >=80 green "High Match", >=65 orange "Medium Match", else gray "Low"
+// match.funderId.avgGrantMin + avgGrantMax → "$XX,XXX - $XX,XXX"
+// match.funderId.locationFocus joined → geographic fit
+// match.funderId.fundingCategories joined → project fit  
+// match.funderId.deadline → deadline (red if within 14 days)
+// match.status → current status
+
+// "View Details" → navigate to /funders/:match.funderId._id
+// "Apply" → navigate to /applications/new?funderId=match.funderId._id
+// "Save for Later" → saveMutation.mutate(match.funderId._id)
+
+// Filter buttons: All / High Match (80+) / Medium (65-79)
+// Each button triggers tierFilter state change
+```
+
+---
+
+### SCREEN 5: Funder Detail Page
+```jsx
+import { useQuery, useMutation } from '@tanstack/react-query';
+import { getFunder } from '../services/funderService';
+import { generateOutreach } from '../services/outreachService';
+
+const { id } = useParams();
+const { data: funder, isLoading } = useQuery({
+  queryKey: ['funder', id],
+  queryFn: () => getFunder(id).then(r => r.data.data),
+});
+
+const outreachMutation = useMutation({
+  mutationFn: () => generateOutreach({ funderId: id }),
+  onSuccess: (res) => {
+    setOutreachData(res.data.data);
+    navigate(`/outreach/${res.data.data.outreachEmailId}`);
+  }
+});
+
+const applicationMutation = useMutation({
+  mutationFn: () => createApplication({ funderId: id }),
+  onSuccess: (res) => navigate(`/applications/${res.data.data._id}`),
+  onError: (err) => {
+    if (err.response?.status === 423) {
+      toast('This funder has reached the maximum application limit', 'error');
+    } else {
+      toast(err.response?.data?.message || 'Failed to start application', 'error');
+    }
+  }
+});
+
+// Show: funder.name, funder.missionStatement, funder.pastGrantsAwarded (list),
+// funder.contactName, funder.contactEmail, funder.contactPhone, funder.website,
+// "$funder.avgGrantMin - $funder.avgGrantMax"
+// funder.notes
+// matchReasons (from the match object returned with funder detail)
+
+// If funder.isLocked: show red banner "This funder is currently at capacity (X/X applications)"
+// and disable "Generate Application" button
+
+// "Generate Outreach Email" → outreachMutation.mutate()
+// "Generate Application" → applicationMutation.mutate()
+// "Add Notes" → inline textarea to update funder notes
+```
+
+---
+
+### SCREEN 6: Application Builder
+```jsx
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { getApplication, updateApplication, regenerateApplication, alignToFunder, exportApplication } from '../services/applicationService';
+
+const { id } = useParams();
+const queryClient = useQueryClient();
+const [isEditing, setIsEditing] = useState(false);
+const [form, setForm] = useState(null);
+const [showAligned, setShowAligned] = useState(false);
+const [isAligning, setIsAligning] = useState(false);
+
+const { data: app, isLoading } = useQuery({
+  queryKey: ['application', id],
+  queryFn: () => getApplication(id).then(r => r.data.data),
+  onSuccess: (data) => setForm(data) // pre-fill edit form
+});
+
+const saveMutation = useMutation({
+  mutationFn: () => updateApplication(id, form),
+  onSuccess: () => {
+    queryClient.invalidateQueries({ queryKey: ['application', id] });
+    toast('Application saved');
+    setIsEditing(false);
+  }
+});
+
+const regenerateMutation = useMutation({
+  mutationFn: () => regenerateApplication(id),
+  onSuccess: (res) => {
+    queryClient.invalidateQueries({ queryKey: ['application', id] });
+    toast('Application regenerated with fresh AI content');
+  }
+});
+
+const handleAlign = async () => {
+  setIsAligning(true);
+  try {
+    const res = await alignToFunder(id);
+    queryClient.invalidateQueries({ queryKey: ['application', id] });
+    setShowAligned(true);
+    toast('Application aligned to funder language');
+  } catch (e) {
+    toast('Failed to align application', 'error');
+  } finally {
+    setIsAligning(false);
+  }
+};
+
+const handleExport = async () => {
+  const res = await exportApplication(id);
+  const blob = new Blob([res.data], { type: 'text/plain' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = `application-${id}.txt`;
+  a.click();
+  URL.revokeObjectURL(url);
+};
+
+// Show 6 sections: problemStatement, communityImpact, proposedSolution,
+// measurableOutcomes, urgency, budgetSummary
+// If showAligned: show app.alignedVersion versions instead (toggle)
+// If isEditing: show editable textareas for each section
+// If not editing: show read-only text with "Edit" button
+
+// "Regenerate" button → regenerateMutation.mutate(); show spinner
+// "Edit" button → setIsEditing(true)
+// "Save Draft" → saveMutation.mutate(); show spinner when isPending
+// "Mark Submitted" → updateApplicationStatus(id, { status: 'submitted' })
+// "Export" → handleExport()
+// "Align to Funder" → handleAlign(); show "Optimized Version" toggle after done
+
+// Also show: funder name, match score badge, deadline at top of page
+// Loading state: skeleton blocks for each section
+```
+
+---
+
+### SCREEN 7: Outreach Email Builder
+```jsx
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { getOutreachEmails, updateOutreach, markOutreachSent } from '../services/outreachService';
+
+// If coming from funder detail page with an ID in params:
+const { id } = useParams();
+
+const { data: email, isLoading } = useQuery({
+  queryKey: ['outreach', id],
+  queryFn: () => getApplication(id).then(r => r.data.data), // reuse pattern
+  enabled: !!id
+});
+
+const [subject, setSubject] = useState('');
+const [contactName, setContactName] = useState('');
+const [body, setBody] = useState('');
+
+useEffect(() => {
+  if (email) {
+    setSubject(email.subject || '');
+    setContactName(email.contactName || '');
+    setBody(email.body || '');
+  }
+}, [email]);
+
+const saveMutation = useMutation({
+  mutationFn: () => updateOutreach(id, { subject, contactName, body }),
+  onSuccess: () => toast('Email saved')
+});
+
+const markSentMutation = useMutation({
+  mutationFn: () => markOutreachSent(id),
+  onSuccess: () => {
+    queryClient.invalidateQueries({ queryKey: ['outreach', id] });
+    toast('Marked as sent');
+  }
+});
+
+const handleCopy = () => {
+  navigator.clipboard.writeText(`Subject: ${subject}\n\nDear ${contactName},\n\n${body}`);
+  toast('Copied to clipboard');
+};
+
+// Show: subject (editable input), contactName (editable input), body (editable textarea)
+// All fields are pre-filled from API, editable inline
+// "Copy Email" → handleCopy()
+// "Save" → saveMutation.mutate()
+// "Sent" → markSentMutation.mutate()
+```
+
+---
+
+### SCREEN 8: Submission Tracker
+```jsx
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { getTracker, getTrackerStats } from '../services/trackerService';
+import { updateApplicationStatus } from '../services/applicationService';
+
+const [statusFilter, setStatusFilter] = useState('all');
+const queryClient = useQueryClient();
+
+const { data: stats } = useQuery({
+  queryKey: ['tracker-stats'],
+  queryFn: () => getTrackerStats().then(r => r.data.data)
+});
+
+const { data: applications, isLoading } = useQuery({
+  queryKey: ['tracker', statusFilter],
+  queryFn: () => getTracker({
+    ...(statusFilter !== 'all' && { status: statusFilter })
+  }).then(r => r.data.data)
+});
+
+const updateStatusMutation = useMutation({
+  mutationFn: ({ id, status, notes, followUpDate }) =>
+    updateApplicationStatus(id, { status, notes, followUpDate }),
+  onSuccess: () => {
+    queryClient.invalidateQueries({ queryKey: ['tracker'] });
+    queryClient.invalidateQueries({ queryKey: ['tracker-stats'] });
+    toast('Status updated');
+  }
+});
+
+// Stats cards at top: total matched funders, in progress, submitted, won
+
+// Table columns: FUNDER | PROJECT | DATE STARTED | DATE SUBMITTED | STATUS | FOLLOW-UP DATE | NOTES
+
+// STATUS dropdown per row — when changed:
+// updateStatusMutation.mutate({ id: app._id, status: newStatus })
+
+// Status colors:
+// not_started → gray, drafting → blue, ready_to_submit → purple
+// submitted → orange, follow_up_needed → yellow
+// awarded → green "Awarded ✓", denied → red "Denied"
+
+// FOLLOW-UP DATE: if followUpsDue, show in red/orange
+// NOTES: inline editable text
+```
+
+---
+
+### SCREEN 9: Admin Funder Database
+This screen should only be accessible to admin users.
+
+```jsx
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { getFunders, createFunder, updateFunder } from '../services/funderService';
+import { useAuth } from '../context/AuthContext';
+
+const { user } = useAuth();
+// If not admin: show "Access denied" message or redirect
+
+const { data: funders, isLoading } = useQuery({
+  queryKey: ['admin-funders'],
+  queryFn: () => getFunders({ limit: 100 }).then(r => r.data.data),
+  enabled: user?.role === 'admin'
+});
+
+const createMutation = useMutation({
+  mutationFn: createFunder,
+  onSuccess: () => {
+    queryClient.invalidateQueries({ queryKey: ['admin-funders'] });
+    toast('Funder added to database');
+    setShowModal(false);
+  }
+});
+
+const updateMutation = useMutation({
+  mutationFn: ({ id, data }) => updateFunder(id, data),
+  onSuccess: () => {
+    queryClient.invalidateQueries({ queryKey: ['admin-funders'] });
+    toast('Funder updated');
+  }
+});
+
+// Show funders table with: name, categories, location focus,
+// avgGrantMin-Max, deadline, currentApplicationCount/maxApplicationsAllowed,
+// isLocked status, status (active/inactive)
+
+// "Add Funder" button → modal with ALL funder fields
+// Edit button per row → inline edit or modal
+// Lock indicator: if isLocked show red "LOCKED" badge
+// Capacity indicator: X/Y applications used
+```
+
+---
+
+## PHASE 5 — CREATE NEW ROUTES IF MISSING
+
+After reviewing the existing routes, if ANY of the following screen routes don't exist in the React Router config, ADD them now. Map to appropriate existing or new components:
+
+```
+/login               → Login screen
+/signup              → Signup screen
+/forgot-password     → Forgot password
+/onboarding          → Agency Setup form (Screen 2)
+/dashboard           → Dashboard (Screen 3)
+/matches             → Funder Matches list (Screen 4)
+/funders/:id         → Funder Detail (Screen 5)
+/applications        → All applications list
+/applications/new    → Start new application (creates app then redirects)
+/applications/:id    → Application Builder (Screen 6)
+/outreach            → All outreach emails list
+/outreach/:id        → Outreach Email Builder (Screen 7)
+/tracker             → Submission Tracker (Screen 8)
+/admin/funders       → Admin Funder Database (Screen 9) — admin only
+/wins                → Win Database (Stage 10)
+```
+
+For any screen route that doesn't have a component yet, create a placeholder:
+```jsx
+export default function PageName() {
+  return (
+    <div style={{ padding: 32 }}>
+      <h2>[Page Name] — Coming Soon</h2>
+    </div>
+  );
+}
+```
+
+---
+
+## PHASE 6 — ENVIRONMENT CONFIGURATION
+
+### Backend .env.example
+```
+MONGO_URI=mongodb+srv://...
+JWT_SECRET=your_secret_key_here_min_32_chars
+JWT_EXPIRES_IN=7d
+PORT=4000
+OPENAI_API_KEY=sk-...
+OPENAI_MODEL=gpt-4o-mini
+FRONTEND_URL=http://localhost:3000
+SMTP_HOST=smtp.gmail.com
+SMTP_PORT=587
+SMTP_USER=
+SMTP_PASS=
+SMTP_FROM=
+```
+
+### Frontend .env
+If using Create React App: `REACT_APP_API_URL=http://localhost:4000`
+If using Vite: `VITE_API_URL=http://localhost:4000`
+
+Detect which build tool is in use (check for vite.config.js or package.json scripts) and use the correct prefix.
+
+---
+
+## PHASE 7 — FINAL VERIFICATION
+
+After completing all phases, run through this checklist and report results:
+
+**Backend:**
+- [ ] `GET /health` → 200 OK
+- [ ] `POST /api/auth/login` → returns token for admin@reddogradios.com / Admin1234!
+- [ ] `POST /api/auth/login` → returns token for chief@austinfire.com / Test1234!
+- [ ] `GET /api/dashboard` (with token) → returns all 6 stats + topMatches + alerts
+- [ ] `GET /api/funders` (with token) → returns funders with match scores
+- [ ] `POST /api/matches/compute-agency` → returns computed match counts
+- [ ] `POST /api/applications` → creates application, triggers AI generation
+- [ ] `POST /api/ai/generate-application` → returns all 6 content sections (real or fallback)
+- [ ] `POST /api/outreach/generate` → returns subject + contactName + body
+- [ ] `GET /api/tracker` → returns applications formatted for tracker view
+- [ ] All routes return `{ success: true, data: ... }` format consistently
+
+**Frontend:**
+- [ ] React Query QueryClientProvider wraps entire app
+- [ ] AuthProvider and ToastProvider wrap entire app
+- [ ] Login calls real API, stores token, redirects to onboarding or dashboard
+- [ ] Onboarding/Agency Setup saves all fields to database
+- [ ] Dashboard shows real numbers (no hardcoded values)
+- [ ] Funder Matches shows real match scores with color tiers
+- [ ] Funder Detail shows real funder data + locked/capacity status
+- [ ] Application Builder shows AI-generated content in all 6 sections
+- [ ] "Align to Funder" creates and shows optimized version
+- [ ] "Export" downloads a text file
+- [ ] Outreach Email Builder shows AI-generated email, is fully editable
+- [ ] Submission Tracker shows all applications with correct statuses
+- [ ] Status changes update in real-time (React Query invalidation)
+- [ ] All forms show loading spinner on submit
+- [ ] All list pages show skeleton loader while fetching
+- [ ] All errors show toast notification
+
+**Report when done:**
+1. Routes CREATED that were missing
+2. Routes FIXED that had bugs  
+3. Frontend pages NOW integrated with real data
+4. Test credentials to use
+5. Any items needing manual setup (SMTP, Cloudinary, etc.)
+
+---
+
+DO NOT change any visual styles, colors, layouts, or fonts.
+DO NOT rename existing component files unless absolutely necessary.
+Work through phases in order. Report progress after each phase.
+```
