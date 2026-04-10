@@ -32,7 +32,7 @@ interface WinInsights {
 const fmt = (n?: number) => (n != null ? "$" + n.toLocaleString() : "—");
 
 export const Wins = () => {
-  const { data: insights, isLoading: insightsLoading } = useQuery<WinInsights>({
+  const { data: insights, isLoading: insightsLoading, isError: insightsError, refetch: refetchInsights } = useQuery<WinInsights>({
     queryKey: qk.winInsights(),
     queryFn: async () => {
       const res = await api.get("/wins/insights");
@@ -40,7 +40,7 @@ export const Wins = () => {
     },
   });
 
-  const { data, isLoading: winsLoading } = useQuery<{ data: Win[] }>({
+  const { data, isLoading: winsLoading, isError: winsError, refetch: refetchWins } = useQuery<{ data: Win[] }>({
     queryKey: qk.wins(),
     queryFn: async () => {
       const res = await api.get("/wins", { params: { limit: 50 } });
@@ -49,6 +49,15 @@ export const Wins = () => {
   });
 
   const wins: Win[] = data?.data ?? [];
+
+  if (insightsError || winsError) {
+    return (
+      <div className="flex w-full flex-col items-center justify-center py-20 bg-neutral-50 gap-3">
+        <p className="[font-family:'Montserrat',Helvetica] text-red-600 text-base">Failed to load win database. Please try again.</p>
+        <button onClick={() => { refetchInsights(); refetchWins(); }} className="rounded-lg bg-[#ef3e34] px-4 py-2 text-sm font-semibold text-white [font-family:'Montserrat',Helvetica] hover:bg-[#d63029]">Retry</button>
+      </div>
+    );
+  }
 
   return (
     <div className="flex w-full min-w-0 flex-col gap-6 bg-neutral-50 p-4 pb-10 sm:p-6 lg:p-8">

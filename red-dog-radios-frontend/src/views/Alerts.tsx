@@ -119,7 +119,7 @@ export const Alerts = () => {
   const { toast } = useToast();
   const queryClient = useQueryClient();
 
-  const { data: alerts = [], isLoading: loading } = useQuery<Alert[]>({
+  const { data: alerts = [], isLoading: loading, isError, refetch } = useQuery<Alert[]>({
     queryKey: qk.alerts(),
     queryFn: async () => {
       const res = await api.get("/alerts", { params: { limit: 50 } });

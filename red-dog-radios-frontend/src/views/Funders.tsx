@@ -41,7 +41,7 @@ export const Funders = () => {
   const [search, setSearch] = useState("");
   const [categoryFilter, setCategoryFilter] = useState("");
 
-  const { data, isLoading } = useQuery<{ data: Funder[] }>({
+  const { data, isLoading, isError, refetch } = useQuery<{ data: Funder[] }>({
     queryKey: qk.funders(),
     queryFn: async () => {
       const res = await api.get("/funders", { params: { limit: 100 } });
@@ -95,7 +95,12 @@ export const Funders = () => {
         />
       </div>
 
-      {isLoading ? (
+      {isError ? (
+        <div className="flex flex-col items-center justify-center py-20 gap-3">
+          <p className="[font-family:'Montserrat',Helvetica] text-red-600 text-base">Failed to load funders. Please try again.</p>
+          <button onClick={() => refetch()} className="rounded-lg bg-[#ef3e34] px-4 py-2 text-sm font-semibold text-white [font-family:'Montserrat',Helvetica] hover:bg-[#d63029]">Retry</button>
+        </div>
+      ) : isLoading ? (
         <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
           {Array.from({ length: 6 }).map((_, i) => (
             <div key={i} className="h-52 rounded-xl bg-white animate-pulse border border-[#e5e7eb]" />

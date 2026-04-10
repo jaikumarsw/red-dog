@@ -77,7 +77,7 @@ export const Tracker = () => {
     },
   });
 
-  const { data, isLoading } = useQuery<{ data: TrackerApp[] }>({
+  const { data, isLoading, isError, refetch } = useQuery<{ data: TrackerApp[] }>({
     queryKey: [...qk.tracker(), statusFilter],
     queryFn: async () => {
       const params: Record<string, string> = { limit: "100" };
@@ -156,6 +156,13 @@ export const Tracker = () => {
           );
         })}
       </div>
+
+      {isError && (
+        <div className="flex flex-col items-center justify-center py-10 gap-3">
+          <p className="[font-family:'Montserrat',Helvetica] text-red-600 text-sm">Failed to load tracker data. Please try again.</p>
+          <button onClick={() => refetch()} className="rounded-lg bg-[#ef3e34] px-4 py-2 text-sm font-semibold text-white [font-family:'Montserrat',Helvetica] hover:bg-[#d63029]">Retry</button>
+        </div>
+      )}
 
       <div className="overflow-x-auto rounded-xl border border-[#e5e7eb] bg-white">
         <table className="w-full min-w-[800px]">

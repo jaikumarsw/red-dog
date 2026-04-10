@@ -166,7 +166,7 @@ export const Agencies = () => {
   const { toast } = useToast();
   const queryClient = useQueryClient();
 
-  const { data: agencies = [], isLoading: loading } = useQuery<Agency[]>({
+  const { data: agencies = [], isLoading: loading, isError, refetch } = useQuery<Agency[]>({
     queryKey: qk.agencies(),
     queryFn: async () => {
       const res = await api.get("/agencies", { params: { limit: 100 } });

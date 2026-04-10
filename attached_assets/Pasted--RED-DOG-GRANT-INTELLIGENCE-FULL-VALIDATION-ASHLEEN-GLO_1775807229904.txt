@@ -1,0 +1,984 @@
+# RED DOG GRANT INTELLIGENCE — FULL VALIDATION + ASHLEEN GLOBAL AI PROMPT
+# Paste this entire prompt into Replit Agent
+
+---
+
+You are doing TWO things in this prompt:
+1. **VALIDATE** the entire app — find and fix every dummy/hardcoded value, broken API call, and missing integration
+2. **BUILD** a global floating Ashleen AI chat button that appears on every authenticated page
+
+Work through Part A completely before starting Part B.
+
+---
+
+# ═══════════════════════════════════════
+# PART A — FULL VALIDATION & FIX
+# ═══════════════════════════════════════
+
+Go through every single file in the frontend and backend. For each issue found, fix it immediately. Do not just report issues — fix them.
+
+---
+
+## A1 — BACKEND VALIDATION
+
+### Check every route file and fix any of these problems:
+
+**Problem type 1: Hardcoded/mock data in routes**
+Search every route file for:
+- Arrays defined inline like `const data = [{ name: 'Test', ... }]`
+- `res.json({ data: [] })` returning empty arrays without querying DB
+- `res.json({ data: mockData })` using local variables instead of DB queries
+- Any `TODO`, `FIXME`, or `// placeholder` comments
+- Routes that return `{ success: true }` without actually doing anything
+
+Fix: Replace every instance with real Mongoose queries.
+
+**Problem type 2: Missing database connections**
+- Verify `mongoose.connect(process.env.MONGO_URI)` is called before any route is used
+- Verify every model file is imported at the top of the route file that uses it
+- Check that `.populate()` calls reference fields that actually exist on the model
+
+**Problem type 3: Missing or broken auth middleware**
+Every route except `/api/auth/login` and `/api/auth/register` must have the auth middleware applied.
+Check that `req.user` is available in every protected route handler.
+If any route uses `req.user._id` but the middleware sets `req.user.id`, normalize to `req.user._id`.
+
+**Problem type 4: Missing OpenAI integration**
+In routes/ai.js (or wherever AI routes are):
+- Confirm `new OpenAI({ apiKey: process.env.OPENAI_API_KEY })` is instantiated
+- Confirm every AI endpoint makes a real `chat.completions.create()` call
+- Confirm fallback text is returned when `OPENAI_API_KEY` is not set (not an error, a graceful fallback)
+- Check the model name is `gpt-4o-mini` (not gpt-3.5, not gpt-4, not placeholder)
+
+**Problem type 5: Dashboard stats are calculated not hardcoded**
+Open the dashboard route. Every number must come from a real DB query:
+```
+totalMatchedFunders     → Match.countDocuments({ agencyId, tier: { $in: ['high','medium'] } })
+applicationsInProgress  → Application.countDocuments({ agencyId, status: { $in: ['drafting','ready_to_submit'] } })
+submittedApplications   → Application.countDocuments({ agencyId, status: 'submitted' })
+awardsWon               → Application.countDocuments({ agencyId, status: 'awarded' })
+totalDollarsRequested   → aggregate sum of amountRequested for submitted apps
+totalDollarsAwarded     → aggregate sum of amountRequested for awarded apps
+```
+If these are hardcoded numbers like `totalMatchedFunders: 14` — replace them.
+
+**Problem type 6: Cron jobs are registered**
+In the main server file (app.js or server.js), confirm that the scheduler file is required/imported:
+```js
+require('./jobs/scheduler');
+```
+If this line is missing, add it.
+
+**Problem type 7: CORS is configured correctly**
+Confirm the frontend origin (http://localhost:3000 OR http://localhost:5173) is in the CORS allowed origins list.
+
+**Problem type 8: Seed data is real and complete**
+Run: `node seed.js` (or `npm run seed`)
+After running, verify:
+- At least 2 regular users exist
+- At least 3 agencies with FULL profiles (agencyType, city, state, populationServed, currentEquipment, mainProblems, fundingPriorities all populated)
+- At least 5 funders with FULL profiles (name, missionStatement, fundingCategories, locationFocus, avgGrantMin, avgGrantMax all populated)
+- Match scores computed for all agency+funder pairs
+- At least 2 applications with real AI-generated content (not empty strings)
+- At least 3 alerts
+
+If seed is incomplete, update it with full data and re-run.
+
+---
+
+## A2 — FRONTEND VALIDATION
+
+Open every component file in the frontend. Check every single one for these issues:
+
+### Check 1: No hardcoded data arrays
+Search for any of these patterns and replace with API calls:
+```
+const organizations = [{ id: 1, name: ... }]
+const funders = [{ name: "Test Funder", ... }]
+const applications = [{ status: "submitted", ... }]
+const matches = [{ fitScore: 82, ... }]
+const agencies = [{ type: "police", ... }]
+const alerts = [{ message: "...", ... }]
+const stats = { total: 14, submitted: 3 }
+```
+
+### Check 2: No hardcoded numbers in stat cards
+Search for JSX like:
+```jsx
+<StatCard value={14} />
+<MetricCard number="3" />
+<span>14</span>  // inside a stat card context
+```
+Every number in a stat card, metric card, or badge counter must come from API data.
+
+### Check 3: No fake user data
+Search for:
+```
+name: "John Doe"
+email: "admin@example.com"
+email: "test@test.com"
+name: "Red Dog Admin"
+```
+in component state or hardcoded JSX. Replace with `user.fullName`, `user.email` from auth context.
+
+### Check 4: All useEffect hooks fetch from real API
+Every `useEffect` that was added for data fetching must:
+- Call an actual API service function (not just set state to a local array)
+- Handle loading state (set isLoading = true before call, false after)
+- Handle error state (catch block that sets error message)
+- Only run when appropriate dependencies change
+
+If you find a `useEffect` like:
+```js
+useEffect(() => {
+  setData([{ name: 'Fake item' }]); // ← hardcoded
+}, []);
+```
+Replace it with a React Query `useQuery` hook calling the real API.
+
+### Check 5: All forms submit to real API
+Every form's submit handler must:
+- Call a mutation from React Query (`useMutation`)
+- Show loading state on the submit button while pending
+- Show success toast on success
+- Show error toast or inline error on failure
+- NOT just `console.log(formData)` or silently succeed
+
+Search for:
+```js
+const handleSubmit = () => {
+  console.log(formData);  // ← not connected to API
+  setShowModal(false);    // ← just closes without saving
+}
+```
+
+### Check 6: React Query is actually being used
+Verify that `useQuery` and `useMutation` from `@tanstack/react-query` are imported and used in:
+- Dashboard page (useQuery for stats)
+- Funders/Matches page (useQuery for list)
+- Applications page (useQuery for list)
+- Tracker page (useQuery for list)
+- Any page with a form (useMutation for create/update)
+
+If any page is using raw `useEffect + fetch/axios` instead of React Query, convert it to `useQuery`.
+
+### Check 7: Auth token is attached to every API call
+Open `src/lib/axios.js` (or wherever axios is configured).
+Confirm the request interceptor reads from localStorage:
+```js
+api.interceptors.request.use(config => {
+  const token = localStorage.getItem('rdg_token');
+  if (token) config.headers.Authorization = `Bearer ${token}`;
+  return config;
+});
+```
+If this interceptor is missing, add it. If it reads from the wrong key, fix the key.
+
+### Check 8: Login actually stores the token
+In the Login component's success handler:
+```js
+onSuccess: (res) => {
+  // These two lines MUST be present:
+  localStorage.setItem('rdg_token', res.data.token);
+  localStorage.setItem('rdg_user', JSON.stringify(res.data.data?.user || res.data.user));
+  // Then redirect
+  navigate('/dashboard');
+}
+```
+If the token is not being stored, the user appears logged out on every page refresh. Fix it.
+
+### Check 9: Route guards are applied
+In App.js (or the router configuration file), every route must be wrapped:
+- `/login`, `/signup`, `/forgot-password` → inside `<PublicRoute>` (redirect to dashboard if already logged in)
+- `/dashboard`, `/matches`, `/applications`, `/tracker`, etc. → inside `<ProtectedRoute>` (redirect to login if not authenticated)
+- `/onboarding` → inside `<OnboardingRoute>` (redirect to dashboard if onboarding already done)
+
+If any protected route is accessible without a token, add the guard.
+
+### Check 10: Loading and error states exist on every data-fetching page
+Every page that fetches data must have:
+
+**Loading state:**
+```jsx
+if (isLoading) return (
+  <div style={{ padding: 32 }}>
+    {[1,2,3,4,5].map(i => (
+      <div key={i} style={{
+        height: 52, background: '#f0f0f0', borderRadius: 6,
+        marginBottom: 8, animation: 'pulse 1.5s ease-in-out infinite'
+      }} />
+    ))}
+    <style>{`@keyframes pulse{0%,100%{opacity:1}50%{opacity:.4}}`}</style>
+  </div>
+);
+```
+
+**Error state:**
+```jsx
+if (isError) return (
+  <div style={{ padding: 32, textAlign: 'center' }}>
+    <p style={{ color: '#c62828', marginBottom: 16 }}>
+      Failed to load data. Please try again.
+    </p>
+    <button onClick={() => refetch()} style={{
+      background: '#E53935', color: '#fff', border: 'none',
+      padding: '8px 20px', borderRadius: 6, cursor: 'pointer'
+    }}>Retry</button>
+  </div>
+);
+```
+
+---
+
+## A3 — INTEGRATION END-TO-END TEST
+
+After fixing all issues above, verify these complete user flows work:
+
+**Flow 1: New user signup → onboarding → dashboard**
+1. POST /api/auth/register → get token
+2. Token stored in localStorage
+3. Redirect to /onboarding
+4. Fill agency profile form → POST /api/agency-profile
+5. Redirect to /dashboard
+6. Dashboard shows real computed stats (not zeros, not hardcoded)
+
+**Flow 2: View funder matches**
+1. GET /api/matches → returns list with real fitScore values
+2. Matches page shows funders with colored tier badges (green=high, orange=medium)
+3. Clicking "View Details" → GET /api/funders/:id → shows real funder data
+
+**Flow 3: Generate application**
+1. Click "Apply" on a funder
+2. POST /api/applications → triggers AI generation
+3. Application page shows all 6 AI-written sections (not empty, not placeholder)
+4. "Regenerate" button calls AI again and updates content
+5. "Export" downloads a text file
+
+**Flow 4: Submission tracker**
+1. GET /api/tracker → returns all applications
+2. Changing status dropdown → PUT /api/applications/:id/status
+3. Row updates immediately (React Query invalidation)
+4. Stats at top update to reflect new counts
+
+---
+
+# ═══════════════════════════════════════
+# PART B — ASHLEEN GLOBAL AI CHAT
+# ═══════════════════════════════════════
+
+Build a floating Ashleen AI chat button that appears on the bottom-right of EVERY authenticated page. This is a persistent assistant that knows everything about the Red Dog Grant Intelligence platform and helps users at any moment.
+
+---
+
+## B1 — CREATE THE ASHLEEN CHAT COMPONENT
+
+Create `src/components/AshleenChat/AshleenChat.jsx`:
+
+```jsx
+import { useState, useRef, useEffect } from 'react';
+import { useMutation } from '@tanstack/react-query';
+import api from '../../lib/axios';
+import { useAuth } from '../../context/AuthContext';
+
+// ─── Ashleen's personality and knowledge ───────────────────────────────────
+const ASHLEEN_SYSTEM_PROMPT = `You are Ashleen, the AI Grant Writing Expert for Red Dog Radio Grant Intelligence Platform.
+
+WHO YOU ARE:
+You are a friendly, professional, and knowledgeable AI assistant. You are warm and encouraging but concise and actionable. You speak like a senior grant writer who genuinely wants the agency to win funding.
+
+YOUR EXPERTISE:
+- Grant writing for public safety agencies (police, fire, EMS, 911, dispatch, hospitals, utilities)
+- Radio and communications equipment funding (P25 systems, portable radios, mobile radios, repeaters, dispatch consoles, interoperability, FirstNet, LTE)
+- Federal grant programs: FEMA Hazard Mitigation, DOJ COPS Technology, DHS BSIR, USDA Community Facilities, HUD CDBG
+- Foundation grants: Motorola Solutions Foundation, AT&T FirstNet grants, Walmart Foundation, community foundations
+- State-level public safety grant programs
+- Grant application strategy, writing compelling narratives, matching funders to agency needs
+- The Red Dog Grant Intelligence platform features
+
+THE PLATFORM YOU SUPPORT:
+Red Dog Grant Intelligence helps public safety agencies find funders, generate AI-written grant applications, and track submissions. Key features:
+1. Agency Setup — agencies enter their profile (type, location, population, equipment, problems, priorities)
+2. Funder Database — private database of foundations and government programs with match scoring
+3. Match Scoring — 0-100 fit score based on mission match (35pts), location match (35pts), project match (30pts)
+4. Application Generator — AI writes 6 sections: Problem Statement, Community Impact, Proposed Solution, Measurable Outcomes, Urgency, Budget Summary
+5. Funder Alignment (Stage 5) — AI rewrites application to match funder's exact tone and language
+6. Application Control System — each funder has a max application limit (default 5) to prevent over-saturation
+7. Submission Tracker — 7 statuses: Not Started → Drafting → Ready to Submit → Submitted → Follow-Up Needed → Awarded → Denied
+8. Outreach Email Builder — AI writes warm introduction emails to funders before applying
+9. Follow-up Automation — automatic Day 7 and Day 14 follow-up reminders after submission
+10. Win Database — stores winning applications to improve future AI prompts
+
+HOW TO HELP USERS:
+When someone asks about finding grants → Ask about their agency type, location, and biggest equipment need. Then suggest specific funder types that match.
+When someone asks about writing an application → Guide them to use the Application Generator. Explain the 6 sections and what makes each section strong.
+When someone is stuck on a specific section → Give them a concrete example or framework for that section based on their agency type.
+When someone asks about a specific funder or program → Give factual information about that program, what it funds, typical amounts, and eligibility.
+When someone asks "how do I improve my score?" → Explain the 3 scoring dimensions and what agency profile info improves each one.
+When someone asks about tracking → Explain the tracker statuses and follow-up strategy.
+When someone asks about the platform → Give clear, specific guidance on exactly which button or page to use.
+
+GRANT WRITING EXPERTISE — KEY FACTS TO USE:
+- The strongest grant applications lead with a specific problem backed by numbers (response times, coverage gaps, equipment age)
+- Funders want to see measurable outcomes, not just activity (not "we will buy radios" but "we will reduce response time by 18% across 45 square miles")
+- Mission match is critical — always mirror the funder's language back to them in the application
+- Budget summaries should show value: cost per officer covered, cost per resident served
+- Urgency is real: equipment failures mid-call, dead zones in high-crime areas, interoperability failures during mutual aid
+- Follow up matters: 60% of awarded grants involved at least one follow-up contact with the program officer
+
+AGENCY-SPECIFIC KNOWLEDGE:
+Police: focus on officer safety, response coordination, tactical communications, encrypted channels
+Fire: focus on fireground communications, mutual aid interoperability, NFPA compliance, command coordination
+EMS: focus on hospital notification systems, patient handoff communications, multi-agency dispatch
+911/PSAP: focus on NG911 readiness, CAD integration, backup communications, redundancy
+Multi-agency: emphasize regional coordination, shared infrastructure, cost efficiency per agency
+
+COMMON GRANT PROGRAMS TO RECOMMEND:
+- FEMA BRIC (Building Resilient Infrastructure): infrastructure, large awards, state/local eligible
+- DOJ COPS Technology Program: law enforcement technology, $500k-$2M range
+- DHS PSIC (Public Safety Interoperable Communications): specifically for comms upgrades
+- USDA Community Facilities: rural agencies, equipment grants
+- Motorola Solutions Foundation: technology for public safety, $25k-$100k
+- AT&T/FirstNet Foundation: broadband-adjacent comms, $25k-$150k
+- State Homeland Security Program (SHSP): varies by state, contact state emergency management
+- Urban Area Security Initiative (UASI): urban areas, comms and tech eligible
+- Community Development Block Grants (CDBG): community safety, flexible use
+
+TONE RULES:
+- Be warm and encouraging, never robotic
+- Be specific — give actual examples, not generic advice
+- Be concise — 3-5 sentences per response unless asked for detail
+- Use "we" when talking about the platform ("our match scoring", "your profile")
+- When you don't know something specific, say so and point to the right resource
+- End responses with a helpful follow-up question or next step suggestion
+- Use occasional emojis sparingly to stay approachable (📋 for applications, 🎯 for matches, 💰 for funding, 📧 for outreach)
+
+WHAT YOU NEVER DO:
+- Never make up specific grant deadlines or amounts — say "check the funder page for current details"
+- Never promise someone will win a grant
+- Never tell someone to do something illegal
+- Never go off-topic into non-grant-related conversations`;
+
+// ─── API call to OpenAI through backend ─────────────────────────────────────
+async function sendMessageToAshleen(messages, agencyContext) {
+  const systemWithContext = agencyContext
+    ? `${ASHLEEN_SYSTEM_PROMPT}\n\nCURRENT USER CONTEXT:\nAgency: ${agencyContext.agencyName || 'Unknown'}\nType: ${agencyContext.agencyType || 'Unknown'}\nLocation: ${agencyContext.city || ''} ${agencyContext.state || ''}\nMain Problems: ${(agencyContext.mainProblems || []).join(', ')}\nFunding Priorities: ${(agencyContext.fundingPriorities || []).join(', ')}`
+    : ASHLEEN_SYSTEM_PROMPT;
+
+  const response = await api.post('/api/ashleen/chat', {
+    messages,
+    systemPrompt: systemWithContext
+  });
+  return response.data.data.reply;
+}
+
+// ─── Main component ──────────────────────────────────────────────────────────
+export default function AshleenChat() {
+  const { user } = useAuth();
+  const [isOpen, setIsOpen] = useState(false);
+  const [messages, setMessages] = useState([
+    {
+      role: 'assistant',
+      content: `Hi! I'm Ashleen 👋 Your AI grant writing expert. I can help you find the right funders, write stronger applications, and increase your win rate. What do you need help with today?`
+    }
+  ]);
+  const [input, setInput] = useState('');
+  const [isTyping, setIsTyping] = useState(false);
+  const [agencyContext, setAgencyContext] = useState(null);
+  const messagesEndRef = useRef(null);
+  const inputRef = useRef(null);
+
+  // Load agency context for personalized responses
+  useEffect(() => {
+    if (user && isOpen && !agencyContext) {
+      api.get('/api/agency-profile')
+        .then(res => setAgencyContext(res.data.data))
+        .catch(() => {}); // silently fail — context is optional
+    }
+  }, [user, isOpen]);
+
+  // Scroll to bottom when new message arrives
+  useEffect(() => {
+    if (isOpen) {
+      messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+    }
+  }, [messages, isOpen]);
+
+  // Focus input when chat opens
+  useEffect(() => {
+    if (isOpen) {
+      setTimeout(() => inputRef.current?.focus(), 100);
+    }
+  }, [isOpen]);
+
+  const sendMessage = async () => {
+    const text = input.trim();
+    if (!text || isTyping) return;
+
+    const userMessage = { role: 'user', content: text };
+    const newMessages = [...messages, userMessage];
+    setMessages(newMessages);
+    setInput('');
+    setIsTyping(true);
+
+    try {
+      // Only send last 10 messages to keep context window manageable
+      const contextMessages = newMessages.slice(-10).map(m => ({
+        role: m.role,
+        content: m.content
+      }));
+
+      const reply = await sendMessageToAshleen(contextMessages, agencyContext);
+      setMessages(prev => [...prev, { role: 'assistant', content: reply }]);
+    } catch (err) {
+      setMessages(prev => [...prev, {
+        role: 'assistant',
+        content: `I'm having trouble connecting right now. Please try again in a moment. If the issue persists, check that the backend is running.`
+      }]);
+    } finally {
+      setIsTyping(false);
+    }
+  };
+
+  const handleKeyDown = (e) => {
+    if (e.key === 'Enter' && !e.shiftKey) {
+      e.preventDefault();
+      sendMessage();
+    }
+  };
+
+  const clearChat = () => {
+    setMessages([{
+      role: 'assistant',
+      content: `Hi again! I'm Ashleen 👋 What can I help you with?`
+    }]);
+  };
+
+  // Quick suggestion chips shown at start
+  const quickSuggestions = [
+    'How do I find the best funders for my agency?',
+    'What makes a strong grant application?',
+    'How does the match score work?',
+    'Help me write a problem statement',
+    'What federal grants are available for police?',
+    'How do I follow up after submitting?',
+  ];
+
+  const showSuggestions = messages.length === 1;
+
+  return (
+    <>
+      {/* ── Floating button ─────────────────────────────────────────────── */}
+      <button
+        onClick={() => setIsOpen(o => !o)}
+        title="Chat with Ashleen"
+        style={{
+          position: 'fixed',
+          bottom: 28,
+          right: 28,
+          width: 60,
+          height: 60,
+          borderRadius: '50%',
+          background: 'linear-gradient(135deg, #E53935 0%, #B71C1C 100%)',
+          border: 'none',
+          cursor: 'pointer',
+          zIndex: 10000,
+          boxShadow: '0 4px 20px rgba(229,57,53,0.45)',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          transition: 'transform 0.2s, box-shadow 0.2s',
+          transform: isOpen ? 'scale(0.92)' : 'scale(1)',
+        }}
+        onMouseEnter={e => {
+          e.currentTarget.style.transform = 'scale(1.08)';
+          e.currentTarget.style.boxShadow = '0 6px 24px rgba(229,57,53,0.55)';
+        }}
+        onMouseLeave={e => {
+          e.currentTarget.style.transform = isOpen ? 'scale(0.92)' : 'scale(1)';
+          e.currentTarget.style.boxShadow = '0 4px 20px rgba(229,57,53,0.45)';
+        }}
+      >
+        {isOpen ? (
+          // X icon when open
+          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2.5" strokeLinecap="round">
+            <line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>
+          </svg>
+        ) : (
+          // Ashleen "A" avatar when closed
+          <span style={{
+            color: 'white', fontWeight: 700, fontSize: 22,
+            fontFamily: 'Arial, sans-serif', letterSpacing: '-1px'
+          }}>A</span>
+        )}
+      </button>
+
+      {/* ── Unread dot when closed ───────────────────────────────────────── */}
+      {!isOpen && (
+        <span style={{
+          position: 'fixed', bottom: 78, right: 28,
+          width: 10, height: 10, borderRadius: '50%',
+          background: '#4CAF50', border: '2px solid white',
+          zIndex: 10001
+        }} />
+      )}
+
+      {/* ── Chat panel ──────────────────────────────────────────────────── */}
+      {isOpen && (
+        <div style={{
+          position: 'fixed',
+          bottom: 100,
+          right: 28,
+          width: 380,
+          height: 560,
+          background: '#fff',
+          borderRadius: 16,
+          boxShadow: '0 8px 40px rgba(0,0,0,0.18)',
+          display: 'flex',
+          flexDirection: 'column',
+          zIndex: 9999,
+          overflow: 'hidden',
+          border: '1px solid #f0f0f0',
+          fontFamily: 'Arial, sans-serif',
+          // Mobile responsive
+          ...(window.innerWidth < 480 ? {
+            width: 'calc(100vw - 24px)',
+            right: 12,
+            bottom: 90,
+            height: '65vh',
+          } : {})
+        }}>
+
+          {/* Header */}
+          <div style={{
+            background: 'linear-gradient(135deg, #E53935 0%, #B71C1C 100%)',
+            padding: '14px 16px',
+            display: 'flex',
+            alignItems: 'center',
+            gap: 12,
+            flexShrink: 0,
+          }}>
+            <div style={{
+              width: 38, height: 38, borderRadius: '50%',
+              background: 'rgba(255,255,255,0.2)',
+              display: 'flex', alignItems: 'center', justifyContent: 'center',
+              flexShrink: 0,
+            }}>
+              <span style={{ color: 'white', fontWeight: 700, fontSize: 17 }}>A</span>
+            </div>
+            <div style={{ flex: 1 }}>
+              <div style={{ color: 'white', fontWeight: 700, fontSize: 15, lineHeight: 1.2 }}>
+                ASHLEEN
+              </div>
+              <div style={{ color: 'rgba(255,255,255,0.8)', fontSize: 12 }}>
+                AI Grant Writing Expert
+              </div>
+            </div>
+            <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+              <span style={{
+                width: 8, height: 8, borderRadius: '50%',
+                background: '#4CAF50', display: 'inline-block'
+              }} />
+              <span style={{ color: 'rgba(255,255,255,0.8)', fontSize: 11 }}>Online</span>
+              <button
+                onClick={clearChat}
+                title="Clear conversation"
+                style={{
+                  background: 'rgba(255,255,255,0.15)', border: 'none',
+                  borderRadius: 6, padding: '4px 8px', cursor: 'pointer',
+                  color: 'white', fontSize: 11, marginLeft: 4,
+                }}
+              >Clear</button>
+            </div>
+          </div>
+
+          {/* Context banner (if agency loaded) */}
+          {agencyContext && (
+            <div style={{
+              background: '#FFF3F3', borderBottom: '1px solid #FFE0E0',
+              padding: '6px 16px', fontSize: 11, color: '#c62828',
+              flexShrink: 0, display: 'flex', alignItems: 'center', gap: 6,
+            }}>
+              <span>📍</span>
+              <span>{agencyContext.agencyName} · {agencyContext.city}, {agencyContext.state}</span>
+            </div>
+          )}
+
+          {/* Messages area */}
+          <div style={{
+            flex: 1, overflowY: 'auto', padding: '16px 14px',
+            display: 'flex', flexDirection: 'column', gap: 12,
+          }}>
+            {messages.map((msg, i) => (
+              <div key={i} style={{
+                display: 'flex',
+                flexDirection: msg.role === 'user' ? 'row-reverse' : 'row',
+                alignItems: 'flex-start',
+                gap: 8,
+              }}>
+                {msg.role === 'assistant' && (
+                  <div style={{
+                    width: 28, height: 28, borderRadius: '50%',
+                    background: '#E53935', display: 'flex',
+                    alignItems: 'center', justifyContent: 'center',
+                    flexShrink: 0, marginTop: 2,
+                  }}>
+                    <span style={{ color: 'white', fontWeight: 700, fontSize: 12 }}>A</span>
+                  </div>
+                )}
+                <div style={{
+                  maxWidth: '78%',
+                  background: msg.role === 'user' ? '#E53935' : '#f5f5f5',
+                  color: msg.role === 'user' ? 'white' : '#222',
+                  padding: '10px 14px',
+                  borderRadius: msg.role === 'user'
+                    ? '16px 4px 16px 16px'
+                    : '4px 16px 16px 16px',
+                  fontSize: 13.5,
+                  lineHeight: 1.55,
+                  whiteSpace: 'pre-wrap',
+                  wordBreak: 'break-word',
+                }}>
+                  {msg.content}
+                </div>
+              </div>
+            ))}
+
+            {/* Quick suggestion chips */}
+            {showSuggestions && (
+              <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, marginTop: 4 }}>
+                {quickSuggestions.map((s, i) => (
+                  <button key={i} onClick={() => {
+                    setInput(s);
+                    setTimeout(() => sendMessage(), 50);
+                  }} style={{
+                    background: 'white', border: '1px solid #E53935',
+                    borderRadius: 20, padding: '5px 12px',
+                    fontSize: 12, color: '#E53935', cursor: 'pointer',
+                    lineHeight: 1.4, textAlign: 'left',
+                    transition: 'background 0.15s',
+                  }}
+                    onMouseEnter={e => e.currentTarget.style.background = '#FFF3F3'}
+                    onMouseLeave={e => e.currentTarget.style.background = 'white'}
+                  >
+                    {s}
+                  </button>
+                ))}
+              </div>
+            )}
+
+            {/* Typing indicator */}
+            {isTyping && (
+              <div style={{ display: 'flex', alignItems: 'flex-start', gap: 8 }}>
+                <div style={{
+                  width: 28, height: 28, borderRadius: '50%', background: '#E53935',
+                  display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0,
+                }}>
+                  <span style={{ color: 'white', fontWeight: 700, fontSize: 12 }}>A</span>
+                </div>
+                <div style={{
+                  background: '#f5f5f5', borderRadius: '4px 16px 16px 16px',
+                  padding: '12px 16px', display: 'flex', gap: 4, alignItems: 'center',
+                }}>
+                  {[0, 0.2, 0.4].map((delay, i) => (
+                    <span key={i} style={{
+                      width: 7, height: 7, borderRadius: '50%', background: '#bbb',
+                      display: 'inline-block',
+                      animation: `ashleenBounce 1.2s ease-in-out ${delay}s infinite`,
+                    }} />
+                  ))}
+                  <style>{`
+                    @keyframes ashleenBounce {
+                      0%, 60%, 100% { transform: translateY(0); }
+                      30% { transform: translateY(-6px); }
+                    }
+                  `}</style>
+                </div>
+              </div>
+            )}
+
+            <div ref={messagesEndRef} />
+          </div>
+
+          {/* Powered by footer */}
+          <div style={{
+            padding: '4px 16px 2px',
+            fontSize: 10.5, color: '#bbb', textAlign: 'center', flexShrink: 0,
+          }}>
+            ⚡ Powered by Ashleen AI · Red Dog Grant Intelligence
+          </div>
+
+          {/* Input area */}
+          <div style={{
+            padding: '10px 12px 14px',
+            borderTop: '1px solid #f0f0f0',
+            display: 'flex', gap: 8, alignItems: 'flex-end',
+            flexShrink: 0, background: '#fff',
+          }}>
+            <textarea
+              ref={inputRef}
+              value={input}
+              onChange={e => setInput(e.target.value)}
+              onKeyDown={handleKeyDown}
+              placeholder="Ask Ashleen anything about grants..."
+              rows={1}
+              style={{
+                flex: 1, border: '1px solid #e0e0e0', borderRadius: 10,
+                padding: '9px 12px', fontSize: 13.5, resize: 'none',
+                outline: 'none', lineHeight: 1.5, maxHeight: 100,
+                overflowY: 'auto', fontFamily: 'Arial, sans-serif',
+                transition: 'border-color 0.2s',
+              }}
+              onFocus={e => e.target.style.borderColor = '#E53935'}
+              onBlur={e => e.target.style.borderColor = '#e0e0e0'}
+              onInput={e => {
+                e.target.style.height = 'auto';
+                e.target.style.height = Math.min(e.target.scrollHeight, 100) + 'px';
+              }}
+            />
+            <button
+              onClick={sendMessage}
+              disabled={!input.trim() || isTyping}
+              title="Send message"
+              style={{
+                width: 38, height: 38, borderRadius: '50%',
+                background: input.trim() && !isTyping ? '#E53935' : '#e0e0e0',
+                border: 'none', cursor: input.trim() && !isTyping ? 'pointer' : 'not-allowed',
+                display: 'flex', alignItems: 'center', justifyContent: 'center',
+                flexShrink: 0, transition: 'background 0.15s',
+              }}
+            >
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none"
+                stroke="white" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                <line x1="22" y1="2" x2="11" y2="13"/>
+                <polygon points="22 2 15 22 11 13 2 9 22 2"/>
+              </svg>
+            </button>
+          </div>
+        </div>
+      )}
+    </>
+  );
+}
+```
+
+---
+
+## B2 — CREATE THE ASHLEEN BACKEND ROUTE
+
+In the backend, create `routes/ashleen.js`:
+
+```js
+const express = require('express');
+const router = express.Router();
+const auth = require('../middleware/auth');
+const OpenAI = require('openai');
+
+const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
+
+/**
+ * POST /api/ashleen/chat
+ * Proxy chat messages to OpenAI with the Ashleen system prompt
+ */
+router.post('/chat', auth, async (req, res) => {
+  try {
+    const { messages, systemPrompt } = req.body;
+
+    if (!messages || !Array.isArray(messages)) {
+      return res.status(400).json({ success: false, message: 'messages array required' });
+    }
+
+    // Cap at 20 messages to prevent abuse
+    const trimmedMessages = messages.slice(-20);
+
+    if (!process.env.OPENAI_API_KEY) {
+      // Fallback responses when no API key
+      const lastUserMessage = trimmedMessages.filter(m => m.role === 'user').pop();
+      const fallbackReply = generateAshleenFallback(lastUserMessage?.content || '');
+      return res.json({ success: true, data: { reply: fallbackReply } });
+    }
+
+    const response = await openai.chat.completions.create({
+      model: process.env.OPENAI_MODEL || 'gpt-4o-mini',
+      messages: [
+        { role: 'system', content: systemPrompt },
+        ...trimmedMessages
+      ],
+      max_tokens: 500,
+      temperature: 0.75,
+    });
+
+    const reply = response.choices[0].message.content.trim();
+    res.json({ success: true, data: { reply } });
+
+  } catch (err) {
+    console.error('Ashleen chat error:', err.message);
+    res.status(500).json({
+      success: false,
+      message: 'Chat service temporarily unavailable',
+      data: { reply: "I'm having trouble connecting right now. Please try again in a moment." }
+    });
+  }
+});
+
+function generateAshleenFallback(userMessage) {
+  const msg = userMessage.toLowerCase();
+
+  if (msg.includes('funder') || msg.includes('grant') || msg.includes('find')) {
+    return "To find the best funders, make sure your agency profile is complete — especially your agency type, location, and funding priorities. Our matching system scores funders based on mission match (35%), location match (35%), and project match (30%). Head to the Matches page to see your top-scored funders! 🎯 What type of agency are you?";
+  }
+  if (msg.includes('application') || msg.includes('write') || msg.includes('apply')) {
+    return "Our Application Generator creates 6 key sections for you: Problem Statement, Community Impact, Proposed Solution, Measurable Outcomes, Urgency, and Budget Summary. Just click Apply on any funder and the AI will draft the whole thing in seconds. The stronger your agency profile, the better the application. 📋 Want tips on making any specific section stronger?";
+  }
+  if (msg.includes('score') || msg.includes('match') || msg.includes('tier')) {
+    return "Match scores are 0-100 based on three dimensions: Mission Match (35 pts) — does the funder's categories align with your agency type and priorities? Location Match (35 pts) — does the funder operate in your state or nationally? Project Match (30 pts) — do the specific keywords overlap? High matches are 80+, Medium are 65-79. 💡 To improve your score, make sure your funding priorities in your Agency Profile are detailed and specific.";
+  }
+  if (msg.includes('submit') || msg.includes('track') || msg.includes('status')) {
+    return "The Submission Tracker has 7 statuses: Not Started → Drafting → Ready to Submit → Submitted → Follow-Up Needed → Awarded → Denied. After submitting, set a Follow-Up date — following up 7 and 14 days later significantly increases win rates. 📊 The platform will also send you automatic reminders when follow-ups are due.";
+  }
+  if (msg.includes('follow') || msg.includes('reminder')) {
+    return "Follow-up strategy is one of the biggest factors in winning grants. After submitting: Day 7 — send a brief email confirming receipt and offering to answer questions. Day 14 — provide any additional information or updates about your agency's needs. Our platform schedules these automatically! 📧 Would you like help writing a follow-up email?";
+  }
+  if (msg.includes('police') || msg.includes('law enforcement')) {
+    return "For law enforcement agencies, the strongest grant programs are: DOJ COPS Technology Program ($500k-$2M for tech), FEMA BRIC for infrastructure, and State Homeland Security Program grants. Key messaging: emphasize officer safety, encrypted communications, and response time improvements. 🔵 What specific equipment does your department need?";
+  }
+  if (msg.includes('fire') || msg.includes('firefighter')) {
+    return "Fire departments have excellent grant options: FEMA AFG (Assistance to Firefighters Grant) specifically for equipment, USDA Community Facilities for rural departments, and Motorola Solutions Foundation for technology upgrades. Strong applications emphasize NFPA compliance, mutual aid interoperability, and fireground communications safety. 🔴 Is your department career, volunteer, or combination?";
+  }
+  if (msg.includes('ems') || msg.includes('ambulance') || msg.includes('paramedic')) {
+    return "EMS agencies should look at: HHS rural health grants, state EMS licensing funds, and foundation grants focused on community health. Strong application angles: hospital notification speeds, patient outcome data, coverage area challenges. 🚑 What communications challenge is most urgent for your agency?";
+  }
+  if (msg.includes('budget') || msg.includes('cost') || msg.includes('how much')) {
+    return "For budget summaries, funders respond best to value framing: 'This $150,000 investment covers 85 officers across 250 square miles — $1,765 per officer for 10-year equipment life.' Always include: total request, line items (equipment 70%, installation 15%, training 10%, maintenance 5%), and cost justification. 💰 What's the approximate equipment cost you're working with?";
+  }
+  if (msg.includes('problem') || msg.includes('statement') || msg.includes('pain')) {
+    return "The strongest problem statements include: (1) a specific statistic about your current challenge, (2) a concrete consequence of that challenge, and (3) who is affected. Example: 'Our 2009 radio fleet creates dead zones in 40% of our coverage area, causing an average 3-minute delay in officer coordination during critical incidents, affecting 85,000 residents.' 📋 What's the main communication challenge your agency faces?";
+  }
+  return "I'm Ashleen, your grant writing expert! I can help you find the right funders, write stronger applications, understand the match scoring, or navigate any part of the platform. What would you like help with today? 😊";
+}
+
+module.exports = router;
+```
+
+Register the route in `server.js` or `app.js`:
+```js
+const ashleenRoutes = require('./routes/ashleen');
+app.use('/api/ashleen', ashleenRoutes);
+```
+
+---
+
+## B3 — ADD ASHLEEN TO THE APP SHELL
+
+Find the main app shell component (the one that wraps all authenticated pages and contains the sidebar). This is likely called `AppShell.jsx`, `Layout.jsx`, `MainLayout.jsx`, or similar.
+
+Add the AshleenChat import and component at the bottom of the render, INSIDE the authenticated layout but OUTSIDE any page-specific content:
+
+```jsx
+import AshleenChat from '../components/AshleenChat/AshleenChat';
+
+// Inside the component's return, just before the closing tag:
+export default function AppShell({ children }) {
+  return (
+    <div style={{ display: 'flex', minHeight: '100vh' }}>
+      <Sidebar />
+      <main style={{ flex: 1, overflow: 'auto' }}>
+        <Header />
+        {children}
+      </main>
+      {/* Ashleen appears on every authenticated page */}
+      <AshleenChat />
+    </div>
+  );
+}
+```
+
+If there is NO app shell (each page renders the sidebar independently), then find the root `App.jsx` / `App.js` and add:
+```jsx
+import { useAuth } from './context/AuthContext';
+import AshleenChat from './components/AshleenChat/AshleenChat';
+
+function App() {
+  const { isAuthenticated } = useAuth();
+  return (
+    <>
+      <RouterProvider ... />
+      {/* OR <Routes>...</Routes> */}
+      {isAuthenticated && <AshleenChat />}
+    </>
+  );
+}
+```
+
+---
+
+## B4 — VERIFY ASHLEEN WORKS END TO END
+
+Test these scenarios:
+
+1. **Button appears**: Load any authenticated page — the red "A" button must appear bottom-right
+2. **Opens/closes**: Clicking the button opens the chat panel, clicking again closes it
+3. **Agency context loads**: After opening, Ashleen should show a context banner with the user's agency name and location
+4. **Quick suggestions work**: Clicking a suggestion chip sends that message
+5. **AI responds**: Type "What grants are available for fire departments?" — Ashleen should respond with real, specific content (not an error)
+6. **Typing indicator**: While waiting for response, three bouncing dots appear
+7. **Responsive**: On mobile screen width (<480px), chat panel fills most of the screen
+8. **Enter key sends**: Pressing Enter (without Shift) sends the message
+9. **Shift+Enter for newline**: Pressing Shift+Enter adds a line break in the input
+10. **Not on public pages**: The button should NOT appear on /login, /signup, /onboarding
+
+---
+
+## B5 — ASHLEEN TRAINING SCENARIOS TO VERIFY
+
+After deployment, manually test these conversations to confirm Ashleen responds correctly:
+
+**Test 1 — Funder discovery:**
+User: "I'm a rural fire department in Montana. What grants should I look for?"
+Expected: Ashleen mentions USDA Community Facilities, FEMA AFG, and state programs. Asks about specific equipment needs.
+
+**Test 2 — Application help:**
+User: "Help me write a problem statement for replacing old radios"
+Expected: Ashleen gives a framework with 3 elements (statistic, consequence, who is affected) and an example.
+
+**Test 3 — Platform navigation:**
+User: "How do I start an application?"
+Expected: Ashleen explains to go to Matches, find a funder, click Apply, and the AI will generate content.
+
+**Test 4 — Score explanation:**
+User: "My match score is only 52. How do I improve it?"
+Expected: Ashleen explains the 3 scoring dimensions and specifically says to update the Agency Profile with detailed funding priorities.
+
+**Test 5 — Follow-up strategy:**
+User: "I submitted an application 5 days ago, what should I do?"
+Expected: Ashleen recommends the Day 7 follow-up email and offers to help write it.
+
+---
+
+# ═══════════════════════════════════════
+# FINAL REPORT
+# ═══════════════════════════════════════
+
+After completing both Part A and Part B, report:
+
+**Part A Results:**
+1. List every hardcoded data array that was replaced
+2. List every form that was connected to a real API
+3. List every page that now has proper loading/error states
+4. List any remaining issues that need manual attention
+
+**Part B Results:**
+1. Confirm AshleenChat component file was created
+2. Confirm /api/ashleen/chat route was registered
+3. Confirm Ashleen appears on all authenticated pages
+4. Confirm fallback responses work when OPENAI_API_KEY is not set
+5. List the test credentials to use for manual testing
+
+**Test credentials:**
+Admin: admin@reddogradios.com / Admin1234!
+Agency user: chief@austinfire.com / Test1234!
+
+---
+DO NOT change any visual styles, colors, layouts, or component structure.
+DO NOT break any existing functionality while fixing dummy data.
+Fix things in the order: backend first, then frontend, then Ashleen.
+```

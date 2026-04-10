@@ -148,7 +148,7 @@ const LivePreview = ({ digest }: { digest: Digest | null }) => {
 export const WeeklySummary = () => {
   const [selected, setSelected] = useState<Digest | null>(null);
 
-  const { data: digests = [], isLoading: loading } = useQuery<Digest[]>({
+  const { data: digests = [], isLoading: loading, isError, refetch } = useQuery<Digest[]>({
     queryKey: qk.digests(),
     queryFn: async () => {
       const res = await api.get("/digests", { params: { limit: 20 } });

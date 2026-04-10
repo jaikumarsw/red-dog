@@ -28,6 +28,7 @@ const winRoutes = require('./modules/wins/win.route');
 const outreachRoutes = require('./modules/outreach/outreach.route');
 const followupRoutes = require('./modules/followups/followup.route');
 const trackerRoutes = require('./modules/tracker/tracker.route');
+const ashleenRoutes = require('./modules/ashleen/ashleen.route');
 
 const app = express();
 
@@ -100,6 +101,7 @@ app.use('/api/wins', winRoutes);
 app.use('/api/outreach', outreachRoutes);
 app.use('/api/followups', followupRoutes);
 app.use('/api/tracker', trackerRoutes);
+app.use('/api/ashleen', ashleenRoutes);
 
 app.use(notFoundHandler);
 app.use(errorHandler);

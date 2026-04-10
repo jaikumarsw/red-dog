@@ -66,7 +66,7 @@ export const ApplicationBuilder = () => {
   const [form, setForm] = useState<Partial<Application>>({});
   const [editNotes, setEditNotes] = useState("");
 
-  const { data: app, isLoading } = useQuery<Application>({
+  const { data: app, isLoading, isError, refetch } = useQuery<Application>({
     queryKey: qk.application(id),
     queryFn: async () => {
       const res = await api.get(`/applications/${id}`);
@@ -142,6 +142,15 @@ export const ApplicationBuilder = () => {
         {Array.from({ length: 4 }).map((_, i) => (
           <div key={i} className="h-36 animate-pulse rounded-xl bg-white border border-[#e5e7eb]" />
         ))}
+      </div>
+    );
+  }
+
+  if (isError) {
+    return (
+      <div className="flex w-full flex-col items-center justify-center py-20 bg-neutral-50 gap-3">
+        <p className="[font-family:'Montserrat',Helvetica] text-red-600 text-base">Failed to load application. Please try again.</p>
+        <button onClick={() => refetch()} className="rounded-lg bg-[#ef3e34] px-4 py-2 text-sm font-semibold text-white [font-family:'Montserrat',Helvetica] hover:bg-[#d63029]">Retry</button>
       </div>
     );
   }

@@ -47,15 +47,24 @@ Also set in `red-dog-radios-backend/.env` for local runtime.
 
 ## Key Modules (Backend)
 - `auth` — JWT-based registration/login
-- `organizations` — Organization management
+- `organizations` — Organization management (extended with populationServed, coverageArea, numberOfStaff, currentEquipment, mainProblems)
 - `opportunities` — Grant opportunities (CRUD)
 - `matches` — Match scoring between orgs and grants
-- `applications` — Application tracking
+- `applications` — Application tracking (extended with 6 AI content sections, status lifecycle, regenerate/align/export endpoints; auto-creates Win record on status→awarded)
 - `agencies` — Agency profiles
 - `alerts` — Automated deadline and match alerts
 - `outbox` — Email outbox management
 - `digests` — Weekly digest generation
-- `ai` — OpenAI-powered tools (summarize, draft email)
+- `ai` — OpenAI-powered tools (summarize, draft email, generate-application, align-to-funder, generate-outreach)
+- `funders` — Private funder library (CRUD + match scoring); 8 funders seeded
+- `tracker` — Grant submission tracker with stats (totalApplied, awarded, totalRequested, totalAwarded)
+- `wins` — Win database with insights (winRate, avgAward, topFunderType)
+- `outreach` — Outreach email builder (separate from Outbox); linked to funders/opportunities
+- `followups` — Follow-up task tracking for applications
+- `dashboard` — Stats endpoint with extended metrics (totalDollarsRequested, totalDollarsAwarded, openOpportunities, pendingMatches)
+- `onboarding` — Complete onboarding flow
+- `settings` — User settings CRUD
+- `ashleen` — Global AI chat assistant (personality-driven, keyword fallback when no OpenAI key); registered at `/api/ashleen/chat`
 
 ## Frontend Integration (Completed)
 All pages are fully wired to the backend API (no mock data in production paths):
@@ -65,6 +74,7 @@ All pages are fully wired to the backend API (no mock data in production paths):
 - `AuthContext.tsx` — Login/logout/updateUser, JWT + user stored in localStorage + cookies for middleware
 - `middleware.ts` — Route protection: unauthenticated → `/login`, onboarding incomplete → `/onboarding`
 - `providers.tsx` — AuthProvider wraps the entire app
+- `AshleenChat.tsx` — Global floating AI chat in `AppShell` (available on every authenticated page)
 
 ### Pages & API Endpoints Used
 | Page | Endpoint |
@@ -74,6 +84,12 @@ All pages are fully wired to the backend API (no mock data in production paths):
 | Dashboard | `GET /api/dashboard/stats` |
 | Organizations | `GET /api/organizations`, `POST /api/organizations` |
 | Opportunities | `GET /api/opportunities`, `POST /api/opportunities` |
+| Funders | `GET /api/funders`, `POST /api/funders` |
+| Funder Detail | `GET /api/funders/:id`, `PUT /api/funders/:id`, `POST /api/outreach` |
+| Application Builder | `GET /api/applications/:id`, `PUT /api/applications/:id/section`, `POST /api/applications/:id/export` |
+| Tracker | `GET /api/tracker/stats`, `PUT /api/applications/:id/status` |
+| Wins | `GET /api/wins`, `GET /api/wins/insights` |
+| Outreach Builder | `GET /api/outreach/:id`, `PUT /api/outreach/:id`, `POST /api/outreach/:id/send` |
 | Matches | `GET /api/matches`, `PUT /api/matches/:id/approve`, `PUT /api/matches/:id/reject` |
 | Applications | `GET /api/applications` |
 | Agencies | `GET /api/agencies`, `POST /api/agencies` |
@@ -81,16 +97,17 @@ All pages are fully wired to the backend API (no mock data in production paths):
 | Outbox | `GET /api/outbox` |
 | Weekly Summary | `GET /api/digests` |
 | Settings | `GET /api/settings`, `PUT /api/settings`, `DELETE /api/settings/account` |
-| Nav Sidebar | Alert badge from `GET /api/alerts?isRead=false`, routing via `useRouter`, sign-out via AuthContext |
+| Ashleen AI Chat | `POST /api/ashleen/chat` |
+
+### Error Handling
+All React Query `useQuery` calls across every view include `isError` + `refetch` for proper error display and retry UX.
 
 ### Test Credentials (seed data)
 - Admin: `admin@reddogradios.com` / `Admin1234!`
 - Regular: `jane@valleyfire.org` / `Password1234!`
 
-## Backend Modules Added
-- `dashboard` — Stats endpoint (`/api/dashboard/stats`) with attention items and system jobs
-- `onboarding` — Complete onboarding flow (`POST /api/onboarding/complete`)
-- `settings` — User settings CRUD (`GET/PUT /api/settings`, `DELETE /api/settings/account`)
+### Seeded Funders (8)
+FEMA, DOJ COPS, DHS/FEMA BSIR, Motorola Solutions Foundation, Texas TDEM, AT&T FirstNet, Walmart Foundation, Community Foundation of North Texas
 
 ## Deployment
 - Target: VM (always-running, needs local MongoDB state)

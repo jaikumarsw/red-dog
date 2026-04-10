@@ -215,7 +215,7 @@ const AppCard = ({ app }: { app: AppItem }) => {
 export const Applications = () => {
   const [activeFilter, setActiveFilter] = useState("all");
 
-  const { data: rawApps = [], isLoading: loading } = useQuery<AppItem[]>({
+  const { data: rawApps = [], isLoading: loading, isError, refetch } = useQuery<AppItem[]>({
     queryKey: qk.applications(),
     queryFn: async () => {
       const res = await api.get("/applications", { params: { limit: 100 } });

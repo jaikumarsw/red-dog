@@ -418,17 +418,23 @@ const AshleenMsg = ({ text }: { text: string }) => (
   </div>
 );
 
+const getStoredUser = () => {
+  if (typeof window === "undefined") return null;
+  try {
+    const s = localStorage.getItem("rdg_user");
+    return s ? (JSON.parse(s) as { fullName?: string; firstName?: string; lastName?: string; email?: string }) : null;
+  } catch { return null; }
+};
+
 const ashleenDraftDefaults = (o: Opportunity): AshleenApplicationDraftValues => ({
-  organizationName: "Red Dog Radio",
-  contactName: "Admin User",
+  organizationName: "",
+  contactName: "",
   projectTimeline: "12 months",
-  contactEmail: "admin@example.com",
+  contactEmail: "",
   amountRequested: o.amount,
   projectTitle: o.grant,
-  projectSummary:
-    "Red Dog Radio has served the Austin community for over 15 years, providing independent programming that amplifies underrepresented voices. This project will expand our outreach capacity and deepen community engagement through innovative programming.",
-  communityImpact:
-    "This project will directly benefit over 50,000 listeners in the Austin metropolitan area, with specific programming targeting historically underserved communities.",
+  projectSummary: "",
+  communityImpact: "",
 });
 
 /* ── Ashleen Modal ─────────────────────────────────────── */
@@ -448,6 +454,17 @@ const AshleenModal = ({ opp, onClose }: { opp: Opportunity; onClose: () => void 
     resolver: zodResolver(ashleenApplicationDraftSchema),
     defaultValues: ashleenDraftDefaults(opp),
   });
+
+  useEffect(() => {
+    const u = getStoredUser();
+    if (u) {
+      const contactName = u.fullName || (u.firstName && u.lastName ? `${u.firstName} ${u.lastName}` : "") || "";
+      const contactEmail = u.email || "";
+      if (contactName || contactEmail) {
+        reset((prev) => ({ ...prev, contactName, contactEmail }));
+      }
+    }
+  }, [reset]);
 
   useEffect(() => {
     const handleKey = (e: KeyboardEvent) => { if (e.key === "Escape") onClose(); };

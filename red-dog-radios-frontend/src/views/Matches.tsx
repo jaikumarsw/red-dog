@@ -177,7 +177,7 @@ export const Matches = () => {
   const { toast } = useToast();
   const queryClient = useQueryClient();
 
-  const { data: matches = [], isLoading: loading, refetch } = useQuery<Match[]>({
+  const { data: matches = [], isLoading: loading, isError, refetch } = useQuery<Match[]>({
     queryKey: qk.matches(),
     queryFn: async () => {
       const res = await api.get("/matches", { params: { limit: 100 } });

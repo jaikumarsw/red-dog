@@ -6,12 +6,16 @@ import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { RedDogLogo } from "./RedDogLogo";
 import { Menu } from "lucide-react";
+import { AshleenChat } from "./AshleenChat";
 
 const menuItems = [
   { id: "dashboard", label: "Dashboard", icon: "/figmaAssets/svg-8.svg", path: "/dashboard" },
   { id: "organizations", label: "Organizations", icon: "/figmaAssets/svg-14.svg", path: "/organizations" },
   { id: "opportunities", label: "Opportunities", icon: "/figmaAssets/svg-4.svg", path: "/opportunities" },
+  { id: "funders", label: "Funders", icon: "/figmaAssets/svg-11.svg", path: "/funders" },
   { id: "applications", label: "Applications", icon: "/figmaAssets/svg-11.svg", path: "/applications" },
+  { id: "tracker", label: "Tracker", icon: "/figmaAssets/svg-6.svg", path: "/tracker" },
+  { id: "wins", label: "Wins", icon: "/figmaAssets/svg-12.svg", path: "/wins" },
   { id: "matches", label: "Matches", icon: "/figmaAssets/svg-6.svg", path: "/matches" },
   { id: "agencies", label: "Agencies", icon: "/figmaAssets/svg-14.svg", path: "/agencies" },
   { id: "weekly-summary", label: "Weekly Summary", icon: "/figmaAssets/svg-12.svg", path: "/weekly-summary" },
@@ -212,6 +216,7 @@ export const AppShell = ({ children }: { children: ReactNode }) => {
 
         <div className="min-w-0 w-full">{children}</div>
       </main>
+      <AshleenChat />
     </div>
   );
 };
