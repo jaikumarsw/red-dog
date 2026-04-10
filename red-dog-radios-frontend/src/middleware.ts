@@ -7,6 +7,7 @@ const PUBLIC_PATHS = [
   "/forgot-password",
   "/otp-verification",
   "/create-password",
+  "/admin",
 ];
 
 export function middleware(request: NextRequest) {

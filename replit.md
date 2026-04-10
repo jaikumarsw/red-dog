@@ -41,6 +41,7 @@ Set in Replit Secrets/Env Vars:
 - `NODE_ENV` — Environment (development/production)
 - `CORS_ORIGIN` — CORS allowed origin (default: *)
 - `OPENAI_API_KEY` — (Optional) OpenAI API key for AI features
+- `ADMIN_KEY` — Admin panel key (default: `RDGADMIN2024`); used by `POST /api/auth/admin-login`
 - `SMTP_HOST`, `SMTP_USER`, `SMTP_PASS` — (Optional) SMTP config for email
 
 Also set in `red-dog-radios-backend/.env` for local runtime.
@@ -62,6 +63,7 @@ Also set in `red-dog-radios-backend/.env` for local runtime.
 - `outreach` — Outreach email builder (separate from Outbox); linked to funders/opportunities
 - `followups` — Follow-up task tracking for applications
 - `dashboard` — Stats endpoint with extended metrics (totalDollarsRequested, totalDollarsAwarded, openOpportunities, pendingMatches)
+- `auth` admin endpoint — `POST /api/auth/admin-login` accepts `{ adminKey }` and returns admin JWT (key stored in env `ADMIN_KEY`, defaults to `RDGADMIN2024`)
 - `onboarding` — Complete onboarding flow
 - `settings` — User settings CRUD
 - `ashleen` — Global AI chat assistant (personality-driven, keyword fallback when no OpenAI key); registered at `/api/ashleen/chat`
@@ -81,7 +83,8 @@ All pages are fully wired to the backend API (no mock data in production paths):
 |------|----------|
 | Login / SignUp | `POST /api/auth/login`, `POST /api/auth/register` |
 | Onboarding Steps 1–5 | `POST /api/onboarding/complete` |
-| Dashboard | `GET /api/dashboard/stats` |
+| Dashboard | `GET /api/tracker/stats`, `GET /api/dashboard/stats` (agency stats + attention items) |
+| Admin Panel | `POST /api/auth/admin-login`, full funder CRUD via admin JWT (at `/admin`, key: `RDGADMIN2024`) |
 | Organizations | `GET /api/organizations`, `POST /api/organizations` |
 | Opportunities | `GET /api/opportunities`, `POST /api/opportunities` |
 | Funders | `GET /api/funders`, `POST /api/funders` |

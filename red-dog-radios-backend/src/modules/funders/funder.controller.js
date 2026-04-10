@@ -2,16 +2,26 @@ const asyncHandler = require('../../utils/asyncHandler');
 const { success, paginate } = require('../../utils/apiResponse');
 const funderService = require('./funder.service');
 const { AppError } = require('../../middlewares/error.middleware');
+const Organization = require('../organizations/organization.schema');
+
+const resolveOrgId = async (req) => {
+  if (req.query.organizationId) return req.query.organizationId;
+  if (req.user) {
+    const org = await Organization.findOne({ createdBy: req.user._id });
+    return org?._id || null;
+  }
+  return null;
+};
 
 const getAll = asyncHandler(async (req, res) => {
   const { page, limit, search, category, location, status } = req.query;
-  const organizationId = req.query.organizationId || null;
+  const organizationId = await resolveOrgId(req);
   const result = await funderService.getAll({ page, limit, search, category, location, status, organizationId });
   return paginate(res, result.docs, result.totalDocs, result.page, result.totalPages, 'Funders retrieved');
 });
 
 const getOne = asyncHandler(async (req, res) => {
-  const organizationId = req.query.organizationId || null;
+  const organizationId = await resolveOrgId(req);
   const funder = await funderService.getOne(req.params.id, organizationId);
   return success(res, funder, 'Funder retrieved');
 });
@@ -34,10 +44,16 @@ const deactivate = asyncHandler(async (req, res) => {
   return success(res, funder, 'Funder deactivated');
 });
 
+const reactivate = asyncHandler(async (req, res) => {
+  if (req.user.role !== 'admin') throw new AppError('Admin access required', 403);
+  const funder = await funderService.reactivate(req.params.id);
+  return success(res, funder, 'Funder reactivated');
+});
+
 const saveFunder = asyncHandler(async (req, res) => {
-  const org = await require('../organizations/organization.schema').findOne({ createdBy: req.user._id });
+  const org = await Organization.findOne({ createdBy: req.user._id });
   const result = await funderService.saveFunder(req.params.id, org?._id);
   return success(res, result, 'Funder saved');
 });
 
-module.exports = { getAll, getOne, create, update, deactivate, saveFunder };
+module.exports = { getAll, getOne, create, update, deactivate, reactivate, saveFunder };

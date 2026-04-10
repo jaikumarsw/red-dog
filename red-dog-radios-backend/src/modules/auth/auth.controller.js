@@ -1,6 +1,7 @@
 const asyncHandler = require('../../utils/asyncHandler');
 const { success, created } = require('../../utils/apiResponse');
 const authService = require('./auth.service');
+const { AppError } = require('../../middlewares/error.middleware');
 
 const register = asyncHandler(async (req, res) => {
   const result = await authService.register(req.body);
@@ -17,4 +18,12 @@ const getMe = asyncHandler(async (req, res) => {
   return success(res, user);
 });
 
-module.exports = { register, login, getMe };
+const adminLogin = asyncHandler(async (req, res) => {
+  const { adminKey } = req.body;
+  const ADMIN_KEY = process.env.ADMIN_KEY || 'RDGADMIN2024';
+  if (!adminKey || adminKey !== ADMIN_KEY) throw new AppError('Invalid admin key', 401);
+  const result = await authService.loginAsAdmin();
+  return success(res, result, 'Admin authenticated');
+});
+
+module.exports = { register, login, getMe, adminLogin };

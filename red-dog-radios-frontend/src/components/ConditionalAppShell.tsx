@@ -11,6 +11,7 @@ const AUTH_PREFIXES = [
   "/otp-verification",
   "/create-password",
   "/onboarding",
+  "/admin",
 ];
 
 function usesAuthLayout(pathname: string | null): boolean {

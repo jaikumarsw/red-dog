@@ -44,4 +44,13 @@ const getMe = async (userId) => {
   return user;
 };
 
-module.exports = { register, login, getMe };
+const loginAsAdmin = async () => {
+  const admin = await User.findOne({ role: 'admin' });
+  if (!admin) throw new AppError('Admin account not found. Please run the seed script first.', 404);
+  const token = signToken(admin._id);
+  const safeUser = admin.toObject();
+  delete safeUser.password;
+  return { user: safeUser, token };
+};
+
+module.exports = { register, login, getMe, loginAsAdmin };
