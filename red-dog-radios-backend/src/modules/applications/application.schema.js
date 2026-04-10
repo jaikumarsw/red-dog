@@ -7,7 +7,7 @@ const applicationSchema = new mongoose.Schema(
     opportunity: { type: mongoose.Schema.Types.ObjectId, ref: 'Opportunity', required: true },
     status: {
       type: String,
-      enum: ['draft', 'submitted', 'in_review', 'awarded', 'rejected'],
+      enum: ['draft', 'submitted', 'in_review', 'awarded', 'rejected', 'not_started', 'drafting', 'ready_to_submit', 'follow_up_needed', 'denied'],
       default: 'draft',
     },
     projectTitle: { type: String },
@@ -18,6 +18,41 @@ const applicationSchema = new mongoose.Schema(
     contactName: { type: String },
     contactEmail: { type: String, lowercase: true },
     submittedAt: { type: Date },
+
+    // AI-generated structured sections
+    problemStatement: { type: String },
+    proposedSolution: { type: String },
+    measurableOutcomes: { type: String },
+    urgency: { type: String },
+    budgetSummary: { type: String },
+
+    // Funder-aligned version (AI rewrite)
+    alignedVersion: {
+      problemStatement: String,
+      communityImpact: String,
+      proposedSolution: String,
+      measurableOutcomes: String,
+      urgency: String,
+      budgetSummary: String,
+      generatedAt: Date,
+    },
+
+    // Submission tracker fields
+    dateStarted: { type: Date, default: Date.now },
+    dateSubmitted: { type: Date },
+    followUpDate: { type: Date },
+    notes: { type: String },
+
+    // Win database tagging
+    isWinner: { type: Boolean, default: false },
+    winTags: {
+      fundingType: String,
+      agencyType: String,
+      projectType: String,
+    },
+
+    // Reference to the funder (new Funder model)
+    funder: { type: mongoose.Schema.Types.ObjectId, ref: 'Funder' },
   },
   { timestamps: true }
 );

@@ -26,6 +26,14 @@ const organizationSchema = new mongoose.Schema(
     },
     timeline: { type: String, enum: ['urgent', 'planned'] },
     goals: [{ type: String }],
+    // Extended agency profile fields
+    populationServed: { type: Number },
+    coverageArea: { type: String },
+    numberOfStaff: { type: Number },
+    currentEquipment: { type: String },
+    mainProblems: [{ type: String }],
+    fundingPriorities: [{ type: String }],
+
     matchCount: { type: Number, default: 0 },
     status: { type: String, enum: ['active', 'inactive'], default: 'active' },
     createdBy: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },

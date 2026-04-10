@@ -23,6 +23,11 @@ const aiRoutes = require('./modules/ai/ai.route');
 const dashboardRoutes = require('./modules/dashboard/dashboard.route');
 const onboardingRoutes = require('./modules/onboarding/onboarding.route');
 const settingsRoutes = require('./modules/settings/settings.route');
+const funderRoutes = require('./modules/funders/funder.route');
+const winRoutes = require('./modules/wins/win.route');
+const outreachRoutes = require('./modules/outreach/outreach.route');
+const followupRoutes = require('./modules/followups/followup.route');
+const trackerRoutes = require('./modules/tracker/tracker.route');
 
 const app = express();
 
@@ -90,6 +95,11 @@ app.use('/api/ai', aiRoutes);
 app.use('/api/dashboard', dashboardRoutes);
 app.use('/api/onboarding', onboardingRoutes);
 app.use('/api/settings', settingsRoutes);
+app.use('/api/funders', funderRoutes);
+app.use('/api/wins', winRoutes);
+app.use('/api/outreach', outreachRoutes);
+app.use('/api/followups', followupRoutes);
+app.use('/api/tracker', trackerRoutes);
 
 app.use(notFoundHandler);
 app.use(errorHandler);

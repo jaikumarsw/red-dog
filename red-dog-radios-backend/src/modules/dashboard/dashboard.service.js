@@ -4,6 +4,7 @@ const Match = require('../matches/match.schema');
 const Outbox = require('../outbox/outbox.schema');
 const Application = require('../applications/application.schema');
 const Alert = require('../alerts/alert.schema');
+const Funder = require('../funders/funder.schema');
 
 const getStats = async () => {
   const [
@@ -71,6 +72,26 @@ const getStats = async () => {
       : null,
   }));
 
+  // Compute dollars requested/awarded from applications
+  const [submittedApps, awardedApps] = await Promise.all([
+    Application.find({ status: { $in: ['submitted', 'in_review', 'follow_up_needed'] } })
+      .populate('opportunity', 'maxAmount')
+      .populate('funder', 'avgGrantMax'),
+    Application.find({ status: 'awarded' })
+      .populate('opportunity', 'maxAmount')
+      .populate('funder', 'avgGrantMax'),
+  ]);
+
+  const totalDollarsRequested = submittedApps.reduce((sum, a) => {
+    return sum + (a.funder?.avgGrantMax || a.opportunity?.maxAmount || a.amountRequested || 0);
+  }, 0);
+  const totalDollarsAwarded = awardedApps.reduce((sum, a) => {
+    return sum + (a.funder?.avgGrantMax || a.opportunity?.maxAmount || a.amountRequested || 0);
+  }, 0);
+
+  // Top matched funders (from Funder model)
+  const topFunders = await Funder.find({ status: 'active' }).sort({ name: 1 }).limit(5);
+
   return {
     totalOrganizations,
     activeOpportunities,
@@ -78,6 +99,9 @@ const getStats = async () => {
     pendingOutbox,
     applicationsSent,
     activeAlerts,
+    totalDollarsRequested,
+    totalDollarsAwarded,
+    topFunders: topFunders.map(f => ({ id: f._id, name: f.name, avgGrantMax: f.avgGrantMax, deadline: f.deadline })),
     systemJobs,
     attentionItems,
   };

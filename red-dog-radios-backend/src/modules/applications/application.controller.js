@@ -22,6 +22,11 @@ const update = asyncHandler(async (req, res) => {
   return success(res, app, 'Application updated');
 });
 
+const updateStatus = asyncHandler(async (req, res) => {
+  const app = await appService.updateStatus(req.params.id, req.body);
+  return success(res, app, 'Application status updated');
+});
+
 const submit = asyncHandler(async (req, res) => {
   const app = await appService.submit(req.params.id);
   return success(res, app, 'Application submitted');
@@ -32,4 +37,21 @@ const remove = asyncHandler(async (req, res) => {
   return success(res, null, 'Application deleted');
 });
 
-module.exports = { getAll, getOne, create, update, submit, remove };
+const regenerate = asyncHandler(async (req, res) => {
+  const app = await appService.regenerate(req.params.id);
+  return success(res, app, 'Application regenerated');
+});
+
+const alignToFunder = asyncHandler(async (req, res) => {
+  const aligned = await appService.alignToFunder(req.params.id);
+  return success(res, aligned, 'Application aligned to funder');
+});
+
+const exportApplication = asyncHandler(async (req, res) => {
+  const text = await appService.exportApplication(req.params.id);
+  res.setHeader('Content-Type', 'text/plain');
+  res.setHeader('Content-Disposition', `attachment; filename="application-${req.params.id}.txt"`);
+  return res.send(text);
+});
+
+module.exports = { getAll, getOne, create, update, updateStatus, submit, remove, regenerate, alignToFunder, exportApplication };
