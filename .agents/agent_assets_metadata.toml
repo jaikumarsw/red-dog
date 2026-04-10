@@ -1,0 +1,8 @@
+uploads = []
+generated = []
+
+[[outputs]]
+id = "ea1exnW1mz8bNx_5bLHHR"
+uri = "file://README.md"
+type = "text"
+title = "Red Dog Radio — Grant Intelligence Platform README"
