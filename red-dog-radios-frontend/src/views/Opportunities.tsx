@@ -1004,15 +1004,16 @@ export const Opportunities = () => {
   const [modal, setModal] = useState<ModalType>(null);
   const [selectedOpp, setSelectedOpp] = useState<Opportunity | null>(null);
 
-  const currentUserId: string = (() => {
-    if (typeof window === "undefined") return "";
+  const [currentUserId, setCurrentUserId] = useState("");
+  useEffect(() => {
     try {
       const s = localStorage.getItem("rdg_user");
-      if (!s) return "";
-      const u = JSON.parse(s) as { _id?: string; id?: string };
-      return u._id ?? u.id ?? "";
-    } catch { return ""; }
-  })();
+      if (s) {
+        const u = JSON.parse(s) as { _id?: string; id?: string };
+        setCurrentUserId(u._id ?? u.id ?? "");
+      }
+    } catch { /* ignore */ }
+  }, []);
 
   const { data: opportunities = [] } = useQuery<Opportunity[]>({
     queryKey: qk.opportunities(),

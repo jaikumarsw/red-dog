@@ -1,10 +1,12 @@
 "use client";
 
 import type { ElementType } from "react";
-import { useState } from "react";
-import { useQuery } from "@tanstack/react-query";
-import { FileText, Award, Clock, Eye, Pencil, CalendarClock } from "lucide-react";
+import { useState, useRef, useEffect } from "react";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { useRouter } from "next/navigation";
+import { FileText, Award, Clock, Eye, Pencil, CalendarClock, ChevronDown, Check } from "lucide-react";
 import { MobileFilterSelect } from "@/components/MobileFilterSelect";
+import { useToast } from "@/hooks/use-toast";
 import api from "@/lib/api";
 import { qk } from "@/lib/queryKeys";
 
@@ -161,8 +163,46 @@ const filterTabs: { label: string; value: string }[] = [
   { label: "Declined", value: "declined" },
 ];
 
+const STATUS_OPTIONS = [
+  { value: "drafting", label: "Drafting" },
+  { value: "submitted", label: "Submitted" },
+  { value: "under-review", label: "Under Review" },
+  { value: "awarded", label: "Awarded" },
+  { value: "declined", label: "Declined" },
+];
+
 const AppCard = ({ app }: { app: AppItem }) => {
   const cfg = statusConfig[app.status] ?? defaultCfg;
+  const router = useRouter();
+  const { toast } = useToast();
+  const queryClient = useQueryClient();
+  const [pickerOpen, setPickerOpen] = useState(false);
+  const pickerRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    const handler = (e: MouseEvent) => {
+      if (pickerRef.current && !pickerRef.current.contains(e.target as Node)) {
+        setPickerOpen(false);
+      }
+    };
+    if (pickerOpen) document.addEventListener("mousedown", handler);
+    return () => document.removeEventListener("mousedown", handler);
+  }, [pickerOpen]);
+
+  const statusMutation = useMutation({
+    mutationFn: (newStatus: string) =>
+      api.put(`/applications/${app.id}/status`, { status: newStatus }),
+    onSuccess: (_, newStatus) => {
+      const label = STATUS_OPTIONS.find((o) => o.value === newStatus)?.label ?? newStatus;
+      toast({ title: "Status updated", description: `Application marked as "${label}".` });
+      queryClient.invalidateQueries({ queryKey: qk.applications() });
+      setPickerOpen(false);
+    },
+    onError: () => {
+      toast({ title: "Update failed", description: "Could not update status. Please try again.", variant: "destructive" });
+    },
+  });
+
   return (
     <div className="bg-white rounded-xl border border-[#f0f0f0] shadow-[0_1px_4px_rgba(0,0,0,0.05)] p-4 sm:p-5 flex flex-col gap-4">
       <div className="flex min-w-0 items-start justify-between gap-3">
@@ -199,14 +239,39 @@ const AppCard = ({ app }: { app: AppItem }) => {
       </div>
 
       <div className="flex flex-wrap items-center justify-end gap-3 sm:gap-4 pt-1 border-t border-[#f3f4f6]">
-        <button className="flex items-center gap-1.5 [font-family:'Montserrat',Helvetica] font-medium text-xs text-[#6b7280] hover:text-[#374151] transition-colors">
+        <button
+          onClick={() => router.push(`/applications/${app.id}`)}
+          className="flex items-center gap-1.5 [font-family:'Montserrat',Helvetica] font-medium text-xs text-[#6b7280] hover:text-[#374151] transition-colors"
+        >
           <Eye size={14} />
           View
         </button>
-        <button className="flex items-center gap-1.5 [font-family:'Montserrat',Helvetica] font-medium text-xs text-[#6b7280] hover:text-[#374151] transition-colors">
-          <Pencil size={13} />
-          Update Status
-        </button>
+
+        <div className="relative" ref={pickerRef}>
+          <button
+            onClick={() => setPickerOpen((p) => !p)}
+            disabled={statusMutation.isPending}
+            className="flex items-center gap-1.5 [font-family:'Montserrat',Helvetica] font-medium text-xs text-[#ef3e34] hover:text-[#d63530] transition-colors disabled:opacity-50"
+          >
+            <Pencil size={13} />
+            {statusMutation.isPending ? "Updating…" : "Update Status"}
+            <ChevronDown size={12} className={`transition-transform ${pickerOpen ? "rotate-180" : ""}`} />
+          </button>
+          {pickerOpen && (
+            <div className="absolute bottom-full right-0 mb-2 w-44 bg-white rounded-xl border border-[#e5e7eb] shadow-[0_4px_20px_rgba(0,0,0,0.12)] z-20 overflow-hidden">
+              {STATUS_OPTIONS.map((opt) => (
+                <button
+                  key={opt.value}
+                  onClick={() => statusMutation.mutate(opt.value)}
+                  className="w-full flex items-center justify-between gap-2 px-3 py-2.5 text-left [font-family:'Montserrat',Helvetica] text-xs font-medium text-[#374151] hover:bg-[#f9fafb] transition-colors"
+                >
+                  {opt.label}
+                  {app.status === opt.value && <Check size={13} className="text-[#ef3e34] flex-shrink-0" />}
+                </button>
+              ))}
+            </div>
+          )}
+        </div>
       </div>
     </div>
   );

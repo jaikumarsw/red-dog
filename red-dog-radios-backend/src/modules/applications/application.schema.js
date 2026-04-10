@@ -4,7 +4,7 @@ const mongoosePaginateV2 = require('mongoose-paginate-v2');
 const applicationSchema = new mongoose.Schema(
   {
     organization: { type: mongoose.Schema.Types.ObjectId, ref: 'Organization', required: true },
-    opportunity: { type: mongoose.Schema.Types.ObjectId, ref: 'Opportunity', required: true },
+    opportunity: { type: mongoose.Schema.Types.ObjectId, ref: 'Opportunity' },
     status: {
       type: String,
       enum: ['draft', 'submitted', 'in_review', 'awarded', 'rejected', 'not_started', 'drafting', 'ready_to_submit', 'follow_up_needed', 'denied'],

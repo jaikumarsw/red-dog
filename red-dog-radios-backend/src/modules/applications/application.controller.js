@@ -1,6 +1,7 @@
 const asyncHandler = require('../../utils/asyncHandler');
 const { success, created, paginate } = require('../../utils/apiResponse');
 const appService = require('./application.service');
+const Organization = require('../organizations/organization.schema');
 
 const getAll = asyncHandler(async (req, res) => {
   const result = await appService.getAll(req.query);
@@ -15,6 +16,19 @@ const getOne = asyncHandler(async (req, res) => {
 const create = asyncHandler(async (req, res) => {
   const app = await appService.create(req.body);
   return created(res, app, 'Application created');
+});
+
+// AI-powered application generation — auto-resolves organization from user
+const generate = asyncHandler(async (req, res) => {
+  const { funderId, opportunityId } = req.body;
+  let { organizationId } = req.body;
+  if (!organizationId) {
+    const org = await Organization.findOne({ createdBy: req.user._id });
+    if (!org) return res.status(400).json({ success: false, message: 'No organization found for your account. Please create one first.' });
+    organizationId = org._id;
+  }
+  const app = await appService.createWithAI({ opportunityId, funderId, organizationId, userId: req.user._id });
+  return created(res, app, 'Application generated with AI');
 });
 
 const update = asyncHandler(async (req, res) => {
@@ -54,4 +68,4 @@ const exportApplication = asyncHandler(async (req, res) => {
   return res.send(text);
 });
 
-module.exports = { getAll, getOne, create, update, updateStatus, submit, remove, regenerate, alignToFunder, exportApplication };
+module.exports = { getAll, getOne, create, generate, update, updateStatus, submit, remove, regenerate, alignToFunder, exportApplication };

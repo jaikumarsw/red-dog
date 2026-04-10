@@ -55,7 +55,7 @@ export const FunderDetail = () => {
   });
 
   const applyMutation = useMutation({
-    mutationFn: () => api.post("/applications", { funderId: id }),
+    mutationFn: () => api.post("/applications/generate", { funderId: id }),
     onSuccess: (res) => {
       toast({ title: "Application started", description: "AI is generating your application content." });
       queryClient.invalidateQueries({ queryKey: qk.applications() });

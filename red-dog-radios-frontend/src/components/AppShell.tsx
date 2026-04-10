@@ -39,7 +39,12 @@ const SidebarContent = ({
 }) => {
   const router = useRouter();
   const pathname = usePathname();
-  const { logout } = useAuth();
+  const { logout, user } = useAuth();
+
+  const initials = user
+    ? (user.firstName?.[0] ?? user.fullName?.[0] ?? user.email[0]).toUpperCase() +
+      (user.lastName?.[0] ?? user.fullName?.split(" ")[1]?.[0] ?? "").toUpperCase()
+    : "?";
 
   return (
     <>
@@ -131,6 +136,27 @@ const SidebarContent = ({
           )}
         </Link>
       </div>
+
+      {/* User Profile */}
+      {user && (
+        <div className={`flex items-center flex-shrink-0 border-t border-solid border-[#1f1f1f] ${collapsed ? "justify-center p-3" : "gap-3 px-5 py-4"}`}>
+          <div className="w-8 h-8 rounded-full bg-[#ef3e34] flex items-center justify-center flex-shrink-0">
+            <span className="[font-family:'Montserrat',Helvetica] font-bold text-white text-xs leading-none">
+              {initials}
+            </span>
+          </div>
+          {!collapsed && (
+            <div className="min-w-0 flex flex-col gap-0.5">
+              <span className="[font-family:'Montserrat',Helvetica] font-semibold text-white text-sm leading-tight truncate">
+                {user.fullName ?? `${user.firstName ?? ""} ${user.lastName ?? ""}`.trim() || user.email}
+              </span>
+              <span className="[font-family:'Montserrat',Helvetica] font-normal text-[#6b7280] text-xs leading-tight truncate">
+                {user.email}
+              </span>
+            </div>
+          )}
+        </div>
+      )}
 
       {/* Sign Out */}
       <div className={`flex flex-col items-start self-stretch w-full flex-shrink-0 border-t border-solid border-[#1f1f1f] ${collapsed ? "p-2" : "p-4"}`}>
