@@ -99,8 +99,14 @@ All pages are fully wired to the backend API (no mock data in production paths):
 | Settings | `GET /api/settings`, `PUT /api/settings`, `DELETE /api/settings/account` |
 | Ashleen AI Chat | `POST /api/ashleen/chat` |
 
+### Settings
+Settings language and timezone are fully wired: loaded from `settingsData?.settings?.preferences`, bound to controlled selects, and saved via `PUT /api/settings` with `preferences: { language, timezone }`. Supported timezones stored as IANA strings (e.g. `America/New_York`). The `timezone` field is defined in the User schema under `settings.preferences.timezone`.
+
 ### Error Handling
 All React Query `useQuery` calls across every view include `isError` + `refetch` for proper error display and retry UX.
+
+### Hydration
+`suppressHydrationWarning` is set on the root `<body>` tag in `layout.tsx` to suppress benign hydration mismatches caused by Replit's preview iframe or browser instrumentation modifying DOM attributes after SSR.
 
 ### Test Credentials (seed data)
 - Admin: `admin@reddogradios.com` / `Admin1234!`

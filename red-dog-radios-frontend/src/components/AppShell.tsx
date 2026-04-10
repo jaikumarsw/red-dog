@@ -7,6 +7,7 @@ import { usePathname, useRouter } from "next/navigation";
 import { RedDogLogo } from "./RedDogLogo";
 import { Menu } from "lucide-react";
 import { AshleenChat } from "./AshleenChat";
+import { useAuth } from "@/lib/AuthContext";
 
 const menuItems = [
   { id: "dashboard", label: "Dashboard", icon: "/figmaAssets/svg-8.svg", path: "/dashboard" },
@@ -38,6 +39,7 @@ const SidebarContent = ({
 }) => {
   const router = useRouter();
   const pathname = usePathname();
+  const { logout } = useAuth();
 
   return (
     <>
@@ -135,6 +137,7 @@ const SidebarContent = ({
         <button
           type="button"
           onClick={() => {
+            logout();
             router.push("/login");
             onNavClick?.();
           }}

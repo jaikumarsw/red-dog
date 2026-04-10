@@ -31,7 +31,7 @@ export default function RootLayout({
           rel="stylesheet"
         />
       </head>
-      <body className="antialiased">
+      <body className="antialiased" suppressHydrationWarning>
         <Providers>
           <ConditionalAppShell>{children}</ConditionalAppShell>
         </Providers>

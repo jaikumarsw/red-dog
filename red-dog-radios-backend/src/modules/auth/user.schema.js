@@ -24,6 +24,7 @@ const userSchema = new mongoose.Schema(
       preferences: {
         language: { type: String, default: 'en' },
         country: { type: String, default: 'US' },
+        timezone: { type: String, default: 'America/New_York' },
       },
       reportEmail: { type: String },
       apiKey: { type: String },

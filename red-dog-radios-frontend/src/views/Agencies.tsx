@@ -171,9 +171,8 @@ export const Agencies = () => {
     queryFn: async () => {
       const res = await api.get("/agencies", { params: { limit: 100 } });
       const raw: ApiAgency[] = res.data.data ?? [];
-      return raw.length > 0 ? raw.map(mapApiAgency) : initialAgencies;
+      return raw.map(mapApiAgency);
     },
-    placeholderData: initialAgencies,
   });
 
   const createMutation = useMutation({

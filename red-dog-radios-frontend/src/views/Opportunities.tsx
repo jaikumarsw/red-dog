@@ -785,13 +785,9 @@ export const Opportunities = () => {
   const { data: opportunities = [] } = useQuery<Opportunity[]>({
     queryKey: qk.opportunities(),
     queryFn: async () => {
-      try {
-        const res = await api.get("/opportunities", { params: { limit: 100 } });
-        const raw: ApiOpportunity[] = res.data.data ?? [];
-        return raw.map(mapOpp);
-      } catch {
-        return mockOpportunities.map((o) => ({ ...o, id: String(o.id), deadlineRaw: null }));
-      }
+      const res = await api.get("/opportunities", { params: { limit: 100 } });
+      const raw: ApiOpportunity[] = res.data.data ?? [];
+      return raw.map(mapOpp);
     },
   });
 

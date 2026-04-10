@@ -112,7 +112,10 @@ type ApiSettings = {
   fullName?: string;
   email?: string;
   organizationId?: { name?: string } | null;
-  settings?: { notifications?: Record<string, boolean> };
+  settings?: {
+    notifications?: Record<string, boolean>;
+    preferences?: { language?: string; timezone?: string };
+  };
 };
 
 export const Settings = () => {
@@ -141,6 +144,8 @@ export const Settings = () => {
     alertUpdates: false,
     systemAlerts: true,
   });
+  const [language, setLanguage] = useState("en");
+  const [timezone, setTimezone] = useState("America/New_York");
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [orgName, setOrgName] = useState<string>("");
 
@@ -166,6 +171,8 @@ export const Settings = () => {
       if (u.settings?.notifications) {
         setNotifications((prev) => ({ ...prev, ...u.settings!.notifications }));
       }
+      if (u.settings?.preferences?.language) setLanguage(u.settings.preferences.language);
+      if (u.settings?.preferences?.timezone) setTimezone(u.settings.preferences.timezone);
     } else if (user) {
       reset({
         firstName: user.firstName ?? (user.fullName ? user.fullName.split(" ")[0] : "") ?? "",
@@ -184,6 +191,7 @@ export const Settings = () => {
         lastName: data.lastName,
         email: data.email,
         notifications,
+        preferences: { language, timezone },
       }),
     onSuccess: () => {
       toast({ title: "Settings saved successfully", description: "Your preferences have been updated." });
@@ -306,8 +314,10 @@ export const Settings = () => {
               <label className={labelCls}>Language</label>
               <div className="relative">
                 <Globe size={13} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-[#9ca3af]" />
-                <select data-testid="select-language" className={`${inputCls} pl-9 appearance-none cursor-pointer`} defaultValue="English">
-                  <option>English</option><option>Spanish</option><option>French</option>
+                <select data-testid="select-language" className={`${inputCls} pl-9 appearance-none cursor-pointer`} value={language} onChange={(e) => setLanguage(e.target.value)}>
+                  <option value="en">English</option>
+                  <option value="es">Spanish</option>
+                  <option value="fr">French</option>
                 </select>
               </div>
             </div>
@@ -315,8 +325,11 @@ export const Settings = () => {
               <label className={labelCls}>Timezone</label>
               <div className="relative">
                 <Clock size={13} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-[#9ca3af]" />
-                <select data-testid="select-timezone" className={`${inputCls} pl-9 appearance-none cursor-pointer`} defaultValue="Eastern (ET)">
-                  <option>Eastern (ET)</option><option>Central (CT)</option><option>Mountain (MT)</option><option>Pacific (PT)</option>
+                <select data-testid="select-timezone" className={`${inputCls} pl-9 appearance-none cursor-pointer`} value={timezone} onChange={(e) => setTimezone(e.target.value)}>
+                  <option value="America/New_York">Eastern (ET)</option>
+                  <option value="America/Chicago">Central (CT)</option>
+                  <option value="America/Denver">Mountain (MT)</option>
+                  <option value="America/Los_Angeles">Pacific (PT)</option>
                 </select>
               </div>
             </div>
