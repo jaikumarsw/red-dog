@@ -6,3 +6,9 @@ id = "ea1exnW1mz8bNx_5bLHHR"
 uri = "file://README.md"
 type = "text"
 title = "Red Dog Radio — Grant Intelligence Platform README"
+
+[[outputs]]
+id = "sL24ujDf9zsoeBFRq84J_"
+uri = "file://test.md"
+type = "text"
+title = "Test Data — All Forms"
