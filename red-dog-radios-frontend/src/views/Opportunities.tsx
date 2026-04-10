@@ -443,6 +443,7 @@ const AshleenModal = ({ opp, onClose }: { opp: Opportunity; onClose: () => void 
   const [appId, setAppId] = useState<string | null>(null);
   const { toast } = useToast();
   const queryClient = useQueryClient();
+  const router = useRouter();
 
   const {
     register,
@@ -457,13 +458,27 @@ const AshleenModal = ({ opp, onClose }: { opp: Opportunity; onClose: () => void 
 
   useEffect(() => {
     const u = getStoredUser();
+    const updates: Partial<AshleenApplicationDraftValues> = {};
     if (u) {
       const contactName = u.fullName || (u.firstName && u.lastName ? `${u.firstName} ${u.lastName}` : "") || "";
       const contactEmail = u.email || "";
-      if (contactName || contactEmail) {
-        reset((prev) => ({ ...prev, contactName, contactEmail }));
+      if (contactName) updates.contactName = contactName;
+      if (contactEmail) updates.contactEmail = contactEmail;
+      const stored = typeof window !== "undefined" ? localStorage.getItem("rdg_user") : null;
+      const fullUser = stored ? (JSON.parse(stored) as { organizationId?: string }) : {};
+      if (fullUser.organizationId) {
+        api.get(`/organizations/${fullUser.organizationId}`)
+          .then((res) => {
+            const orgName: string = res.data.data?.name || res.data.data?.organizationName || "";
+            reset((prev) => ({ ...prev, ...updates, ...(orgName ? { organizationName: orgName } : {}) }));
+          })
+          .catch(() => {
+            if (Object.keys(updates).length > 0) reset((prev) => ({ ...prev, ...updates }));
+          });
+        return;
       }
     }
+    if (Object.keys(updates).length > 0) reset((prev) => ({ ...prev, ...updates }));
   }, [reset]);
 
   useEffect(() => {
@@ -472,15 +487,13 @@ const AshleenModal = ({ opp, onClose }: { opp: Opportunity; onClose: () => void 
     return () => document.removeEventListener("keydown", handleKey);
   }, [onClose]);
 
-  useEffect(() => {
-    if (step === 2) reset(ashleenDraftDefaults(opp));
-  }, [step, opp, reset]);
 
   const applyMutation = useMutation({
     mutationFn: () => {
       const stored = typeof window !== "undefined" ? localStorage.getItem("rdg_user") : null;
       const user = stored ? (JSON.parse(stored) as { organizationId?: string; organization?: string }) : {};
       const orgId = user.organizationId ?? user.organization ?? undefined;
+      if (!orgId) throw new Error("No organization found. Please complete your agency profile first.");
       return api.post("/applications", {
         opportunity: String(opp.id),
         organization: orgId,
@@ -493,23 +506,39 @@ const AshleenModal = ({ opp, onClose }: { opp: Opportunity; onClose: () => void 
       setAppId(id);
       setStep(2);
     },
-    onError: () => {
-      setStep(2);
+    onError: (err: Error) => {
+      toast({
+        title: "Could not create application",
+        description: err?.message || "Please try again.",
+        variant: "destructive",
+      });
     },
   });
 
   const submitMutation = useMutation({
-    mutationFn: () => {
-      if (appId) {
-        const vals = getValues();
-        return api.put(`/applications/${appId}/submit`, vals);
-      }
-      return Promise.resolve(null);
+    mutationFn: async () => {
+      if (!appId) throw new Error("No application ID found.");
+      const vals = getValues();
+      const amountNum = parseFloat(String(vals.amountRequested).replace(/[^0-9.]/g, ""));
+      await api.put(`/applications/${appId}`, {
+        projectTitle: vals.projectTitle,
+        projectSummary: vals.projectSummary,
+        communityImpact: vals.communityImpact,
+        amountRequested: isNaN(amountNum) ? undefined : amountNum,
+        timeline: vals.projectTimeline,
+        contactName: vals.contactName,
+        contactEmail: vals.contactEmail,
+      });
+      return api.put(`/applications/${appId}/submit`);
     },
-    onSettled: () => {
+    onSuccess: () => {
       toast({ title: "Application submitted!", description: `Your application for "${opp.grant}" has been submitted.` });
       queryClient.invalidateQueries({ queryKey: qk.applications() });
       onClose();
+      if (appId) router.push(`/applications/${appId}`);
+    },
+    onError: () => {
+      toast({ title: "Submission failed", description: "Please try again.", variant: "destructive" });
     },
   });
 
@@ -698,16 +727,37 @@ const AshleenModal = ({ opp, onClose }: { opp: Opportunity; onClose: () => void 
           {header}
           <div className="px-6 py-4 flex flex-col gap-3">
             {grantBlock}
-            <button className="w-full h-10 bg-[#ef3e34] text-white rounded-lg [font-family:'Montserrat',Helvetica] font-semibold text-sm">Looks good, Review & Submit</button>
-            <AshleenMsg text="I've reviewed the application one final time. Everything looks strong! The narrative highlights Red Dog Radio's community impact, which is exactly what this funder prioritizes." />
-            <AshleenMsg text="Ready to submit? Once submitted, I'll track the outcome and follow up with you." />
+            <AshleenMsg text="I've reviewed everything — it looks strong! Here's a summary of your application before we submit." />
+            <div className="bg-[#f9fafb] rounded-xl p-3 border border-[#f0f0f0] flex flex-col gap-2 text-xs [font-family:'Montserrat',Helvetica]">
+              <div className="flex justify-between gap-2">
+                <span className="text-[#6b7280] shrink-0">Organization</span>
+                <span className="font-semibold text-[#111827] text-right">{getValues("organizationName") || "—"}</span>
+              </div>
+              <div className="flex justify-between gap-2">
+                <span className="text-[#6b7280] shrink-0">Contact</span>
+                <span className="font-semibold text-[#111827] text-right">{getValues("contactName") || "—"}</span>
+              </div>
+              <div className="flex justify-between gap-2">
+                <span className="text-[#6b7280] shrink-0">Project Title</span>
+                <span className="font-semibold text-[#111827] text-right">{getValues("projectTitle") || "—"}</span>
+              </div>
+              <div className="flex justify-between gap-2">
+                <span className="text-[#6b7280] shrink-0">Amount Requested</span>
+                <span className="font-semibold text-[#111827] text-right">{getValues("amountRequested") || opp.amount}</span>
+              </div>
+              <div className="flex justify-between gap-2">
+                <span className="text-[#6b7280] shrink-0">Timeline</span>
+                <span className="font-semibold text-[#111827] text-right">{getValues("projectTimeline") || "—"}</span>
+              </div>
+            </div>
+            <AshleenMsg text="Ready to submit? Once submitted, I'll track the outcome and you can view the full application in your Applications page." />
             <div className="mt-1 flex flex-col gap-2 sm:flex-row">
               <button
                 onClick={() => submitMutation.mutate()}
                 disabled={submitMutation.isPending}
                 className="h-9 flex-1 rounded-lg bg-[#ef3e34] [font-family:'Montserrat',Helvetica] text-sm font-semibold text-white transition-colors hover:bg-[#d63530] disabled:opacity-60"
               >
-                {submitMutation.isPending ? "Submitting..." : "Submit"}
+                {submitMutation.isPending ? "Submitting..." : "Submit Application"}
               </button>
               <button onClick={() => setStep(2)} className="h-9 flex-1 rounded-lg border border-[#e5e7eb] [font-family:'Montserrat',Helvetica] text-sm font-semibold text-[#374151] transition-colors hover:bg-[#f9fafb]">Edit More</button>
             </div>
