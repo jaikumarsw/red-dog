@@ -116,6 +116,7 @@ type Opportunity = {
   status: string;
   description: string;
   sourceUrl: string;
+  createdBy?: string;
 };
 
 type ApiOpportunity = {
@@ -129,6 +130,7 @@ type ApiOpportunity = {
   status?: string;
   description?: string;
   sourceUrl?: string;
+  createdBy?: string | { _id: string; firstName?: string; lastName?: string; email?: string };
 };
 
 const fmtDeadline = (s: string | undefined) => {
@@ -142,6 +144,10 @@ const fmtDeadline = (s: string | undefined) => {
 
 const mapOpp = (o: ApiOpportunity): Opportunity => {
   const kws = o.keywords ?? [];
+  const createdBy =
+    typeof o.createdBy === "string"
+      ? o.createdBy
+      : o.createdBy?._id;
   return {
     id: o._id,
     grant: o.title ?? "Unknown",
@@ -156,6 +162,7 @@ const mapOpp = (o: ApiOpportunity): Opportunity => {
     status: o.status ?? "open",
     description: o.description ?? "",
     sourceUrl: o.sourceUrl ?? "#",
+    createdBy,
   };
 };
 
@@ -339,7 +346,7 @@ const AddOpportunityModal = ({ onClose, onCreate }: { onClose: () => void; onCre
 };
 
 /* ── Grant Preview Modal ───────────────────────────────── */
-const GrantPreviewModal = ({ opp, onClose, onApply }: { opp: Opportunity; onClose: () => void; onApply: () => void }) => {
+const GrantPreviewModal = ({ opp, onClose, onApply, isOwner }: { opp: Opportunity; onClose: () => void; onApply: () => void; isOwner?: boolean }) => {
   useEffect(() => {
     const handleKey = (e: KeyboardEvent) => { if (e.key === "Escape") onClose(); };
     document.addEventListener("keydown", handleKey);
@@ -394,12 +401,19 @@ const GrantPreviewModal = ({ opp, onClose, onApply }: { opp: Opportunity; onClos
           Visit funder website
         </a>
       </div>
-      <div className="flex items-center justify-end gap-3 px-7 py-5 border-t border-[#f3f4f6]">
-        <button onClick={onClose} className="[font-family:'Montserrat',Helvetica] font-medium text-sm text-[#6b7280] hover:text-[#374151] px-4 py-2 transition-colors">Cancel</button>
-        <button onClick={onApply} className="h-10 px-5 bg-[#ef3e34] hover:bg-[#d63530] text-white rounded-lg [font-family:'Montserrat',Helvetica] font-semibold text-sm flex items-center gap-1.5 transition-colors">
-          <Zap size={14} />
-          Apply with Ashleen
-        </button>
+      <div className="flex items-center justify-between gap-3 px-7 py-5 border-t border-[#f3f4f6]">
+        <button onClick={onClose} className="[font-family:'Montserrat',Helvetica] font-medium text-sm text-[#6b7280] hover:text-[#374151] px-4 py-2 transition-colors">Close</button>
+        {isOwner ? (
+          <div className="flex items-center gap-2 h-10 px-4 rounded-lg bg-[#f9fafb] border border-[#e5e7eb]">
+            <span className="text-[#16a34a] text-base leading-none">✓</span>
+            <span className="[font-family:'Montserrat',Helvetica] text-sm font-semibold text-[#374151]">You posted this grant</span>
+          </div>
+        ) : (
+          <button onClick={onApply} className="h-10 px-5 bg-[#ef3e34] hover:bg-[#d63530] text-white rounded-lg [font-family:'Montserrat',Helvetica] font-semibold text-sm flex items-center gap-1.5 transition-colors">
+            <Zap size={14} />
+            Apply with Ashleen
+          </button>
+        )}
       </div>
     </div>
   </div>
@@ -990,6 +1004,16 @@ export const Opportunities = () => {
   const [modal, setModal] = useState<ModalType>(null);
   const [selectedOpp, setSelectedOpp] = useState<Opportunity | null>(null);
 
+  const currentUserId: string = (() => {
+    if (typeof window === "undefined") return "";
+    try {
+      const s = localStorage.getItem("rdg_user");
+      if (!s) return "";
+      const u = JSON.parse(s) as { _id?: string; id?: string };
+      return u._id ?? u.id ?? "";
+    } catch { return ""; }
+  })();
+
   const { data: opportunities = [] } = useQuery<Opportunity[]>({
     queryKey: qk.opportunities(),
     queryFn: async () => {
@@ -1150,9 +1174,16 @@ export const Opportunities = () => {
                       >
                         <td className="px-4 py-4 align-top lg:px-5">
                           <div className="flex min-w-0 flex-col gap-1">
-                            <span className="[font-family:'Montserrat',Helvetica] text-sm font-semibold text-[#111827] break-words">
-                              {opp.grant}
-                            </span>
+                            <div className="flex items-center gap-2 flex-wrap">
+                              <span className="[font-family:'Montserrat',Helvetica] text-sm font-semibold text-[#111827] break-words">
+                                {opp.grant}
+                              </span>
+                              {opp.createdBy && opp.createdBy === currentUserId && (
+                                <span className="inline-flex items-center gap-0.5 rounded-full bg-[#dcfce7] px-2 py-0.5 [font-family:'Montserrat',Helvetica] text-[10px] font-semibold text-[#16a34a] shrink-0">
+                                  ✓ Your post
+                                </span>
+                              )}
+                            </div>
                             <span className="[font-family:'Montserrat',Helvetica] text-xs font-normal text-[#9ca3af] break-words">
                               {opp.funder}
                             </span>
@@ -1217,7 +1248,14 @@ export const Opportunities = () => {
                 >
                   <div className="flex flex-col gap-3">
                     <div className="min-w-0">
-                      <p className="[font-family:'Montserrat',Helvetica] text-sm font-semibold text-[#111827] break-words">{opp.grant}</p>
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <p className="[font-family:'Montserrat',Helvetica] text-sm font-semibold text-[#111827] break-words">{opp.grant}</p>
+                        {opp.createdBy && opp.createdBy === currentUserId && (
+                          <span className="inline-flex items-center gap-0.5 rounded-full bg-[#dcfce7] px-2 py-0.5 [font-family:'Montserrat',Helvetica] text-[10px] font-semibold text-[#16a34a] shrink-0">
+                            ✓ Your post
+                          </span>
+                        )}
+                      </div>
                       <p className="mt-0.5 [font-family:'Montserrat',Helvetica] text-xs font-normal text-[#9ca3af] break-words">{opp.funder}</p>
                       <div className="mt-2 flex flex-wrap gap-1">
                         {opp.keywords.map((k) => (
@@ -1283,7 +1321,14 @@ export const Opportunities = () => {
       </div>
 
       {modal === "add" && <AddOpportunityModal onClose={closeModal} onCreate={handleCreate} />}
-      {modal === "preview" && selectedOpp && <GrantPreviewModal opp={selectedOpp} onClose={closeModal} onApply={openAshleen} />}
+      {modal === "preview" && selectedOpp && (
+        <GrantPreviewModal
+          opp={selectedOpp}
+          onClose={closeModal}
+          onApply={openAshleen}
+          isOwner={!!selectedOpp.createdBy && selectedOpp.createdBy === currentUserId}
+        />
+      )}
       {modal === "ashleen" && selectedOpp && <AshleenModal opp={selectedOpp} onClose={closeModal} />}
     </>
   );
