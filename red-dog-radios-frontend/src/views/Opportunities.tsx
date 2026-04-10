@@ -1,13 +1,13 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import api from "@/lib/api";
 import { qk } from "@/lib/queryKeys";
 import { createPortal } from "react-dom";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { Search, Calendar, X, ChevronRight, ExternalLink, Zap } from "lucide-react";
+import { Search, Calendar, X, ChevronRight, ExternalLink, Zap, Loader2, Send } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
@@ -441,6 +441,13 @@ const ashleenDraftDefaults = (o: Opportunity): AshleenApplicationDraftValues => 
 const AshleenModal = ({ opp, onClose }: { opp: Opportunity; onClose: () => void }) => {
   const [step, setStep] = useState(0);
   const [appId, setAppId] = useState<string | null>(null);
+  const [tellMoreLoading, setTellMoreLoading] = useState(false);
+  const [tellMoreContent, setTellMoreContent] = useState("");
+  const [chatMessages, setChatMessages] = useState<{ role: "user" | "ashleen"; text: string }[]>([]);
+  const [chatInput, setChatInput] = useState("");
+  const [chatLoading, setChatLoading] = useState(false);
+  const [generatingField, setGeneratingField] = useState<"projectSummary" | "communityImpact" | null>(null);
+  const chatScrollRef = useRef<HTMLDivElement>(null);
   const { toast } = useToast();
   const queryClient = useQueryClient();
   const router = useRouter();
@@ -450,6 +457,7 @@ const AshleenModal = ({ opp, onClose }: { opp: Opportunity; onClose: () => void 
     handleSubmit,
     reset,
     getValues,
+    setValue,
     formState: { errors },
   } = useForm<AshleenApplicationDraftValues>({
     resolver: zodResolver(ashleenApplicationDraftSchema),
@@ -487,6 +495,121 @@ const AshleenModal = ({ opp, onClose }: { opp: Opportunity; onClose: () => void 
     return () => document.removeEventListener("keydown", handleKey);
   }, [onClose]);
 
+  useEffect(() => {
+    chatScrollRef.current?.scrollIntoView({ behavior: "smooth" });
+  }, [chatMessages, chatLoading]);
+
+  /* Auto-generate AI content when the form opens (step 2) */
+  useEffect(() => {
+    if (step !== 2) return;
+    let cancelled = false;
+    const run = async () => {
+      setGeneratingField("projectSummary");
+      try {
+        const res = await api.post("/ashleen/chat", {
+          messages: [{ role: "user", content: "Write the Project Summary section for our grant application." }],
+          systemSuffix: `Write ONLY the Project Summary field content for a ${opp.amount} grant application to "${opp.grant}" from ${opp.funder}. Write 2-3 professional paragraphs for a public safety agency seeking communications/radio equipment funding. NO greeting or introduction — start directly with the content.`,
+        });
+        const reply: string = res.data.data?.reply || "";
+        if (!cancelled && reply) setValue("projectSummary", reply);
+      } catch { /* silent */ }
+      if (cancelled) return;
+      setGeneratingField("communityImpact");
+      try {
+        const res = await api.post("/ashleen/chat", {
+          messages: [{ role: "user", content: "Write the Community Impact section for our grant application." }],
+          systemSuffix: `Write ONLY the Community Impact field content for the "${opp.grant}" grant application. 1-2 paragraphs about measurable community benefit and who benefits from this funding. NO greeting or introduction — start directly with the content.`,
+        });
+        const reply: string = res.data.data?.reply || "";
+        if (!cancelled && reply) setValue("communityImpact", reply);
+      } catch { /* silent */ }
+      if (cancelled) return;
+      setGeneratingField(null);
+      if (!cancelled) {
+        setChatMessages([{
+          role: "ashleen",
+          text: "I've drafted the Project Summary and Community Impact sections! Feel free to ask me to make any changes — just describe what you'd like different.",
+        }]);
+      }
+    };
+    run();
+    return () => { cancelled = true; };
+  }, [step]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  /* ── Helpers ──────────────────────────────────────────── */
+  const callAshleen = async (
+    messages: { role: string; content: string }[],
+    systemSuffix?: string,
+  ): Promise<string> => {
+    const res = await api.post("/ashleen/chat", { messages, systemSuffix });
+    return (res.data.data?.reply as string) || "";
+  };
+
+  const generateField = async (field: "projectSummary" | "communityImpact") => {
+    if (generatingField) return;
+    setGeneratingField(field);
+    try {
+      const label = field === "projectSummary" ? "Project Summary" : "Community Impact";
+      const suffix =
+        field === "projectSummary"
+          ? `Write ONLY the Project Summary field content for a ${opp.amount} grant application to "${opp.grant}" from ${opp.funder}. 2-3 professional paragraphs. NO greeting — start directly with the content.`
+          : `Write ONLY the Community Impact field content for the "${opp.grant}" grant application. 1-2 paragraphs about measurable community benefit. NO greeting — start directly with the content.`;
+      const reply = await callAshleen(
+        [{ role: "user", content: `Regenerate the ${label} section.` }],
+        suffix,
+      );
+      if (reply) setValue(field, reply);
+    } catch { /* silent */ }
+    setGeneratingField(null);
+  };
+
+  const handleTellMore = () => {
+    setStep(1);
+    setTellMoreLoading(true);
+    setTellMoreContent("");
+    callAshleen(
+      [{ role: "user", content: `Tell me about the "${opp.grant}" grant from ${opp.funder}. Amount: ${opp.amount}. Category: ${opp.category}.` }],
+      `Provide detailed, actionable information about this grant opportunity in 150 words or less. Cover: what it funds, who is eligible, key requirements, and 2 specific tips for a strong application from a public safety agency. Be specific and helpful.`,
+    )
+      .then((reply) => { setTellMoreContent(reply); setTellMoreLoading(false); })
+      .catch(() => {
+        setTellMoreContent(`The "${opp.grant}" from ${opp.funder} is a ${opp.amount} grant supporting ${opp.category.toLowerCase()} initiatives. Public safety agencies are strong candidates. Focus your application on specific equipment needs, measurable outcomes, and the number of people your agency serves.`);
+        setTellMoreLoading(false);
+      });
+  };
+
+  const handleChat = async () => {
+    const userMsg = chatInput.trim();
+    if (!userMsg || chatLoading) return;
+    setChatInput("");
+    setChatMessages((prev) => [...prev, { role: "user", text: userMsg }]);
+    setChatLoading(true);
+    try {
+      const currentSummary = getValues("projectSummary") || "";
+      const currentImpact = getValues("communityImpact") || "";
+      const context = `Current Project Summary (first 120 chars): "${currentSummary.slice(0, 120)}". Current Community Impact (first 120 chars): "${currentImpact.slice(0, 120)}".`;
+      const history = chatMessages.map((m) => ({ role: m.role === "ashleen" ? "assistant" : "user", content: m.text }));
+      const suffix = `${context}\n\nYou are helping fill in a grant application form for "${opp.grant}" from ${opp.funder} (${opp.amount}). The form has 'Project Summary' and 'Community Impact' text fields. If the user asks you to write, rewrite, or edit either field, begin your response EXACTLY with 'FIELD:projectSummary:' or 'FIELD:communityImpact:' (no space after the colon) followed immediately by the new field content. If just answering a question, respond normally.`;
+      const reply = await callAshleen(
+        [...history, { role: "user", content: userMsg }],
+        suffix,
+      );
+      const fieldMatch = reply.match(/^FIELD:(projectSummary|communityImpact):([\s\S]+)$/);
+      if (fieldMatch) {
+        const fieldName = fieldMatch[1] as "projectSummary" | "communityImpact";
+        const content = fieldMatch[2].trim();
+        setValue(fieldName, content);
+        const fieldLabel = fieldName === "projectSummary" ? "Project Summary" : "Community Impact";
+        setChatMessages((prev) => [...prev, { role: "ashleen", text: `Done! I've updated the ${fieldLabel}. Let me know if you'd like any further changes.` }]);
+      } else {
+        setChatMessages((prev) => [...prev, { role: "ashleen", text: reply }]);
+      }
+    } catch {
+      setChatMessages((prev) => [...prev, { role: "ashleen", text: "Sorry, I had trouble with that. Please try again." }]);
+    } finally {
+      setChatLoading(false);
+    }
+  };
 
   const applyMutation = useMutation({
     mutationFn: () => {
@@ -545,6 +668,21 @@ const AshleenModal = ({ opp, onClose }: { opp: Opportunity; onClose: () => void 
   const draftField = (name: keyof AshleenApplicationDraftValues) =>
     cn(inputClass, errors[name] && "border-red-500 focus-visible:ring-red-500");
 
+  const textareaCls = (hasError: boolean) =>
+    cn("border-[#e5e7eb] rounded-lg [font-family:'Montserrat',Helvetica] text-sm focus-visible:ring-[#ef3e34] focus-visible:ring-1 focus-visible:border-[#ef3e34] resize-none", hasError && "border-red-500 focus-visible:ring-red-500");
+
+  const aiFieldBtn = (field: "projectSummary" | "communityImpact") => (
+    <button
+      type="button"
+      onClick={() => void generateField(field)}
+      disabled={generatingField !== null}
+      className="flex items-center gap-1 [font-family:'Montserrat',Helvetica] text-[10px] font-semibold text-[#ef3e34] hover:opacity-70 disabled:opacity-40 transition-opacity"
+    >
+      {generatingField === field ? <Loader2 size={11} className="animate-spin" /> : <Zap size={11} />}
+      {generatingField === field ? "Generating…" : "✦ Regenerate"}
+    </button>
+  );
+
   const grantBlock = (
     <div className="bg-[#f9fafb] rounded-xl p-3 border border-[#f0f0f0]">
       <p className="[font-family:'Montserrat',Helvetica] font-semibold text-[#ef3e34] text-[10px] tracking-[0.5px] uppercase mb-0.5">Reviewing Grant</p>
@@ -581,6 +719,7 @@ const AshleenModal = ({ opp, onClose }: { opp: Opportunity; onClose: () => void 
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40" onClick={(e) => e.target === e.currentTarget && onClose()}>
+
       {/* Step 0 — initial chat */}
       {step === 0 && (
         <div className="bg-white rounded-2xl shadow-[0_8px_40px_rgba(0,0,0,0.18)] w-full max-w-[420px] mx-4 flex flex-col">
@@ -589,10 +728,16 @@ const AshleenModal = ({ opp, onClose }: { opp: Opportunity; onClose: () => void 
             {grantBlock}
             <AshleenMsg text="Hi! I'm Ashleen, your AI grant writing expert 👋" />
             <AshleenMsg text={`I found a great opportunity: "${opp.grant}" from ${opp.funder}. This is a ${opp.amount} grant for ${opp.category.toLowerCase()} initiatives.`} />
-            <AshleenMsg text="Would you like more information about this grant opportunity?" />
+            <AshleenMsg text="Would you like more details, or shall I start drafting your application right now?" />
             <div className="mt-1 flex flex-col gap-2 sm:flex-row">
-              <button onClick={() => setStep(1)} className="h-9 flex-1 rounded-lg border border-[#e5e7eb] [font-family:'Montserrat',Helvetica] text-xs font-semibold text-[#374151] transition-colors hover:bg-[#f9fafb]">Tell me more</button>
-              <button onClick={() => setStep(1)} className="h-9 flex-1 rounded-lg border border-[#e5e7eb] [font-family:'Montserrat',Helvetica] text-xs font-semibold text-[#374151] transition-colors hover:bg-[#f9fafb]">Apply Now</button>
+              <button onClick={handleTellMore} className="h-9 flex-1 rounded-lg border border-[#e5e7eb] [font-family:'Montserrat',Helvetica] text-xs font-semibold text-[#374151] transition-colors hover:bg-[#f9fafb]">Tell me more</button>
+              <button
+                onClick={() => applyMutation.mutate()}
+                disabled={applyMutation.isPending}
+                className="h-9 flex-1 rounded-lg bg-[#ef3e34] [font-family:'Montserrat',Helvetica] text-xs font-bold text-white transition-colors hover:bg-[#d63530] disabled:opacity-60"
+              >
+                {applyMutation.isPending ? "Creating…" : "Apply Now"}
+              </button>
               <button onClick={onClose} className="h-9 flex-1 rounded-lg border border-[#e5e7eb] [font-family:'Montserrat',Helvetica] text-xs font-semibold text-[#374151] transition-colors hover:bg-[#f9fafb]">Not interested</button>
             </div>
           </div>
@@ -600,111 +745,174 @@ const AshleenModal = ({ opp, onClose }: { opp: Opportunity; onClose: () => void 
         </div>
       )}
 
-      {/* Step 1 — apply for me */}
+      {/* Step 1 — Tell me more (Ashleen researches the grant) */}
       {step === 1 && (
         <div className="bg-white rounded-2xl shadow-[0_8px_40px_rgba(0,0,0,0.18)] w-full max-w-[420px] mx-4 flex flex-col">
           {header}
           <div className="px-6 py-4 flex flex-col gap-3">
             {grantBlock}
-            <AshleenMsg text="Hi! I'm Ashleen, your AI grant writing expert 👋" />
-            <AshleenMsg text={`I found a great opportunity: "${opp.grant}" from ${opp.funder}. This is a ${opp.amount} grant for ${opp.category.toLowerCase()} initiatives.`} />
-            <AshleenMsg text="Would you like more information about this grant opportunity?" />
-            <button
-              onClick={() => applyMutation.mutate()}
-              disabled={applyMutation.isPending}
-              className="w-full h-10 bg-[#ef3e34] hover:bg-[#d63530] text-white rounded-lg [font-family:'Montserrat',Helvetica] font-semibold text-sm transition-colors disabled:opacity-60"
-            >
-              {applyMutation.isPending ? "Creating draft..." : "Apply for me!"}
-            </button>
+            {tellMoreLoading ? (
+              <div className="flex items-center gap-2 py-3">
+                <Loader2 size={15} className="animate-spin text-[#ef3e34] flex-shrink-0" />
+                <span className="[font-family:'Montserrat',Helvetica] text-sm text-[#6b7280]">Ashleen is researching this grant…</span>
+              </div>
+            ) : (
+              <>
+                <AshleenMsg text={tellMoreContent} />
+                <AshleenMsg text="Ready to apply? I'll auto-draft the Project Summary and Community Impact sections the moment we open the form." />
+                <div className="mt-1 flex flex-col gap-2 sm:flex-row">
+                  <button
+                    onClick={() => applyMutation.mutate()}
+                    disabled={applyMutation.isPending}
+                    className="h-10 flex-1 rounded-lg bg-[#ef3e34] [font-family:'Montserrat',Helvetica] text-sm font-bold text-white transition-colors hover:bg-[#d63530] disabled:opacity-60"
+                  >
+                    {applyMutation.isPending ? "Creating draft…" : "Start Application →"}
+                  </button>
+                  <button onClick={() => setStep(0)} className="h-10 flex-1 rounded-lg border border-[#e5e7eb] [font-family:'Montserrat',Helvetica] text-sm font-semibold text-[#374151] transition-colors hover:bg-[#f9fafb]">
+                    ← Back
+                  </button>
+                </div>
+              </>
+            )}
           </div>
           {footer}
         </div>
       )}
 
-      {/* Step 2 — application draft */}
+      {/* Step 2 — Application draft form + Ashleen chat */}
       {step === 2 && (
         <div className="bg-white rounded-2xl shadow-[0_8px_40px_rgba(0,0,0,0.18)] w-full max-w-[520px] mx-4 flex flex-col max-h-[90vh] overflow-y-auto">
           {header}
           <div className="px-6 py-4 flex flex-col gap-3">
             {grantBlock}
-            <AshleenMsg text="Hi! I'm Ashleen, your AI grant writing expert 👋" />
-            <AshleenMsg text={`I found a great opportunity: "${opp.grant}" from ${opp.funder}. This is a ${opp.amount} grant for ${opp.category.toLowerCase()} initiatives.`} />
-            <AshleenMsg text="Would you like more information about this grant opportunity?" />
-            <AshleenMsg text="Perfect! I've pre-filled the entire application using Red Dog Radio's profile. Please review each section and make any changes you'd like before we submit." />
+            <AshleenMsg text="Perfect! Contact info is pre-filled from your profile. I'm also generating the Project Summary and Community Impact — you can ask me to edit anything once I'm done." />
             <div className="border border-[#f0f0f0] rounded-xl p-4 flex flex-col gap-4 mt-1">
               <p className="[font-family:'Oswald',Helvetica] font-bold text-black text-base uppercase tracking-[0.3px]">Application Draft</p>
               <div className="flex flex-col gap-1.5">
                 <Label className="[font-family:'Montserrat',Helvetica] font-medium text-sm text-[#111827]">Organization Name</Label>
                 <Input className={draftField("organizationName")} {...register("organizationName")} />
-                {errors.organizationName && (
-                  <p className="text-xs text-red-600 [font-family:'Montserrat',Helvetica]">{errors.organizationName.message}</p>
-                )}
+                {errors.organizationName && <p className="text-xs text-red-600 [font-family:'Montserrat',Helvetica]">{errors.organizationName.message}</p>}
               </div>
               <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
                 <div className="flex flex-col gap-1.5">
                   <Label className="[font-family:'Montserrat',Helvetica] font-medium text-sm text-[#111827]">Contact Name</Label>
                   <Input className={draftField("contactName")} {...register("contactName")} />
-                  {errors.contactName && (
-                    <p className="text-xs text-red-600 [font-family:'Montserrat',Helvetica]">{errors.contactName.message}</p>
-                  )}
+                  {errors.contactName && <p className="text-xs text-red-600 [font-family:'Montserrat',Helvetica]">{errors.contactName.message}</p>}
                 </div>
                 <div className="flex flex-col gap-1.5">
                   <Label className="[font-family:'Montserrat',Helvetica] font-medium text-sm text-[#111827]">Project Timeline</Label>
                   <Input className={draftField("projectTimeline")} {...register("projectTimeline")} />
-                  {errors.projectTimeline && (
-                    <p className="text-xs text-red-600 [font-family:'Montserrat',Helvetica]">{errors.projectTimeline.message}</p>
-                  )}
+                  {errors.projectTimeline && <p className="text-xs text-red-600 [font-family:'Montserrat',Helvetica]">{errors.projectTimeline.message}</p>}
                 </div>
               </div>
               <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
                 <div className="flex flex-col gap-1.5">
                   <Label className="[font-family:'Montserrat',Helvetica] font-medium text-sm text-[#111827]">Contact Email</Label>
                   <Input type="email" className={draftField("contactEmail")} {...register("contactEmail")} />
-                  {errors.contactEmail && (
-                    <p className="text-xs text-red-600 [font-family:'Montserrat',Helvetica]">{errors.contactEmail.message}</p>
-                  )}
+                  {errors.contactEmail && <p className="text-xs text-red-600 [font-family:'Montserrat',Helvetica]">{errors.contactEmail.message}</p>}
                 </div>
                 <div className="flex flex-col gap-1.5">
                   <Label className="[font-family:'Montserrat',Helvetica] font-medium text-sm text-[#111827]">Amount Requested</Label>
                   <Input className={draftField("amountRequested")} {...register("amountRequested")} />
-                  {errors.amountRequested && (
-                    <p className="text-xs text-red-600 [font-family:'Montserrat',Helvetica]">{errors.amountRequested.message}</p>
-                  )}
+                  {errors.amountRequested && <p className="text-xs text-red-600 [font-family:'Montserrat',Helvetica]">{errors.amountRequested.message}</p>}
                 </div>
               </div>
               <div className="flex flex-col gap-1.5">
                 <Label className="[font-family:'Montserrat',Helvetica] font-medium text-sm text-[#111827]">Project Title</Label>
                 <Input className={draftField("projectTitle")} {...register("projectTitle")} />
-                {errors.projectTitle && (
-                  <p className="text-xs text-red-600 [font-family:'Montserrat',Helvetica]">{errors.projectTitle.message}</p>
-                )}
+                {errors.projectTitle && <p className="text-xs text-red-600 [font-family:'Montserrat',Helvetica]">{errors.projectTitle.message}</p>}
               </div>
+
+              {/* Project Summary — AI-powered */}
               <div className="flex flex-col gap-1.5">
-                <Label className="[font-family:'Montserrat',Helvetica] font-medium text-sm text-[#111827]">Project Summary</Label>
-                <Textarea rows={4}
-                  className={cn(
-                    "border-[#e5e7eb] rounded-lg [font-family:'Montserrat',Helvetica] text-sm focus-visible:ring-[#ef3e34] focus-visible:ring-1 focus-visible:border-[#ef3e34] resize-none",
-                    errors.projectSummary && "border-red-500 focus-visible:ring-red-500"
+                <div className="flex items-center justify-between">
+                  <Label className="[font-family:'Montserrat',Helvetica] font-medium text-sm text-[#111827]">Project Summary</Label>
+                  {aiFieldBtn("projectSummary")}
+                </div>
+                <div className="relative">
+                  {generatingField === "projectSummary" && (
+                    <div className="absolute inset-0 bg-white/70 rounded-lg flex items-center justify-center z-10">
+                      <Loader2 size={18} className="animate-spin text-[#ef3e34]" />
+                    </div>
                   )}
-                  {...register("projectSummary")}
-                />
-                {errors.projectSummary && (
-                  <p className="text-xs text-red-600 [font-family:'Montserrat',Helvetica]">{errors.projectSummary.message}</p>
-                )}
+                  <Textarea rows={4} className={textareaCls(!!errors.projectSummary)} {...register("projectSummary")} />
+                </div>
+                {errors.projectSummary && <p className="text-xs text-red-600 [font-family:'Montserrat',Helvetica]">{errors.projectSummary.message}</p>}
               </div>
+
+              {/* Community Impact — AI-powered */}
               <div className="flex flex-col gap-1.5">
-                <Label className="[font-family:'Montserrat',Helvetica] font-medium text-sm text-[#111827]">Community Impact</Label>
-                <Textarea rows={3}
-                  className={cn(
-                    "border-[#e5e7eb] rounded-lg [font-family:'Montserrat',Helvetica] text-sm focus-visible:ring-[#ef3e34] focus-visible:ring-1 focus-visible:border-[#ef3e34] resize-none",
-                    errors.communityImpact && "border-red-500 focus-visible:ring-red-500"
+                <div className="flex items-center justify-between">
+                  <Label className="[font-family:'Montserrat',Helvetica] font-medium text-sm text-[#111827]">Community Impact</Label>
+                  {aiFieldBtn("communityImpact")}
+                </div>
+                <div className="relative">
+                  {generatingField === "communityImpact" && (
+                    <div className="absolute inset-0 bg-white/70 rounded-lg flex items-center justify-center z-10">
+                      <Loader2 size={18} className="animate-spin text-[#ef3e34]" />
+                    </div>
                   )}
-                  {...register("communityImpact")}
-                />
-                {errors.communityImpact && (
-                  <p className="text-xs text-red-600 [font-family:'Montserrat',Helvetica]">{errors.communityImpact.message}</p>
-                )}
+                  <Textarea rows={3} className={textareaCls(!!errors.communityImpact)} {...register("communityImpact")} />
+                </div>
+                {errors.communityImpact && <p className="text-xs text-red-600 [font-family:'Montserrat',Helvetica]">{errors.communityImpact.message}</p>}
               </div>
+
+              {/* Ashleen Chat */}
+              <div className="border border-[#f0f0f0] rounded-xl overflow-hidden">
+                <div className="px-3 py-2 bg-[#f9fafb] border-b border-[#f0f0f0] flex items-center gap-1.5">
+                  <div className="w-5 h-5 rounded-full bg-[#ef3e34] flex items-center justify-center flex-shrink-0">
+                    <span className="[font-family:'Montserrat',Helvetica] font-bold text-white text-[9px]">A</span>
+                  </div>
+                  <span className="[font-family:'Montserrat',Helvetica] font-semibold text-[#111827] text-xs">Ask Ashleen to edit anything</span>
+                </div>
+                <div className="max-h-36 overflow-y-auto px-3 py-2 flex flex-col gap-2">
+                  {chatMessages.map((msg, i) => (
+                    <div key={i} className={cn("flex gap-2 items-start", msg.role === "user" ? "justify-end" : "justify-start")}>
+                      {msg.role === "ashleen" && (
+                        <div className="w-5 h-5 rounded-full bg-[#ef3e34] flex items-center justify-center flex-shrink-0 mt-0.5">
+                          <span className="[font-family:'Montserrat',Helvetica] font-bold text-white text-[9px]">A</span>
+                        </div>
+                      )}
+                      <div className={cn(
+                        "max-w-[82%] rounded-xl px-3 py-2 [font-family:'Montserrat',Helvetica] text-xs leading-relaxed",
+                        msg.role === "ashleen" ? "bg-[#f9fafb] text-[#374151]" : "bg-[#ef3e34] text-white"
+                      )}>
+                        {msg.text}
+                      </div>
+                    </div>
+                  ))}
+                  {chatLoading && (
+                    <div className="flex items-center gap-2">
+                      <div className="w-5 h-5 rounded-full bg-[#ef3e34] flex items-center justify-center flex-shrink-0">
+                        <span className="[font-family:'Montserrat',Helvetica] font-bold text-white text-[9px]">A</span>
+                      </div>
+                      <div className="bg-[#f9fafb] rounded-xl px-3 py-2 flex items-center gap-1.5">
+                        <Loader2 size={12} className="animate-spin text-[#ef3e34]" />
+                        <span className="[font-family:'Montserrat',Helvetica] text-xs text-[#9ca3af]">Writing…</span>
+                      </div>
+                    </div>
+                  )}
+                  <div ref={chatScrollRef} />
+                </div>
+                <div className="px-3 py-2 border-t border-[#f0f0f0] flex gap-2 items-center bg-white">
+                  <input
+                    value={chatInput}
+                    onChange={(e) => setChatInput(e.target.value)}
+                    onKeyDown={(e) => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); void handleChat(); } }}
+                    placeholder='e.g. "Make the project summary shorter" or "Add radio equipment detail"'
+                    className="flex-1 text-xs [font-family:'Montserrat',Helvetica] outline-none text-[#374151] placeholder:text-[#d1d5db] py-1 bg-transparent"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => void handleChat()}
+                    disabled={chatLoading || !chatInput.trim()}
+                    className="w-7 h-7 rounded-lg bg-[#ef3e34] flex items-center justify-center text-white disabled:opacity-40 hover:bg-[#d63530] transition-colors flex-shrink-0"
+                  >
+                    <Send size={13} />
+                  </button>
+                </div>
+              </div>
+
               <div className="flex flex-col gap-2 sm:flex-row">
                 <button
                   type="button"
