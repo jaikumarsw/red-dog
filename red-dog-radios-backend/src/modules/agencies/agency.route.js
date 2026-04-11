@@ -1,6 +1,6 @@
 const express = require('express');
-const { getAll, getOne, create, update, remove } = require('./agency.controller');
-const { protect, restrictTo } = require('../../middlewares/auth.middleware');
+const { getAll, getOne, create, update } = require('./agency.controller');
+const { protect } = require('../../middlewares/auth.middleware');
 
 const router = express.Router();
 
@@ -46,6 +46,6 @@ router.route('/').get(protect, getAll).post(protect, create);
  *     tags: [Agencies]
  *     security: [{ bearerAuth: [] }]
  */
-router.route('/:id').get(protect, getOne).put(protect, update).delete(protect, restrictTo('admin'), remove);
+router.route('/:id').get(protect, getOne).put(protect, update);
 
 module.exports = router;

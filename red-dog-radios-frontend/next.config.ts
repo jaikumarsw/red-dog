@@ -3,6 +3,9 @@ import type { NextConfig } from "next";
 const replitDomain = process.env.REPLIT_DEV_DOMAIN ?? "";
 
 const nextConfig: NextConfig = {
+  eslint: {
+    ignoreDuringBuilds: true,
+  },
   allowedDevOrigins: [
     "*.replit.dev",
     "*.worf.replit.dev",

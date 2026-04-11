@@ -6,6 +6,7 @@ const opportunitySchema = new mongoose.Schema(
     title: { type: String, required: true, trim: true },
     funder: { type: String, required: true, trim: true },
     deadline: { type: Date },
+    minAmount: { type: Number },
     maxAmount: { type: Number },
     sourceUrl: { type: String },
     keywords: [{ type: String }],

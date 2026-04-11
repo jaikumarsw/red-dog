@@ -1,5 +1,5 @@
 const express = require('express');
-const { register, login, getMe, adminLogin } = require('./auth.controller');
+const { register, login, getMe } = require('./auth.controller');
 const { protect } = require('../../middlewares/auth.middleware');
 
 const router = express.Router();
@@ -62,6 +62,5 @@ router.post('/login', login);
  *       401: { description: Not authenticated }
  */
 router.get('/me', protect, getMe);
-router.post('/admin-login', adminLogin);
 
 module.exports = router;

@@ -1,5 +1,5 @@
-import { Outbox } from "@/views/Outbox";
+import { redirect } from "next/navigation";
 
-export default function Page() {
-  return <Outbox />;
+export default function OutboxRedirectPage() {
+  redirect("/dashboard");
 }

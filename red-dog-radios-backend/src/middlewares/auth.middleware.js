@@ -26,4 +26,12 @@ const restrictTo = (...roles) => (req, res, next) => {
   next();
 };
 
-module.exports = { protect, restrictTo };
+/** Agency members only (public safety app). Admins must use /api/admin. */
+const requireAgency = (req, res, next) => {
+  if (!req.user || req.user.role !== 'agency') {
+    throw new AppError('This action is only available to agency accounts.', 403);
+  }
+  next();
+};
+
+module.exports = { protect, restrictTo, requireAgency };

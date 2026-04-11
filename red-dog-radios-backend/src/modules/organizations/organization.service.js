@@ -1,8 +1,9 @@
 const Organization = require('./organization.schema');
 const { AppError } = require('../../middlewares/error.middleware');
 
-const getAll = async ({ page = 1, limit = 20, search, status }) => {
+const getAll = async ({ page = 1, limit = 20, search, status, id }) => {
   const query = {};
+  if (id) query._id = id;
   if (status) query.status = status;
   if (search) query.$or = [{ name: { $regex: search, $options: 'i' } }, { email: { $regex: search, $options: 'i' } }];
 

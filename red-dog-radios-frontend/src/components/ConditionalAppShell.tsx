@@ -11,11 +11,11 @@ const AUTH_PREFIXES = [
   "/otp-verification",
   "/create-password",
   "/onboarding",
-  "/admin",
 ];
 
 function usesAuthLayout(pathname: string | null): boolean {
   if (!pathname) return true;
+  if (pathname === "/admin" || pathname.startsWith("/admin/")) return true;
   return AUTH_PREFIXES.some((p) => pathname === p || pathname.startsWith(`${p}/`));
 }
 

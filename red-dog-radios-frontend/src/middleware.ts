@@ -1,13 +1,12 @@
 import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
 
-const PUBLIC_PATHS = [
+const AGENCY_PUBLIC = [
   "/login",
   "/signup",
   "/forgot-password",
   "/otp-verification",
   "/create-password",
-  "/admin",
 ];
 
 export function middleware(request: NextRequest) {
@@ -23,26 +22,44 @@ export function middleware(request: NextRequest) {
     return NextResponse.next();
   }
 
-  const token = request.cookies.get("rdg_token")?.value;
+  const agencyToken = request.cookies.get("rdg_token")?.value;
+  const adminToken = request.cookies.get("rdg_admin_token")?.value;
   const onboardingCookie = request.cookies.get("rdg_onboarding")?.value;
-  const isPublicPath = PUBLIC_PATHS.some((p) => pathname.startsWith(p));
 
-  if (token && isPublicPath) {
+  const isAdminLogin = pathname === "/admin/login";
+  const isAdminArea = pathname === "/admin" || pathname.startsWith("/admin/");
+
+  if (isAdminArea) {
+    if (isAdminLogin) {
+      if (adminToken) {
+        return NextResponse.redirect(new URL("/admin/dashboard", request.url));
+      }
+      return NextResponse.next();
+    }
+    if (!adminToken) {
+      return NextResponse.redirect(new URL("/admin/login", request.url));
+    }
+    return NextResponse.next();
+  }
+
+  const isAgencyPublic = AGENCY_PUBLIC.some((p) => pathname === p || pathname.startsWith(`${p}/`));
+
+  if (agencyToken && isAgencyPublic) {
     if (onboardingCookie === "0") {
       return NextResponse.redirect(new URL("/onboarding", request.url));
     }
     return NextResponse.redirect(new URL("/dashboard", request.url));
   }
 
-  if (!token && !isPublicPath) {
+  if (!agencyToken && !isAgencyPublic) {
     return NextResponse.redirect(new URL("/login", request.url));
   }
 
-  if (token && onboardingCookie === "0" && !pathname.startsWith("/onboarding")) {
+  if (agencyToken && onboardingCookie === "0" && !pathname.startsWith("/onboarding")) {
     return NextResponse.redirect(new URL("/onboarding", request.url));
   }
 
-  if (token && onboardingCookie === "1" && pathname.startsWith("/onboarding")) {
+  if (agencyToken && onboardingCookie === "1" && pathname.startsWith("/onboarding")) {
     return NextResponse.redirect(new URL("/dashboard", request.url));
   }
 

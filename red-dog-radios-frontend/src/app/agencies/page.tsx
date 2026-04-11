@@ -1,5 +1,5 @@
-import { Agencies } from "@/views/Agencies";
+import { redirect } from "next/navigation";
 
-export default function Page() {
-  return <Agencies />;
+export default function AgenciesRedirectPage() {
+  redirect("/dashboard");
 }

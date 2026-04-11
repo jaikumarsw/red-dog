@@ -29,6 +29,7 @@ const outreachRoutes = require('./modules/outreach/outreach.route');
 const followupRoutes = require('./modules/followups/followup.route');
 const trackerRoutes = require('./modules/tracker/tracker.route');
 const ashleenRoutes = require('./modules/ashleen/ashleen.route');
+const adminRoutes = require('./modules/admin/admin.route');
 
 const app = express();
 
@@ -102,6 +103,7 @@ app.use('/api/outreach', outreachRoutes);
 app.use('/api/followups', followupRoutes);
 app.use('/api/tracker', trackerRoutes);
 app.use('/api/ashleen', ashleenRoutes);
+app.use('/api/admin', adminRoutes);
 
 app.use(notFoundHandler);
 app.use(errorHandler);

@@ -18,12 +18,4 @@ const getMe = asyncHandler(async (req, res) => {
   return success(res, user);
 });
 
-const adminLogin = asyncHandler(async (req, res) => {
-  const { adminKey } = req.body;
-  const ADMIN_KEY = process.env.ADMIN_KEY || 'RDGADMIN2024';
-  if (!adminKey || adminKey !== ADMIN_KEY) throw new AppError('Invalid admin key', 401);
-  const result = await authService.loginAsAdmin();
-  return success(res, result, 'Admin authenticated');
-});
-
-module.exports = { register, login, getMe, adminLogin };
+module.exports = { register, login, getMe };

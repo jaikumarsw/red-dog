@@ -1,14 +1,40 @@
 const asyncHandler = require('../../utils/asyncHandler');
 const { success, created, paginate } = require('../../utils/apiResponse');
 const agencyService = require('./agency.service');
+const Organization = require('../organizations/organization.schema');
+const { resolveAgencyOrganizationId } = require('../../utils/resolveAgencyOrg');
+const { AppError } = require('../../middlewares/error.middleware');
+
+const loadUserOrg = async (user) => {
+  const organizationId = await resolveAgencyOrganizationId(user);
+  if (!organizationId) return null;
+  return Organization.findById(organizationId);
+};
 
 const getAll = asyncHandler(async (req, res) => {
-  const result = await agencyService.getAll(req.query);
+  const org = await loadUserOrg(req.user);
+  if (!org) {
+    return paginate(
+      res,
+      [],
+      { totalDocs: 0, page: 1, limit: 20, totalPages: 0, hasNextPage: false, hasPrevPage: false },
+      'Agencies retrieved'
+    );
+  }
+  const result = await agencyService.getAll({ ...req.query, agencyName: org.name });
   return paginate(res, result.docs, result, 'Agencies retrieved');
 });
 
+const assertAgencyForUser = async (user, agencyId) => {
+  const org = await loadUserOrg(user);
+  if (!org) throw new AppError('Agency not found', 404);
+  const agency = await agencyService.getOne(agencyId);
+  if (agency.name !== org.name) throw new AppError('Agency not found', 404);
+  return agency;
+};
+
 const getOne = asyncHandler(async (req, res) => {
-  const agency = await agencyService.getOne(req.params.id);
+  const agency = await assertAgencyForUser(req.user, req.params.id);
   return success(res, agency);
 });
 
@@ -18,13 +44,9 @@ const create = asyncHandler(async (req, res) => {
 });
 
 const update = asyncHandler(async (req, res) => {
+  await assertAgencyForUser(req.user, req.params.id);
   const agency = await agencyService.update(req.params.id, req.body);
   return success(res, agency, 'Agency updated');
 });
 
-const remove = asyncHandler(async (req, res) => {
-  await agencyService.remove(req.params.id);
-  return success(res, null, 'Agency deactivated');
-});
-
-module.exports = { getAll, getOne, create, update, remove };
+module.exports = { getAll, getOne, create, update };

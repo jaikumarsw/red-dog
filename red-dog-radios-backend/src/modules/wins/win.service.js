@@ -1,10 +1,16 @@
 const Win = require('./win.schema');
 
-const getAll = async ({ page = 1, limit = 20, agencyType, fundingType, projectType } = {}) => {
+const Application = require('../applications/application.schema');
+
+const getAll = async ({ page = 1, limit = 20, agencyType, fundingType, projectType, organizationId } = {}) => {
   const query = {};
   if (agencyType) query.agencyType = agencyType;
   if (fundingType) query.fundingType = fundingType;
   if (projectType) query.projectType = projectType;
+  if (organizationId) {
+    const appIds = await Application.find({ organization: organizationId }).distinct('_id');
+    query.applicationId = { $in: appIds };
+  }
 
   return Win.paginate(query, {
     page: parseInt(page),
@@ -14,8 +20,13 @@ const getAll = async ({ page = 1, limit = 20, agencyType, fundingType, projectTy
   });
 };
 
-const getInsights = async () => {
-  const wins = await Win.find();
+const getInsights = async (organizationId) => {
+  const q = {};
+  if (organizationId) {
+    const appIds = await Application.find({ organization: organizationId }).distinct('_id');
+    q.applicationId = { $in: appIds };
+  }
+  const wins = await Win.find(q);
   const totalWins = wins.length;
   const totalAwarded = wins.reduce((sum, w) => sum + (w.awardAmount || 0), 0);
 

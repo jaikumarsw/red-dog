@@ -43,6 +43,15 @@ const applicationSchema = new mongoose.Schema(
     followUpDate: { type: Date },
     notes: { type: String },
 
+    statusHistory: [
+      {
+        status: { type: String },
+        previousStatus: { type: String },
+        changedAt: { type: Date, default: Date.now },
+        changedBy: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
+      },
+    ],
+
     // Win database tagging
     isWinner: { type: Boolean, default: false },
     winTags: {

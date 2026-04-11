@@ -1,6 +1,6 @@
 const express = require('express');
-const { getAll, getOne, queueEmail, sendEmail, processQueue, retryFailed } = require('./outbox.controller');
-const { protect, restrictTo } = require('../../middlewares/auth.middleware');
+const { getAll, getOne, queueEmail, sendEmail, retryFailed } = require('./outbox.controller');
+const { protect } = require('../../middlewares/auth.middleware');
 
 const router = express.Router();
 
@@ -54,8 +54,6 @@ router.post('/queue', protect, queueEmail);
  *     tags: [Outbox]
  *     security: [{ bearerAuth: [] }]
  */
-router.post('/process', protect, restrictTo('admin'), processQueue);
-
 /**
  * @swagger
  * /api/outbox/{id}:

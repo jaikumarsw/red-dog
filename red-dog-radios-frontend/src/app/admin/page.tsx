@@ -1,9 +1,5 @@
-import { AdminPanel } from "@/views/AdminPanel";
+import { redirect } from "next/navigation";
 
-export const metadata = {
-  title: "Admin Panel — Red Dog Radios",
-};
-
-export default function AdminPage() {
-  return <AdminPanel />;
+export default function AdminIndexPage() {
+  redirect("/admin/dashboard");
 }

@@ -16,10 +16,61 @@ const AI_FALLBACK_CONTENT = {
   budgetSummary: "Total project budget: Amount requested. Funds will cover hardware procurement, installation, programming, and 12 months of technical support. All equipment meets APCO P25 standards for public safety interoperability. A detailed line-item budget is available upon request.",
 };
 
-const buildAIContent = async (org, funder, opp) => {
+const pickOrgForPrompt = (org) => ({
+  name: org.name,
+  location: org.location,
+  agencyTypes: org.agencyTypes,
+  populationServed: org.populationServed,
+  coverageArea: org.coverageArea,
+  numberOfStaff: org.numberOfStaff,
+  currentEquipment: org.currentEquipment,
+  mainProblems: org.mainProblems,
+  fundingPriorities: org.fundingPriorities,
+  programAreas: org.programAreas,
+  focusAreas: org.focusAreas,
+  missionStatement: org.missionStatement,
+  budgetRange: org.budgetRange,
+  timeline: org.timeline,
+  goals: org.goals,
+});
+
+const pickFunderForPrompt = (funder) =>
+  funder && {
+    name: funder.name,
+    missionStatement: funder.missionStatement,
+    locationFocus: funder.locationFocus,
+    fundingCategories: funder.fundingCategories,
+    agencyTypesFunded: funder.agencyTypesFunded,
+    avgGrantMin: funder.avgGrantMin,
+    avgGrantMax: funder.avgGrantMax,
+    deadline: funder.deadline,
+    cyclesPerYear: funder.cyclesPerYear,
+    pastGrantsAwarded: funder.pastGrantsAwarded,
+    notes: funder.notes,
+    website: funder.website,
+  };
+
+const buildAIContent = async (org, funder, opp, { adminPortal = false } = {}) => {
   if (!openai) return AI_FALLBACK_CONTENT;
   try {
-    const prompt = `Generate a professional grant application with exactly these 6 labeled sections.
+    let prompt;
+    let systemContent;
+    if (adminPortal) {
+      systemContent =
+        'You are an expert grant writer for public safety agencies specializing in radio and communications equipment funding. ' +
+        'Write compelling, specific content grounded only in the agency and funder data provided. Always return valid JSON only, no markdown.';
+      prompt = `Using the following JSON data, generate a professional grant application with exactly these 6 sections.
+Return ONLY a JSON object with keys: problemStatement, communityImpact, proposedSolution, measurableOutcomes, urgency, budgetSummary.
+
+AGENCY_PROFILE_JSON:
+${JSON.stringify(pickOrgForPrompt(org), null, 2)}
+
+FUNDER_PROFILE_JSON:
+${JSON.stringify(pickFunderForPrompt(funder) || { name: opp?.funder, keywords: opp?.keywords, maxAmount: opp?.maxAmount }, null, 2)}
+
+Write each section in the first person as the agency. Reference population served, coverage area, equipment, problems, and priorities explicitly where relevant. 4-6 sentences per section where appropriate.`;
+    } else {
+      prompt = `Generate a professional grant application with exactly these 6 labeled sections.
 Return ONLY a JSON object with keys: problemStatement, communityImpact, proposedSolution, measurableOutcomes, urgency, budgetSummary.
 
 Agency: ${org.name}, ${org.agencyTypes?.[0] || 'public safety'}, ${org.location || 'our area'}
@@ -36,14 +87,17 @@ Funder categories: ${funder?.fundingCategories?.join(', ') || opp?.keywords?.joi
 Typical grant: ${funder ? '$' + (funder.avgGrantMin || 0).toLocaleString() + ' - $' + (funder.avgGrantMax || 0).toLocaleString() : (opp?.maxAmount ? 'up to $' + opp.maxAmount.toLocaleString() : 'amount requested')}
 
 Write each section in the first person as the agency. Be specific, outcome-focused, compelling. 3-5 sentences each.`;
+      systemContent =
+        'You are an expert grant writer specializing in public safety and communications for police, fire, and EMS agencies. Always return valid JSON only.';
+    }
 
     const res = await openai.chat.completions.create({
       model: 'gpt-4o-mini',
       messages: [
-        { role: 'system', content: 'You are an expert grant writer specializing in public safety and communications for police, fire, and EMS agencies. Always return valid JSON only.' },
+        { role: 'system', content: systemContent },
         { role: 'user', content: prompt },
       ],
-      max_tokens: 1200,
+      max_tokens: adminPortal ? 2000 : 1200,
     });
     const raw = res.choices[0]?.message?.content?.trim() || '';
     const cleaned = raw.replace(/^```json?\n?/, '').replace(/\n?```$/, '').trim();
@@ -72,11 +126,12 @@ const getAll = async ({ page = 1, limit = 20, status, organizationId } = {}) => 
 
 const create = async (data) => Application.create(data);
 
-const createWithAI = async ({ opportunityId, funderId, organizationId, userId }) => {
+const createWithAI = async ({ opportunityId, funderId, organizationId, userId, adminPortal = false }) => {
   const org = await Organization.findById(organizationId);
   if (!org) throw new AppError('Organization not found', 404);
 
-  let opp = null, funder = null;
+  let opp = null,
+    funder = null;
   if (opportunityId) {
     opp = await Opportunity.findById(opportunityId);
     if (!opp) throw new AppError('Opportunity not found', 404);
@@ -84,12 +139,14 @@ const createWithAI = async ({ opportunityId, funderId, organizationId, userId })
   if (funderId) {
     funder = await Funder.findById(funderId);
     if (!funder) throw new AppError('Funder not found', 404);
-    if (funder.isLocked) throw new AppError('This funder has reached the maximum application limit', 423);
-    const existingApp = await Application.findOne({ organization: organizationId, funder: funderId });
-    if (existingApp && !['denied','rejected'].includes(existingApp.status)) return existingApp;
+    if (!adminPortal) {
+      if (funder.isLocked) throw new AppError('This funder has reached the maximum application limit', 423);
+      const existingApp = await Application.findOne({ organization: organizationId, funder: funderId });
+      if (existingApp && !['denied', 'rejected'].includes(existingApp.status)) return existingApp;
+    }
   }
 
-  const aiContent = await buildAIContent(org, funder, opp);
+  const aiContent = await buildAIContent(org, funder, opp, { adminPortal });
   const app = await Application.create({
     organization: organizationId,
     opportunity: opportunityId || undefined,
@@ -122,7 +179,10 @@ const update = async (id, data) => {
   return app;
 };
 
-const updateStatus = async (id, { status, dateSubmitted, followUpDate, notes }) => {
+const updateStatus = async (id, { status, dateSubmitted, followUpDate, notes }, { actorId } = {}) => {
+  const before = await Application.findById(id);
+  if (!before) throw new AppError('Application not found', 404);
+
   const updateData = { status };
   if (['submitted','in_review'].includes(status)) {
     updateData.dateSubmitted = dateSubmitted || new Date();
@@ -131,7 +191,18 @@ const updateStatus = async (id, { status, dateSubmitted, followUpDate, notes }) 
   if (followUpDate) updateData.followUpDate = followUpDate;
   if (notes !== undefined) updateData.notes = notes;
 
-  const app = await Application.findByIdAndUpdate(id, updateData, { new: true })
+  const historyEntry = {
+    status,
+    previousStatus: before.status,
+    changedAt: new Date(),
+    ...(actorId ? { changedBy: actorId } : {}),
+  };
+
+  const app = await Application.findByIdAndUpdate(
+    id,
+    { $set: updateData, $push: { statusHistory: historyEntry } },
+    { new: true }
+  )
     .populate('organization').populate('opportunity').populate('funder');
   if (!app) throw new AppError('Application not found', 404);
 
@@ -224,4 +295,26 @@ const remove = async (id) => {
   return app;
 };
 
-module.exports = { getAll, create, createWithAI, getOne, update, updateStatus, regenerate, alignToFunder, exportApplication, submit, remove };
+const adminRegenerateAI = async (applicationId) => {
+  const app = await Application.findById(applicationId).populate('organization').populate('funder').populate('opportunity');
+  if (!app) throw new AppError('Application not found', 404);
+  if (!app.funder) throw new AppError('Application must be linked to a funder for AI generation', 400);
+  const aiContent = await buildAIContent(app.organization, app.funder, app.opportunity, { adminPortal: true });
+  await Application.findByIdAndUpdate(applicationId, aiContent);
+  return Application.findById(applicationId).populate('organization').populate('opportunity').populate('funder');
+};
+
+module.exports = {
+  getAll,
+  create,
+  createWithAI,
+  getOne,
+  update,
+  updateStatus,
+  regenerate,
+  adminRegenerateAI,
+  alignToFunder,
+  exportApplication,
+  submit,
+  remove,
+};

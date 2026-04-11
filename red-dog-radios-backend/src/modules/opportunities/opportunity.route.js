@@ -1,6 +1,6 @@
 const express = require('express');
-const { getAll, getOne, create, update, remove } = require('./opportunity.controller');
-const { protect, restrictTo } = require('../../middlewares/auth.middleware');
+const { getAll, getOne } = require('./opportunity.controller');
+const { protect } = require('../../middlewares/auth.middleware');
 
 const router = express.Router();
 
@@ -49,7 +49,7 @@ const router = express.Router();
  *     responses:
  *       201: { description: Opportunity created }
  */
-router.route('/').get(protect, getAll).post(protect, create);
+router.route('/').get(protect, getAll);
 
 /**
  * @swagger
@@ -75,6 +75,6 @@ router.route('/').get(protect, getAll).post(protect, create);
  *     tags: [Opportunities]
  *     security: [{ bearerAuth: [] }]
  */
-router.route('/:id').get(protect, getOne).put(protect, update).delete(protect, restrictTo('admin'), remove);
+router.route('/:id').get(protect, getOne);
 
 module.exports = router;

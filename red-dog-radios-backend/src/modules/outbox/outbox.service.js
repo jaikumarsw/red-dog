@@ -3,11 +3,12 @@ const transporter = require('../../config/email.config');
 const { AppError } = require('../../middlewares/error.middleware');
 const logger = require('../../utils/logger');
 
-const getAll = async ({ page = 1, limit = 20, status, emailType, isTest }) => {
+const getAll = async ({ page = 1, limit = 20, status, emailType, isTest, relatedOrganization }) => {
   const query = {};
   if (status) query.status = status;
   if (emailType) query.emailType = emailType;
   if (isTest !== undefined) query.isTest = isTest === 'true' || isTest === true;
+  if (relatedOrganization) query.relatedOrganization = relatedOrganization;
 
   return Outbox.paginate(query, {
     page: parseInt(page),

@@ -1,11 +1,12 @@
 const Agency = require('./agency.schema');
 const { AppError } = require('../../middlewares/error.middleware');
 
-const getAll = async ({ page = 1, limit = 20, type, search, status }) => {
+const getAll = async ({ page = 1, limit = 20, type, search, status, agencyName }) => {
   const query = {};
   if (type) query.type = type;
   if (status) query.status = status;
-  if (search) query.name = { $regex: search, $options: 'i' };
+  if (agencyName) query.name = agencyName;
+  else if (search) query.name = { $regex: search, $options: 'i' };
 
   return Agency.paginate(query, {
     page: parseInt(page),

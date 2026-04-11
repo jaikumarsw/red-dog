@@ -6,21 +6,27 @@ const Application = require('../applications/application.schema');
 const Alert = require('../alerts/alert.schema');
 const Funder = require('../funders/funder.schema');
 
-const getStats = async () => {
+const getStats = async (organizationId) => {
+  const orgFilter = { organization: organizationId };
+  const orgMatchFilter = { organization: organizationId };
+
   const [
-    totalOrganizations,
+    orgDoc,
     activeOpportunities,
     highFitMatches,
     pendingOutbox,
     applicationsSent,
     activeAlerts,
   ] = await Promise.all([
-    Organization.countDocuments({ status: 'active' }),
+    Organization.findById(organizationId),
     Opportunity.countDocuments({ status: 'open' }),
-    Match.countDocuments({ fitScore: { $gte: 75 } }),
-    Outbox.countDocuments({ status: 'pending' }),
-    Application.countDocuments({ status: { $in: ['submitted', 'in_review', 'awarded'] } }),
-    Alert.countDocuments({ isRead: false }),
+    Match.countDocuments({ ...orgMatchFilter, fitScore: { $gte: 75 } }),
+    Outbox.countDocuments({ status: 'pending', relatedOrganization: organizationId }),
+    Application.countDocuments({
+      ...orgFilter,
+      status: { $in: ['submitted', 'in_review', 'awarded'] },
+    }),
+    Alert.countDocuments({ ...orgFilter, isRead: false }),
   ]);
 
   const systemJobs = [
@@ -54,8 +60,11 @@ const getStats = async () => {
     },
   ];
 
-  // Fetch attention items from recent high-priority alerts
-  const recentAlerts = await Alert.find({ isRead: false, priority: { $in: ['high', 'medium'] } })
+  const recentAlerts = await Alert.find({
+    ...orgFilter,
+    isRead: false,
+    priority: { $in: ['high', 'medium'] },
+  })
     .sort({ createdAt: -1 })
     .limit(5)
     .populate('organization', 'name')
@@ -72,12 +81,14 @@ const getStats = async () => {
       : null,
   }));
 
-  // Compute dollars requested/awarded from applications
   const [submittedApps, awardedApps] = await Promise.all([
-    Application.find({ status: { $in: ['submitted', 'in_review', 'follow_up_needed'] } })
+    Application.find({
+      ...orgFilter,
+      status: { $in: ['submitted', 'in_review', 'follow_up_needed'] },
+    })
       .populate('opportunity', 'maxAmount')
       .populate('funder', 'avgGrantMax'),
-    Application.find({ status: 'awarded' })
+    Application.find({ ...orgFilter, status: 'awarded' })
       .populate('opportunity', 'maxAmount')
       .populate('funder', 'avgGrantMax'),
   ]);
@@ -89,11 +100,10 @@ const getStats = async () => {
     return sum + (a.funder?.avgGrantMax || a.opportunity?.maxAmount || a.amountRequested || 0);
   }, 0);
 
-  // Top matched funders (from Funder model)
   const topFunders = await Funder.find({ status: 'active' }).sort({ name: 1 }).limit(5);
 
   return {
-    totalOrganizations,
+    totalOrganizations: orgDoc ? 1 : 0,
     activeOpportunities,
     highFitMatches,
     pendingOutbox,
@@ -101,7 +111,12 @@ const getStats = async () => {
     activeAlerts,
     totalDollarsRequested,
     totalDollarsAwarded,
-    topFunders: topFunders.map(f => ({ id: f._id, name: f.name, avgGrantMax: f.avgGrantMax, deadline: f.deadline })),
+    topFunders: topFunders.map((f) => ({
+      id: f._id,
+      name: f.name,
+      avgGrantMax: f.avgGrantMax,
+      deadline: f.deadline,
+    })),
     systemJobs,
     attentionItems,
   };

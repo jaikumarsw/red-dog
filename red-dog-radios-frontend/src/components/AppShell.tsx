@@ -9,25 +9,13 @@ import { Menu } from "lucide-react";
 import { AshleenChat } from "./AshleenChat";
 import { useAuth } from "@/lib/AuthContext";
 
-const menuItems = [
+const menuItems: { id: string; label: string; icon: string; path: string; badge?: string }[] = [
   { id: "dashboard", label: "Dashboard", icon: "/figmaAssets/svg-8.svg", path: "/dashboard" },
-  { id: "organizations", label: "Organizations", icon: "/figmaAssets/svg-14.svg", path: "/organizations" },
-  { id: "opportunities", label: "Opportunities", icon: "/figmaAssets/svg-4.svg", path: "/opportunities" },
-  { id: "funders", label: "Funders", icon: "/figmaAssets/svg-11.svg", path: "/funders" },
+  { id: "matches", label: "Matches", icon: "/figmaAssets/svg-6.svg", path: "/matches" },
   { id: "applications", label: "Applications", icon: "/figmaAssets/svg-11.svg", path: "/applications" },
   { id: "tracker", label: "Tracker", icon: "/figmaAssets/svg-6.svg", path: "/tracker" },
   { id: "wins", label: "Wins", icon: "/figmaAssets/svg-12.svg", path: "/wins" },
-  { id: "matches", label: "Matches", icon: "/figmaAssets/svg-6.svg", path: "/matches" },
-  { id: "agencies", label: "Agencies", icon: "/figmaAssets/svg-14.svg", path: "/agencies" },
-  { id: "weekly-summary", label: "Weekly Summary", icon: "/figmaAssets/svg-12.svg", path: "/weekly-summary" },
-  { id: "outbox", label: "Outbox", icon: "/figmaAssets/svg-5.svg", path: "/outbox" },
-  {
-    id: "alerts",
-    label: "Alerts",
-    icon: "/figmaAssets/svg-1.svg",
-    path: "/alerts",
-    badge: "3",
-  },
+  { id: "settings", label: "Settings", icon: "/figmaAssets/svg-9.svg", path: "/settings" },
 ];
 
 const SidebarContent = ({
@@ -148,7 +136,7 @@ const SidebarContent = ({
           {!collapsed && (
             <div className="min-w-0 flex flex-col gap-0.5">
               <span className="[font-family:'Montserrat',Helvetica] font-semibold text-white text-sm leading-tight truncate">
-                {user.fullName ?? `${user.firstName ?? ""} ${user.lastName ?? ""}`.trim() || user.email}
+                {(user.fullName ?? `${user.firstName ?? ""} ${user.lastName ?? ""}`.trim()) || user.email}
               </span>
               <span className="[font-family:'Montserrat',Helvetica] font-normal text-[#6b7280] text-xs leading-tight truncate">
                 {user.email}

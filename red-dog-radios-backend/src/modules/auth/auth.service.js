@@ -5,7 +5,8 @@ const { AppError } = require('../../middlewares/error.middleware');
 const signToken = (id) =>
   jwt.sign({ id }, process.env.JWT_SECRET, { expiresIn: process.env.JWT_EXPIRES_IN || '7d' });
 
-const register = async ({ fullName, firstName, lastName, email, password }) => {
+const register = async (body) => {
+  const { fullName, firstName, lastName, email, password } = body;
   const existing = await User.findOne({ email });
   if (existing) throw new AppError('Email already registered', 409);
 
@@ -19,6 +20,7 @@ const register = async ({ fullName, firstName, lastName, email, password }) => {
     lastName: resolvedLast,
     email,
     password,
+    role: 'agency',
   });
   const token = signToken(user._id);
 
@@ -32,6 +34,12 @@ const login = async ({ email, password }) => {
   if (!user || !(await user.comparePassword(password))) {
     throw new AppError('Invalid email or password', 401);
   }
+  if (user.role === 'admin') {
+    throw new AppError(
+      'Red Dog Radio staff must sign in through the staff portal at /admin/login.',
+      403
+    );
+  }
   const token = signToken(user._id);
   const safeUser = user.toObject();
   delete safeUser.password;
@@ -44,13 +52,21 @@ const getMe = async (userId) => {
   return user;
 };
 
-const loginAsAdmin = async () => {
-  const admin = await User.findOne({ role: 'admin' });
-  if (!admin) throw new AppError('Admin account not found. Please run the seed script first.', 404);
-  const token = signToken(admin._id);
-  const safeUser = admin.toObject();
+const loginAdmin = async ({ email, password }) => {
+  const user = await User.findOne({ email }).select('+password');
+  if (!user || !(await user.comparePassword(password))) {
+    throw new AppError('Invalid email or password', 401);
+  }
+  if (user.role !== 'admin') {
+    throw new AppError(
+      'Agency members should use the main login page. This portal is for Red Dog Radio staff only.',
+      403
+    );
+  }
+  const token = signToken(user._id);
+  const safeUser = user.toObject();
   delete safeUser.password;
   return { user: safeUser, token };
 };
 
-module.exports = { register, login, getMe, loginAsAdmin };
+module.exports = { register, login, getMe, loginAdmin };

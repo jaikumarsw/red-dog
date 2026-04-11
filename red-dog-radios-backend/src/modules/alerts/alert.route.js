@@ -1,6 +1,6 @@
 const express = require('express');
-const { getAll, markRead, markAllRead, remove, generateDeadlineAlerts, generateHighFitAlerts } = require('./alert.controller');
-const { protect, restrictTo } = require('../../middlewares/auth.middleware');
+const { getAll, markRead, markAllRead, remove } = require('./alert.controller');
+const { protect } = require('../../middlewares/auth.middleware');
 
 const router = express.Router();
 
@@ -41,18 +41,6 @@ router.put('/read-all', protect, markAllRead);
  *     tags: [Alerts]
  *     security: [{ bearerAuth: [] }]
  */
-router.post('/generate-deadline', protect, restrictTo('admin'), generateDeadlineAlerts);
-
-/**
- * @swagger
- * /api/alerts/generate-high-fit:
- *   post:
- *     summary: Generate high-fit alerts (admin only)
- *     tags: [Alerts]
- *     security: [{ bearerAuth: [] }]
- */
-router.post('/generate-high-fit', protect, restrictTo('admin'), generateHighFitAlerts);
-
 /**
  * @swagger
  * /api/alerts/{id}/read:

@@ -2,9 +2,10 @@ const Alert = require('./alert.schema');
 const Match = require('../matches/match.schema');
 const { AppError } = require('../../middlewares/error.middleware');
 
-const getAll = async ({ page = 1, limit = 50, isRead, priority, userId }) => {
+const getAll = async ({ page = 1, limit = 50, isRead, priority, userId, organizationId }) => {
   const query = {};
-  if (userId) query.user = userId;
+  if (organizationId) query.organization = organizationId;
+  else if (userId) query.user = userId;
   if (priority) query.priority = priority;
   if (isRead !== undefined) query.isRead = isRead === 'true' || isRead === true;
 

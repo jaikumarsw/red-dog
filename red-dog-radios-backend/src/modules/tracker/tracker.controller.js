@@ -1,18 +1,21 @@
 const asyncHandler = require('../../utils/asyncHandler');
 const { success, paginate } = require('../../utils/apiResponse');
 const trackerService = require('./tracker.service');
-const Organization = require('../organizations/organization.schema');
+const { resolveAgencyOrganizationId } = require('../../utils/resolveAgencyOrg');
+const { AppError } = require('../../middlewares/error.middleware');
 
 const getTracker = asyncHandler(async (req, res) => {
+  const organizationId = await resolveAgencyOrganizationId(req.user);
+  if (!organizationId) throw new AppError('No organization linked to your account', 400);
   const { page, limit, status } = req.query;
-  const org = await Organization.findOne({ createdBy: req.user._id });
-  const result = await trackerService.getTracker({ page, limit, status, organizationId: org?._id });
-  return paginate(res, result.docs, result.totalDocs, result.page, result.totalPages, 'Tracker data retrieved');
+  const result = await trackerService.getTracker({ page, limit, status, organizationId });
+  return paginate(res, result.docs, result, 'Tracker data retrieved');
 });
 
 const getTrackerStats = asyncHandler(async (req, res) => {
-  const org = await Organization.findOne({ createdBy: req.user._id });
-  const stats = await trackerService.getTrackerStats(org?._id);
+  const organizationId = await resolveAgencyOrganizationId(req.user);
+  if (!organizationId) throw new AppError('No organization linked to your account', 400);
+  const stats = await trackerService.getTrackerStats(organizationId);
   return success(res, stats, 'Tracker stats retrieved');
 });
 
