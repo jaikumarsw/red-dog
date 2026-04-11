@@ -1,7 +1,9 @@
 "use client";
 
-import { useQuery } from "@tanstack/react-query";
+import { useState } from "react";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import adminApi from "@/lib/adminApi";
+import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 
 type DashboardData = {
@@ -25,15 +27,25 @@ type DashboardData = {
     status: string;
     updatedAt?: string;
   }[];
-  topMatchesGlobal: {
-    agencyName?: string;
-    funderName?: string;
-    score: number;
-    tier: string;
-  }[];
 };
 
 export default function AdminDashboardPage() {
+  const qc = useQueryClient();
+  const [recomputeMsg, setRecomputeMsg] = useState<string | null>(null);
+
+  const recomputeMatches = useMutation({
+    mutationFn: async () => {
+      setRecomputeMsg(null);
+      const res = await adminApi.post("admin/matches/recompute-all");
+      return res.data;
+    },
+    onSuccess: (res) => {
+      setRecomputeMsg((res.data as { message?: string })?.message || "Match scores updated for all agencies.");
+      qc.invalidateQueries({ queryKey: ["admin", "dashboard"] });
+    },
+    onError: () => setRecomputeMsg("Recompute failed."),
+  });
+
   const { data, isLoading } = useQuery({
     queryKey: ["admin", "dashboard"],
     queryFn: async () => {
@@ -45,16 +57,15 @@ export default function AdminDashboardPage() {
   if (isLoading || !data) {
     return (
       <div className="space-y-6">
-        <Skeleton className="h-10 w-64 bg-slate-800" />
-        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4">
+        <Skeleton className="h-10 w-64 bg-[#e5e7eb]" />
+        <div className="grid grid-cols-2 gap-4 md:grid-cols-3 lg:grid-cols-6">
           {Array.from({ length: 6 }).map((_, i) => (
-            <Skeleton key={i} className="h-24 bg-slate-800 rounded-lg" />
+            <Skeleton key={i} className="h-24 rounded-lg bg-[#e5e7eb]" />
           ))}
         </div>
-        <div className="grid md:grid-cols-3 gap-6">
-          <Skeleton className="h-80 bg-slate-800 rounded-lg" />
-          <Skeleton className="h-80 bg-slate-800 rounded-lg" />
-          <Skeleton className="h-80 bg-slate-800 rounded-lg" />
+        <div className="grid gap-6 md:grid-cols-2">
+          <Skeleton className="h-80 rounded-lg bg-[#e5e7eb]" />
+          <Skeleton className="h-80 rounded-lg bg-[#e5e7eb]" />
         </div>
       </div>
     );
@@ -71,63 +82,62 @@ export default function AdminDashboardPage() {
 
   return (
     <div className="space-y-8">
-      <h1 className="text-2xl font-bold text-white">Dashboard</h1>
-      <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4">
+      <div className="flex flex-col gap-4 sm:flex-row sm:flex-wrap sm:items-center sm:justify-between">
+        <h1 className="[font-family:'Montserrat',Helvetica] text-2xl font-bold text-[#111827]">Dashboard</h1>
+        <Button
+          type="button"
+          variant="outline"
+          className="border-[#e5e7eb] text-[#374151] hover:bg-[#f9fafb]"
+          disabled={recomputeMatches.isPending}
+          onClick={() => recomputeMatches.mutate()}
+        >
+          {recomputeMatches.isPending ? "Recomputing match scores…" : "Recompute all match scores"}
+        </Button>
+      </div>
+      {recomputeMsg && (
+        <p className="text-sm text-[#374151] [font-family:'Montserrat',Helvetica]">{recomputeMsg}</p>
+      )}
+      <div className="grid grid-cols-2 gap-4 md:grid-cols-3 lg:grid-cols-6">
         {cards.map((c) => (
-          <div key={c.label} className="rounded-lg border border-slate-800 bg-slate-900/50 p-4">
-            <p className="text-xs text-slate-500 uppercase tracking-wide">{c.label}</p>
-            <p className="text-2xl font-bold text-white mt-1">{c.value}</p>
+          <div
+            key={c.label}
+            className="rounded-lg border border-[#e5e7eb] bg-white p-4 shadow-sm"
+          >
+            <p className="text-xs uppercase tracking-wide text-[#6b7280]">{c.label}</p>
+            <p className="mt-1 text-2xl font-bold text-[#111827]">{c.value}</p>
           </div>
         ))}
       </div>
-      <div className="grid md:grid-cols-3 gap-6">
-        <div className="rounded-lg border border-slate-800 bg-slate-900/40 p-4">
-          <h2 className="text-sm font-semibold text-amber-400 mb-3">Recent signups</h2>
+      <div className="grid gap-6 md:grid-cols-2">
+        <div className="rounded-lg border border-[#e5e7eb] bg-white p-4 shadow-sm">
+          <h2 className="mb-3 text-sm font-semibold text-[#ef3e34] [font-family:'Montserrat',Helvetica]">
+            Recent signups
+          </h2>
           <ul className="space-y-3 text-sm">
             {data.recentSignups?.map((r) => (
-              <li key={r.id} className="border-b border-slate-800 pb-2">
-                <p className="text-white font-medium">{r.name}</p>
-                <p className="text-slate-500 text-xs">
+              <li key={r.id} className="border-b border-[#f0f0f0] pb-2">
+                <p className="font-medium text-[#111827]">{r.name}</p>
+                <p className="text-xs text-[#6b7280]">
                   {(r.agencyTypes || []).join(", ")} · {r.location}
                 </p>
-                <p className="text-slate-600 text-xs">
+                <p className="text-xs text-[#9ca3af]">
                   {r.signupDate ? new Date(r.signupDate).toLocaleString() : ""}
                 </p>
               </li>
             ))}
           </ul>
         </div>
-        <div className="rounded-lg border border-slate-800 bg-slate-900/40 p-4">
-          <h2 className="text-sm font-semibold text-amber-400 mb-3">Recent applications</h2>
+        <div className="rounded-lg border border-[#e5e7eb] bg-white p-4 shadow-sm">
+          <h2 className="mb-3 text-sm font-semibold text-[#ef3e34] [font-family:'Montserrat',Helvetica]">
+            Recent applications
+          </h2>
           <ul className="space-y-3 text-sm">
             {data.recentApplications?.map((r) => (
-              <li key={r.id} className="border-b border-slate-800 pb-2">
-                <p className="text-white">{r.agencyName}</p>
-                <p className="text-slate-400">{r.funderName}</p>
-                <span className="inline-block mt-1 text-xs px-2 py-0.5 rounded bg-slate-700 text-slate-200">
+              <li key={r.id} className="border-b border-[#f0f0f0] pb-2">
+                <p className="text-[#111827]">{r.agencyName}</p>
+                <p className="text-[#6b7280]">{r.funderName}</p>
+                <span className="mt-1 inline-block rounded bg-[#f3f4f6] px-2 py-0.5 text-xs text-[#374151]">
                   {r.status}
-                </span>
-              </li>
-            ))}
-          </ul>
-        </div>
-        <div className="rounded-lg border border-slate-800 bg-slate-900/40 p-4">
-          <h2 className="text-sm font-semibold text-amber-400 mb-3">Top matches</h2>
-          <ul className="space-y-3 text-sm">
-            {data.topMatchesGlobal?.map((m, i) => (
-              <li key={i} className="border-b border-slate-800 pb-2">
-                <p className="text-white">{m.agencyName}</p>
-                <p className="text-slate-400">{m.funderName}</p>
-                <span
-                  className={`inline-block mt-1 text-xs px-2 py-0.5 rounded font-semibold ${
-                    m.score >= 80
-                      ? "bg-emerald-900/50 text-emerald-300"
-                      : m.score >= 65
-                        ? "bg-amber-900/50 text-amber-200"
-                        : "bg-slate-700 text-slate-300"
-                  }`}
-                >
-                  {m.score}
                 </span>
               </li>
             ))}

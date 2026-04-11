@@ -81,7 +81,7 @@ export default function AdminAgencyDetailPage() {
   });
 
   if (isLoading || !data) {
-    return <p className="text-slate-500">Loading agency…</p>;
+    return <p className="text-[#6b7280]">Loading agency…</p>;
   }
 
   const profile = data.profile;
@@ -90,59 +90,61 @@ export default function AdminAgencyDetailPage() {
   const history = data.submissionHistory || [];
 
   return (
-    <div className="space-y-6 max-w-6xl">
-      <div className="flex justify-between items-start gap-4">
-        <h1 className="text-2xl font-bold text-white">{profile.name}</h1>
-        <Button className="bg-amber-600 hover:bg-amber-500" onClick={() => setModal(true)}>
+    <div className="max-w-6xl space-y-6">
+      <div className="flex items-start justify-between gap-4">
+        <h1 className="[font-family:'Montserrat',Helvetica] text-2xl font-bold text-[#111827]">{profile.name}</h1>
+        <Button className="bg-[#ef3e34] hover:bg-[#d63530] text-white" onClick={() => setModal(true)}>
           Generate application with AI
         </Button>
       </div>
 
-      <div className="rounded-lg border border-slate-800 bg-slate-900/40 p-6 space-y-3 text-sm">
-        <p className="text-slate-400">
-          <span className="text-slate-500">Type:</span>{" "}
+      <div className="space-y-3 rounded-lg border border-[#e5e7eb] bg-white p-6 text-sm shadow-sm">
+        <p className="text-[#374151]">
+          <span className="text-[#9ca3af]">Type:</span>{" "}
           {(profile.agencyTypes || []).join(", ") || "—"}
         </p>
-        <p className="text-slate-400">
-          <span className="text-slate-500">Location:</span> {profile.location}
+        <p className="text-[#374151]">
+          <span className="text-[#9ca3af]">Location:</span> {profile.location}
         </p>
-        <p className="text-slate-400">
-          <span className="text-slate-500">Population served:</span> {profile.populationServed}
+        <p className="text-[#374151]">
+          <span className="text-[#9ca3af]">Population served:</span> {profile.populationServed}
         </p>
-        <p className="text-slate-400">
-          <span className="text-slate-500">Coverage:</span> {profile.coverageArea}
+        <p className="text-[#374151]">
+          <span className="text-[#9ca3af]">Coverage:</span> {profile.coverageArea}
         </p>
-        <p className="text-slate-400">
-          <span className="text-slate-500">Staff:</span> {profile.numberOfStaff}
+        <p className="text-[#374151]">
+          <span className="text-[#9ca3af]">Staff:</span> {profile.numberOfStaff}
         </p>
         <div>
-          <p className="text-slate-500 text-xs uppercase mb-1">Equipment</p>
-          <p className="text-slate-300 whitespace-pre-wrap">{profile.currentEquipment}</p>
+          <p className="mb-1 text-xs uppercase text-[#9ca3af]">Equipment</p>
+          <p className="whitespace-pre-wrap text-[#111827]">{profile.currentEquipment}</p>
         </div>
         <div className="flex flex-wrap gap-2">
           {(profile.mainProblems || []).map((t: string) => (
-            <span key={t} className="px-2 py-0.5 rounded bg-slate-800 text-xs text-slate-300">
+            <span key={t} className="rounded bg-[#f3f4f6] px-2 py-0.5 text-xs text-[#374151]">
               {t}
             </span>
           ))}
         </div>
         <div className="flex flex-wrap gap-2">
           {(profile.fundingPriorities || []).map((t: string) => (
-            <span key={t} className="px-2 py-0.5 rounded bg-amber-900/30 text-xs text-amber-200">
+            <span key={t} className="rounded bg-[#fff1f0] px-2 py-0.5 text-xs font-medium text-[#ef3e34]">
               {t}
             </span>
           ))}
         </div>
       </div>
 
-      <div className="flex gap-2 border-b border-slate-800 pb-2">
+      <div className="flex gap-2 border-b border-[#e5e7eb] pb-2">
         {(["matches", "applications", "history"] as const).map((t) => (
           <button
             key={t}
             type="button"
             onClick={() => setTab(t)}
-            className={`px-3 py-1 rounded text-sm capitalize ${
-              tab === t ? "bg-slate-700 text-white" : "text-slate-500 hover:text-slate-300"
+            className={`rounded px-3 py-1 text-sm capitalize ${
+              tab === t
+                ? "bg-[#ef3e341a] font-semibold text-[#ef3e34]"
+                : "text-[#6b7280] hover:bg-[#f3f4f6] hover:text-[#111827]"
             }`}
           >
             {t}
@@ -155,23 +157,23 @@ export default function AdminAgencyDetailPage() {
           {matches.map((m: Record<string, unknown>) => (
             <li
               key={String(m._id)}
-              className="rounded border border-slate-800 p-4 bg-slate-900/30"
+              className="rounded border border-[#e5e7eb] bg-white p-4 shadow-sm"
             >
-              <p className="text-white font-medium">
+              <p className="font-medium text-[#111827]">
                 {(m.opportunity as { funder?: string })?.funder}
               </p>
-              <p className="text-slate-500 text-sm">
+              <p className="text-sm text-[#6b7280]">
                 {(m.opportunity as { title?: string })?.title}
               </p>
-              <div className="flex gap-2 mt-2">
-                <span className="text-xs px-2 py-0.5 rounded bg-emerald-900/40 text-emerald-300">
+              <div className="mt-2 flex gap-2">
+                <span className="rounded bg-emerald-50 px-2 py-0.5 text-xs font-medium text-emerald-800">
                   {String(m.fitScore)} score
                 </span>
-                <span className="text-xs px-2 py-0.5 rounded bg-slate-700 text-slate-300">
+                <span className="rounded bg-[#f3f4f6] px-2 py-0.5 text-xs text-[#4b5563]">
                   {String(m.tier)}
                 </span>
               </div>
-              <ul className="mt-2 text-xs text-slate-500 list-disc pl-4">
+              <ul className="mt-2 list-disc pl-4 text-xs text-[#9ca3af]">
                 {((m.reasons as string[]) || []).slice(0, 6).map((x) => (
                   <li key={x}>{x}</li>
                 ))}
@@ -184,9 +186,9 @@ export default function AdminAgencyDetailPage() {
       {tab === "applications" && (
         <ul className="space-y-6">
           {applications.map((a: Record<string, unknown>) => (
-            <li key={String(a._id)} className="rounded border border-slate-800 p-4 bg-slate-900/30">
+            <li key={String(a._id)} className="rounded border border-[#e5e7eb] bg-white p-4 shadow-sm">
               <div className="flex justify-between">
-                <p className="text-white">
+                <p className="font-medium text-[#111827]">
                   {(a.funder as { name?: string })?.name ||
                     (a.opportunity as { funder?: string })?.funder}
                 </p>
@@ -194,7 +196,7 @@ export default function AdminAgencyDetailPage() {
                   type="button"
                   variant="outline"
                   size="sm"
-                  className="border-slate-600"
+                  className="border-[#e5e7eb]"
                   onClick={() => {
                     setStatusAppId(String(a._id));
                     setNewStatus(String(a.status));
@@ -203,13 +205,13 @@ export default function AdminAgencyDetailPage() {
                   Edit status
                 </Button>
               </div>
-              <p className="text-xs text-slate-500 mt-1">Status: {String(a.status)}</p>
+              <p className="mt-1 text-xs text-[#9ca3af]">Status: {String(a.status)}</p>
               {SECTIONS.map((key) => (
                 <details key={key} className="mt-2 text-sm">
-                  <summary className="cursor-pointer text-amber-400/90 capitalize">
+                  <summary className="cursor-pointer capitalize font-medium text-[#ef3e34]">
                     {key.replace(/([A-Z])/g, " $1")}
                   </summary>
-                  <p className="text-slate-400 mt-1 whitespace-pre-wrap pl-2">
+                  <p className="mt-1 whitespace-pre-wrap pl-2 text-[#6b7280]">
                     {String(a[key] || "—")}
                   </p>
                 </details>
@@ -222,7 +224,7 @@ export default function AdminAgencyDetailPage() {
       {tab === "history" && (
         <ul className="text-sm space-y-2">
           {history.map((h: Record<string, unknown>, i: number) => (
-            <li key={i} className="border-b border-slate-800 pb-2 text-slate-400">
+            <li key={i} className="border-b border-[#f0f0f0] pb-2 text-[#6b7280]">
               {String(h.changedAt)} — {String(h.previousStatus)} → {String(h.status)} (app{" "}
               {String(h.applicationId)})
             </li>
@@ -231,13 +233,13 @@ export default function AdminAgencyDetailPage() {
       )}
 
       <Dialog open={modal} onOpenChange={setModal}>
-        <DialogContent className="bg-slate-900 border-slate-700 text-white">
+        <DialogContent>
           <DialogHeader>
             <DialogTitle>Generate application</DialogTitle>
           </DialogHeader>
-          <p className="text-sm text-slate-400">Ashleen will draft all six sections for this agency.</p>
+          <p className="text-sm text-[#6b7280]">Ashleen will draft all six sections for this agency.</p>
           <Select value={funderId} onValueChange={setFunderId}>
-            <SelectTrigger className="bg-slate-800 border-slate-600">
+            <SelectTrigger className="border-[#e5e7eb]">
               <SelectValue placeholder="Choose funder" />
             </SelectTrigger>
             <SelectContent>
@@ -249,10 +251,10 @@ export default function AdminAgencyDetailPage() {
             </SelectContent>
           </Select>
           {genMutation.isPending && (
-            <p className="text-amber-400 text-sm">Ashleen is writing the application…</p>
+            <p className="text-sm text-[#d97706]">Ashleen is writing the application…</p>
           )}
           {genMutation.isSuccess && (
-            <p className="text-emerald-400 text-sm">Application generated. Check the Applications tab.</p>
+            <p className="text-sm text-emerald-600">Application generated. Check the Applications tab.</p>
           )}
           <DialogFooter>
             <Button variant="ghost" onClick={() => setModal(false)}>
@@ -260,7 +262,7 @@ export default function AdminAgencyDetailPage() {
             </Button>
             <Button
               disabled={!funderId || genMutation.isPending}
-              className="bg-amber-600"
+              className="bg-[#ef3e34] hover:bg-[#d63530] text-white"
               onClick={() => genMutation.mutate()}
             >
               Generate
@@ -270,12 +272,12 @@ export default function AdminAgencyDetailPage() {
       </Dialog>
 
       <Dialog open={!!statusAppId} onOpenChange={() => setStatusAppId(null)}>
-        <DialogContent className="bg-slate-900 border-slate-700 text-white">
+        <DialogContent>
           <DialogHeader>
             <DialogTitle>Update status</DialogTitle>
           </DialogHeader>
           <Select value={newStatus} onValueChange={setNewStatus}>
-            <SelectTrigger className="bg-slate-800 border-slate-600">
+            <SelectTrigger className="border-[#e5e7eb]">
               <SelectValue />
             </SelectTrigger>
             <SelectContent>

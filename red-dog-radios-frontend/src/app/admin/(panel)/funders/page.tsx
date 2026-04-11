@@ -82,20 +82,20 @@ export default function AdminFundersPage() {
   return (
     <div className="space-y-6">
       <div className="flex justify-between">
-        <h1 className="text-2xl font-bold text-white">Funders</h1>
-        <Button className="bg-amber-600" onClick={() => setOpen(true)}>
+        <h1 className="[font-family:'Montserrat',Helvetica] text-2xl font-bold text-[#111827]">Funders</h1>
+        <Button className="bg-[#ef3e34] hover:bg-[#d63530] text-white" onClick={() => setOpen(true)}>
           Add funder
         </Button>
       </div>
       <Input
-        className="max-w-md bg-slate-900 border-slate-700 text-white"
+        className="max-w-md border-[#e5e7eb]"
         placeholder="Search"
         value={search}
         onChange={(e) => setSearch(e.target.value)}
       />
-      <div className="overflow-x-auto rounded-lg border border-slate-800 text-sm">
+      <div className="overflow-x-auto rounded-lg border border-[#e5e7eb] bg-white text-sm shadow-sm">
         <table className="w-full text-left">
-          <thead className="bg-slate-900 text-slate-400">
+          <thead className="bg-[#f9fafb] text-[#6b7280]">
             <tr>
               <th className="p-3">Name</th>
               <th className="p-3">Location</th>
@@ -108,30 +108,30 @@ export default function AdminFundersPage() {
           </thead>
           <tbody>
             {rows.map((r: Record<string, unknown>) => (
-              <tr key={String(r._id)} className="border-t border-slate-800">
-                <td className="p-3 text-white">{String(r.name)}</td>
-                <td className="p-3 text-slate-400">
+              <tr key={String(r._id)} className="border-t border-[#f0f0f0]">
+                <td className="p-3 font-medium text-[#111827]">{String(r.name)}</td>
+                <td className="p-3 text-[#6b7280]">
                   {(r.locationFocus as string[])?.join(", ") || "—"}
                 </td>
-                <td className="p-3 text-slate-400">
+                <td className="p-3 text-[#6b7280]">
                   {(r.fundingCategories as string[])?.slice(0, 3).join(", ") || "—"}
                 </td>
-                <td className="p-3 text-slate-400">
+                <td className="p-3 text-[#6b7280]">
                   ${Number(r.avgGrantMin || 0).toLocaleString()} – $
                   {Number(r.avgGrantMax || 0).toLocaleString()}
                 </td>
-                <td className="p-3 text-slate-400">
+                <td className="p-3 text-[#6b7280]">
                   {String(r.currentApplicationCount ?? 0)} / {String(r.maxApplicationsAllowed ?? 5)}
                 </td>
                 <td className="p-3">
                   {r.isLocked ? (
-                    <span className="text-red-400 text-xs">Locked</span>
+                    <span className="text-xs font-medium text-red-600">Locked</span>
                   ) : (
-                    <span className="text-emerald-400 text-xs">Open</span>
+                    <span className="text-xs font-medium text-emerald-600">Open</span>
                   )}
                 </td>
-                <td className="p-3 flex gap-2">
-                  <Link href={`/admin/funders/${r._id}/edit`} className="text-amber-400 text-sm">
+                <td className="flex gap-2 p-3">
+                  <Link href={`/admin/funders/${r._id}/edit`} className="text-sm font-medium text-[#ef3e34] hover:underline">
                     Edit
                   </Link>
                   <button
@@ -151,7 +151,7 @@ export default function AdminFundersPage() {
       </div>
 
       <Dialog open={open} onOpenChange={setOpen}>
-        <DialogContent className="bg-slate-900 border-slate-700 text-white max-h-[90vh] overflow-y-auto max-w-lg">
+        <DialogContent className="max-h-[90vh] max-w-lg overflow-y-auto">
           <DialogHeader>
             <DialogTitle>New funder</DialogTitle>
           </DialogHeader>
@@ -179,13 +179,13 @@ export default function AdminFundersPage() {
                 <Label className="capitalize text-xs">{key.replace(/([A-Z])/g, " $1")}</Label>
                 {key === "missionStatement" || key === "notes" || key === "pastGrantsAwarded" ? (
                   <Textarea
-                    className="bg-slate-800 border-slate-600 text-sm"
+                    className="border-[#e5e7eb] text-sm"
                     value={form[key]}
                     onChange={(e) => setForm({ ...form, [key]: e.target.value })}
                   />
                 ) : (
                   <Input
-                    className="bg-slate-800 border-slate-600 text-sm"
+                    className="border-[#e5e7eb] text-sm"
                     value={form[key]}
                     onChange={(e) => setForm({ ...form, [key]: e.target.value })}
                   />
@@ -197,7 +197,7 @@ export default function AdminFundersPage() {
             <Button variant="ghost" onClick={() => setOpen(false)}>
               Cancel
             </Button>
-            <Button className="bg-amber-600" onClick={() => create.mutate()} disabled={create.isPending}>
+            <Button className="bg-[#ef3e34] hover:bg-[#d63530]" onClick={() => create.mutate()} disabled={create.isPending}>
               Create
             </Button>
           </DialogFooter>

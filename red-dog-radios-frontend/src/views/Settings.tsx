@@ -1,110 +1,19 @@
 "use client";
 
-import type { ReactNode } from "react";
 import { useState, useEffect } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { Bell, Globe, Shield, Trash2, Mail, Zap, Clock, X, CheckCircle, Lock, AlignJustify } from "lucide-react";
+import { Bell, Globe, Shield, Trash2, Mail, Zap, Clock, CheckCircle, Lock, AlignJustify } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { useRouter } from "next/navigation";
 import { cn } from "@/lib/utils";
-import { deleteAccountConfirmSchema, settingsSaveSchema, type DeleteAccountConfirmValues, type SettingsSaveFormValues } from "@/lib/validation-schemas";
+import { SettingsSectionCard, SettingsToggle } from "@/components/settings/SettingsPrimitives";
+import { DeleteAccountModal } from "@/components/settings/DeleteAccountModal";
+import { settingsSaveSchema, type SettingsSaveFormValues } from "@/lib/validation-schemas";
 import api from "@/lib/api";
 import { useAuth } from "@/lib/AuthContext";
 import { qk } from "@/lib/queryKeys";
-
-const Toggle = ({ checked, onChange, id }: { checked: boolean; onChange: (v: boolean) => void; id: string }) => (
-  <button role="switch" aria-checked={checked} data-testid={`toggle-${id}`} onClick={() => onChange(!checked)}
-    className={`relative inline-flex h-6 w-11 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 focus:outline-none ${checked ? "bg-[#22c55e]" : "bg-[#d1d5db]"}`}>
-    <span className={`pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow transition duration-200 ${checked ? "translate-x-5" : "translate-x-0"}`} />
-  </button>
-);
-
-const SectionCard = ({ icon, title, subtitle, children, iconBg = "bg-[#fff4f4]", iconCls = "text-[#ef3e34]" }: {
-  icon: ReactNode; title: string; subtitle: string; children: ReactNode; iconBg?: string; iconCls?: string;
-}) => (
-  <div className="rounded-xl border border-[#f0f0f0] bg-white shadow-[0_1px_4px_rgba(0,0,0,0.06)]">
-    <div className="flex items-center gap-3 border-b border-[#f3f4f6] px-4 pb-4 pt-5 sm:px-6">
-      <div className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-full ${iconBg} ${iconCls}`}>
-        {icon}
-      </div>
-      <div className="flex min-w-0 flex-col gap-0.5">
-        <span className="[font-family:'Oswald',Helvetica] text-sm font-bold uppercase tracking-[0.6px] text-[#111827]">{title}</span>
-        <span className="[font-family:'Montserrat',Helvetica] text-xs font-normal text-[#9ca3af]">{subtitle}</span>
-      </div>
-    </div>
-    <div className="px-4 py-5 sm:px-6">{children}</div>
-  </div>
-);
-
-const DeleteModal = ({ onClose, onConfirm }: { onClose: () => void; onConfirm: () => void }) => {
-  const {
-    register,
-    handleSubmit,
-    formState: { errors },
-  } = useForm<DeleteAccountConfirmValues>({
-    resolver: zodResolver(deleteAccountConfirmSchema),
-    defaultValues: { confirmation: "" },
-  });
-
-  useEffect(() => {
-    const handleKey = (e: KeyboardEvent) => { if (e.key === "Escape") onClose(); };
-    document.addEventListener("keydown", handleKey);
-    return () => document.removeEventListener("keydown", handleKey);
-  }, [onClose]);
-
-  return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50"
-      onClick={(e) => e.target === e.currentTarget && onClose()}>
-      <div className="bg-white rounded-2xl shadow-[0_8px_40px_rgba(0,0,0,0.22)] w-full max-w-[520px] mx-4">
-        <div className="flex justify-end px-5 pt-5">
-          <button type="button" onClick={onClose} data-testid="button-close-delete-modal"
-            className="w-8 h-8 flex items-center justify-center rounded-lg border border-[#e5e7eb] hover:bg-[#f3f4f6] transition-colors">
-            <X size={14} className="text-[#6b7280]" />
-          </button>
-        </div>
-        <form onSubmit={handleSubmit(onConfirm)} className="px-8 pb-6 flex flex-col gap-4" noValidate>
-          <h2 className="[font-family:'Oswald',Helvetica] font-bold text-black text-xl leading-tight uppercase">
-            Are you sure you want to delete your account
-          </h2>
-          <p className="[font-family:'Montserrat',Helvetica] font-normal text-[#6b7280] text-sm leading-6">
-            This action is permanent – your account and all associated data will be permanently deleted and cannot be recovered.
-          </p>
-          <div className="flex flex-col gap-1.5">
-            <label className="[font-family:'Montserrat',Helvetica] font-semibold text-[#374151] text-xs">
-              Type <span className="font-mono font-bold">DELETE</span> to confirm
-            </label>
-            <input
-              data-testid="input-delete-confirm"
-              autoComplete="off"
-              placeholder="DELETE"
-              className={cn(
-                "w-full rounded-lg border border-[#e5e7eb] bg-white px-4 py-2.5 [font-family:'Montserrat',Helvetica] text-sm text-[#111827] placeholder:text-[#d1d5db] focus:border-[#ef3e34] focus:outline-none focus:ring-2 focus:ring-[#ef3e34]/20",
-                errors.confirmation && "border-red-500"
-              )}
-              {...register("confirmation")}
-            />
-            {errors.confirmation && (
-              <p className="text-xs text-red-600 [font-family:'Montserrat',Helvetica]">{errors.confirmation.message}</p>
-            )}
-          </div>
-          <hr className="border-[#e5e7eb] my-1" />
-          <div className="flex flex-col-reverse gap-2 sm:flex-row sm:justify-end sm:gap-3">
-            <button type="button" onClick={onClose} data-testid="button-cancel-delete"
-              className="h-11 rounded-lg border border-[#111827] px-6 [font-family:'Montserrat',Helvetica] text-sm font-semibold text-[#111827] transition-colors hover:bg-[#f9fafb]">
-              No, Go Back
-            </button>
-            <button type="submit" data-testid="button-confirm-delete"
-              className="h-11 rounded-lg bg-[#ef3e34] px-6 text-white [font-family:'Montserrat',Helvetica] text-sm font-semibold transition-colors hover:bg-[#d63530]">
-              Yes, Delete My Account
-            </button>
-          </div>
-        </form>
-      </div>
-    </div>
-  );
-};
 
 type ApiSettings = {
   firstName?: string;
@@ -250,7 +159,7 @@ export const Settings = () => {
           </button>
         </div>
 
-        <SectionCard icon={<span className="[font-family:'Montserrat',Helvetica] font-bold text-[#ef3e34] text-xs">A</span>} title="Profile" subtitle="Your personal and account information">
+        <SettingsSectionCard icon={<span className="[font-family:'Montserrat',Helvetica] font-bold text-[#ef3e34] text-xs">A</span>} title="Profile" subtitle="Your personal and account information">
           <div className="mb-5 flex flex-col gap-3 rounded-xl border border-[#f0f0f0] bg-[#fafafa] px-4 py-3 sm:flex-row sm:items-center sm:justify-between">
             <div className="flex min-w-0 items-center gap-3">
               <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-[#ef3e34]">
@@ -289,9 +198,9 @@ export const Settings = () => {
               <span className="[font-family:'Montserrat',Helvetica] font-semibold text-[#111827] text-sm">{orgName || "—"}</span>
             </div>
           </div>
-        </SectionCard>
+        </SettingsSectionCard>
 
-        <SectionCard icon={<Bell size={15} />} title="Notifications" subtitle="Choose which emails and alerts you receive">
+        <SettingsSectionCard icon={<Bell size={15} />} title="Notifications" subtitle="Choose which emails and alerts you receive">
           <div className="flex flex-col divide-y divide-[#f9fafb]">
             {notifRows.map((row) => (
               <div key={row.key} className="flex flex-col gap-3 py-3.5 first:pt-0 last:pb-0 sm:flex-row sm:items-center sm:justify-between sm:gap-4">
@@ -302,13 +211,13 @@ export const Settings = () => {
                     <span className="[font-family:'Montserrat',Helvetica] text-xs font-normal text-[#9ca3af]">{row.desc}</span>
                   </div>
                 </div>
-                <Toggle id={row.key} checked={notifications[row.key]} onChange={() => toggleNotif(row.key)} />
+                <SettingsToggle id={row.key} checked={notifications[row.key]} onChange={() => toggleNotif(row.key)} />
               </div>
             ))}
           </div>
-        </SectionCard>
+        </SettingsSectionCard>
 
-        <SectionCard icon={<AlignJustify size={15} />} title="Preferences" subtitle="Regional settings and display options">
+        <SettingsSectionCard icon={<AlignJustify size={15} />} title="Preferences" subtitle="Regional settings and display options">
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div className="flex flex-col gap-1.5">
               <label className={labelCls}>Language</label>
@@ -334,9 +243,9 @@ export const Settings = () => {
               </div>
             </div>
           </div>
-        </SectionCard>
+        </SettingsSectionCard>
 
-        <SectionCard icon={<Shield size={15} />} title="Security" subtitle="Authentication and account protection" iconBg="bg-[#fef3c7]" iconCls="text-[#d97706]">
+        <SettingsSectionCard icon={<Shield size={15} />} title="Security" subtitle="Authentication and account protection" iconBg="bg-[#fef3c7]" iconCls="text-[#d97706]">
           <div className="flex flex-col gap-3 mb-5">
             <div className="flex items-center gap-3 px-4 py-3 rounded-xl border border-[#bbf7d0] bg-[#f0fdf4]">
               <CheckCircle size={17} className="text-[#16a34a] flex-shrink-0" />
@@ -365,9 +274,9 @@ export const Settings = () => {
               {errors.newPassword && <p className="text-xs text-red-600 [font-family:'Montserrat',Helvetica]">{errors.newPassword.message}</p>}
             </div>
           </div>
-        </SectionCard>
+        </SettingsSectionCard>
 
-        <SectionCard icon={<Trash2 size={15} />} title="Danger Zone" subtitle="Irreversible actions – proceed with caution" iconBg="bg-[#fff1f0]" iconCls="text-[#ef4444]">
+        <SettingsSectionCard icon={<Trash2 size={15} />} title="Danger Zone" subtitle="Irreversible actions – proceed with caution" iconBg="bg-[#fff1f0]" iconCls="text-[#ef4444]">
           <p className="[font-family:'Montserrat',Helvetica] font-normal text-[#6b7280] text-sm leading-6 mb-4">
             Permanently delete all your account data from Grant Intelligence. This removes all organizations, matches, Weekly Summary, and alerts. This action cannot be undone.
           </p>
@@ -375,10 +284,12 @@ export const Settings = () => {
             className="flex items-center gap-2 h-10 px-5 rounded-lg border border-[#ef3e34] text-[#ef3e34] hover:bg-[#fff1f0] [font-family:'Montserrat',Helvetica] font-semibold text-sm transition-colors">
             <Trash2 size={14} />Delete All Account Data
           </button>
-        </SectionCard>
+        </SettingsSectionCard>
       </div>
 
-      {showDeleteModal && <DeleteModal onClose={() => setShowDeleteModal(false)} onConfirm={() => deleteMutation.mutate()} />}
+      {showDeleteModal && (
+        <DeleteAccountModal onClose={() => setShowDeleteModal(false)} onConfirm={() => deleteMutation.mutate()} variant="agency" />
+      )}
     </>
   );
 };

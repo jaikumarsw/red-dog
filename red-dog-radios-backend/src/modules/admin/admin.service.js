@@ -92,13 +92,6 @@ const dashboard = async () => {
   activityRows.sort((x, y) => new Date(y.changedAt) - new Date(x.changedAt));
   const activity = activityRows.slice(0, 10);
 
-  const topMatchesGlobalRows = await Match.find({})
-    .sort({ fitScore: -1 })
-    .limit(5)
-    .populate('organization', 'name')
-    .populate({ path: 'opportunity', select: 'title funder' })
-    .lean();
-
   return {
     totalAgencies,
     totalOpportunities,
@@ -122,12 +115,6 @@ const dashboard = async () => {
       funderName: a.funder?.name || a.opportunity?.funder,
       status: a.status,
       updatedAt: a.updatedAt,
-    })),
-    topMatchesGlobal: topMatchesGlobalRows.map((m) => ({
-      agencyName: m.organization?.name,
-      funderName: m.opportunity?.funder,
-      score: m.fitScore,
-      tier: matchTier(m.fitScore),
     })),
   };
 };
@@ -218,6 +205,17 @@ const listOpportunitiesAdmin = async (query) => {
     limit: parseInt(limit, 10),
     sort: { deadline: 1 },
   });
+  const oppIds = result.docs.map((d) => d._id);
+  const appCountRows =
+    oppIds.length === 0
+      ? []
+      : await Application.aggregate([
+          { $match: { opportunity: { $in: oppIds } } },
+          { $group: { _id: '$opportunity', count: { $sum: 1 } } },
+        ]);
+  const applicationCountMap = Object.fromEntries(
+    appCountRows.map((r) => [String(r._id), r.count])
+  );
   const docs = await Promise.all(
     result.docs.map(async (opp) => {
       const o = opp.toObject();
@@ -229,6 +227,7 @@ const listOpportunitiesAdmin = async (query) => {
         ...o,
         agenciesMatchedCount: matchAgencyCount,
         highestMatchScore: topScore?.fitScore || 0,
+        applicationCount: applicationCountMap[String(o._id)] || 0,
       };
     })
   );
@@ -236,7 +235,16 @@ const listOpportunitiesAdmin = async (query) => {
 };
 
 const createOpportunityAdmin = (body, userId) => oppService.create(body, userId);
-const getOpportunityAdmin = (id) => oppService.getOne(id);
+const getOpportunityAdmin = async (id) => {
+  const opp = await oppService.getOne(id);
+  const applications = await Application.find({ opportunity: id })
+    .sort({ updatedAt: -1 })
+    .populate('organization', 'name location agencyTypes')
+    .populate('funder', 'name')
+    .lean();
+  const plain = opp.toObject ? opp.toObject() : opp;
+  return { ...plain, applications };
+};
 const updateOpportunityAdmin = (id, body) => oppService.update(id, body);
 const deleteOpportunityAdmin = (id) => oppService.remove(id);
 

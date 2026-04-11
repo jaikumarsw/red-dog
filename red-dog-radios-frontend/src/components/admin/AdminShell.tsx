@@ -1,26 +1,63 @@
 "use client";
 
 import type { ReactNode } from "react";
-import Link from "next/link";
-import { usePathname, useRouter } from "next/navigation";
-import { useAdminAuth } from "@/lib/AdminAuthContext";
 import { useEffect } from "react";
+import { useRouter } from "next/navigation";
+import { useAdminAuth } from "@/lib/AdminAuthContext";
+import { AppShellLayout, type ShellMenuItem } from "@/components/AppShellLayout";
 
-const NAV = [
-  { href: "/admin/dashboard", label: "Dashboard" },
-  { href: "/admin/agencies", label: "Agencies" },
-  { href: "/admin/opportunities", label: "Opportunities" },
-  { href: "/admin/funders", label: "Funders" },
-  { href: "/admin/applications", label: "Applications" },
-  { href: "/admin/matches", label: "Matches" },
-  { href: "/admin/users", label: "Users" },
-  { href: "/admin/settings", label: "Settings" },
+const ADMIN_MENU: ShellMenuItem[] = [
+  { id: "admin-dashboard", label: "Dashboard", icon: "/figmaAssets/svg-8.svg", path: "/admin/dashboard" },
+  { id: "admin-agencies", label: "Agencies", icon: "/figmaAssets/svg-10.svg", path: "/admin/agencies" },
+  { id: "admin-opportunities", label: "Opportunities", icon: "/figmaAssets/svg-14.svg", path: "/admin/opportunities" },
+  { id: "admin-funders", label: "Funders", icon: "/figmaAssets/svg-12.svg", path: "/admin/funders" },
+  { id: "admin-applications", label: "Applications", icon: "/figmaAssets/svg-11.svg", path: "/admin/applications" },
+  { id: "admin-users", label: "Users", icon: "/figmaAssets/svg-5.svg", path: "/admin/users" },
+  { id: "admin-settings", label: "Settings", icon: "/figmaAssets/svg-9.svg", path: "/admin/settings" },
 ];
 
+function chunkLoadFailedMessage(msg: string) {
+  return (
+    msg.includes("ChunkLoadError") ||
+    msg.includes("Loading chunk") ||
+    msg.includes("Failed to fetch dynamically imported module")
+  );
+}
+
 export function AdminShell({ children }: { children: ReactNode }) {
-  const pathname = usePathname();
   const router = useRouter();
-  const { isAuthenticated, logout } = useAdminAuth();
+  const { isAuthenticated, logout, user } = useAdminAuth();
+
+  useEffect(() => {
+    if (process.env.NODE_ENV !== "development") return;
+
+    const STORAGE_KEY = "rdg_admin_chunk_reload_at";
+    const cooldownMs = 8000;
+
+    const tryReload = () => {
+      const last = Number(sessionStorage.getItem(STORAGE_KEY) || "0");
+      if (Date.now() - last < cooldownMs) return;
+      sessionStorage.setItem(STORAGE_KEY, String(Date.now()));
+      window.location.reload();
+    };
+
+    const onWindowError = (e: ErrorEvent) => {
+      if (chunkLoadFailedMessage(String(e.message || ""))) tryReload();
+    };
+
+    const onRejection = (e: PromiseRejectionEvent) => {
+      const r = e.reason;
+      const msg = r instanceof Error ? r.message : String(r);
+      if (chunkLoadFailedMessage(msg)) tryReload();
+    };
+
+    window.addEventListener("error", onWindowError);
+    window.addEventListener("unhandledrejection", onRejection);
+    return () => {
+      window.removeEventListener("error", onWindowError);
+      window.removeEventListener("unhandledrejection", onRejection);
+    };
+  }, []);
 
   useEffect(() => {
     if (!isAuthenticated) {
@@ -30,53 +67,33 @@ export function AdminShell({ children }: { children: ReactNode }) {
 
   if (!isAuthenticated) {
     return (
-      <div className="min-h-screen bg-[#0c0f14] flex items-center justify-center text-slate-400">
+      <div className="flex min-h-screen items-center justify-center bg-neutral-50 text-[#6b7280] [font-family:'Montserrat',Helvetica] text-sm">
         Checking session…
       </div>
     );
   }
 
+  const shellUser = user
+    ? {
+        email: user.email,
+        fullName: user.fullName,
+        firstName: user.firstName,
+        lastName: user.lastName,
+      }
+    : null;
+
   return (
-    <div className="min-h-screen flex bg-[#0c0f14] text-slate-100">
-      <aside className="w-64 flex-shrink-0 border-r border-slate-800 flex flex-col bg-[#111827]">
-        <div className="p-4 border-b border-slate-800">
-          <span className="inline-block rounded-md bg-amber-500/20 text-amber-400 text-xs font-bold tracking-widest px-2 py-1">
-            RED DOG ADMIN
-          </span>
-          <p className="mt-2 text-xs text-slate-500">Staff portal</p>
-        </div>
-        <nav className="flex-1 p-3 space-y-1">
-          {NAV.map((item) => {
-            const active = pathname === item.href || pathname.startsWith(`${item.href}/`);
-            return (
-              <Link
-                key={item.href}
-                href={item.href}
-                className={`block rounded-lg px-3 py-2 text-sm font-medium no-underline transition-colors ${
-                  active
-                    ? "bg-slate-700 text-white"
-                    : "text-slate-400 hover:bg-slate-800 hover:text-slate-200"
-                }`}
-              >
-                {item.label}
-              </Link>
-            );
-          })}
-        </nav>
-        <div className="p-3 border-t border-slate-800">
-          <button
-            type="button"
-            onClick={() => {
-              logout();
-              router.push("/admin/login");
-            }}
-            className="w-full rounded-lg border border-slate-600 px-3 py-2 text-sm text-slate-300 hover:bg-slate-800"
-          >
-            Sign out
-          </button>
-        </div>
-      </aside>
-      <main className="flex-1 overflow-auto p-8">{children}</main>
-    </div>
+    <AppShellLayout
+      menuItems={ADMIN_MENU}
+      activePathMatchesPrefix
+      user={shellUser}
+      onLogout={logout}
+      signOutRedirectPath="/admin/login"
+      headerSubtitle="Staff portal"
+    >
+      <div className="flex min-h-0 min-w-0 flex-1 flex-col px-4 pb-8 pt-6 sm:px-6 sm:pt-8 lg:px-8">
+        {children}
+      </div>
+    </AppShellLayout>
   );
 }

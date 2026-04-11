@@ -24,10 +24,10 @@ export default function AdminUsersPage() {
 
   return (
     <div className="space-y-6">
-      <h1 className="text-2xl font-bold text-white">Users</h1>
-      <div className="overflow-x-auto rounded-lg border border-slate-800 text-sm">
+      <h1 className="[font-family:'Montserrat',Helvetica] text-2xl font-bold text-[#111827]">Users</h1>
+      <div className="overflow-x-auto rounded-lg border border-[#e5e7eb] bg-white text-sm shadow-sm">
         <table className="w-full text-left">
-          <thead className="bg-slate-900 text-slate-400">
+          <thead className="bg-[#f9fafb] text-[#6b7280]">
             <tr>
               <th className="p-3">Name</th>
               <th className="p-3">Email</th>
@@ -40,31 +40,31 @@ export default function AdminUsersPage() {
           </thead>
           <tbody>
             {rows.map((u) => (
-              <tr key={String(u._id)} className="border-t border-slate-800">
-                <td className="p-3 text-white">{String(u.fullName || u.email)}</td>
-                <td className="p-3 text-slate-400">{String(u.email)}</td>
+              <tr key={String(u._id)} className="border-t border-[#f0f0f0]">
+                <td className="p-3 font-medium text-[#111827]">{String(u.fullName || u.email)}</td>
+                <td className="p-3 text-[#6b7280]">{String(u.email)}</td>
                 <td className="p-3">
                   <span
-                    className={`text-xs px-2 py-0.5 rounded font-semibold ${
+                    className={`rounded px-2 py-0.5 text-xs font-semibold ${
                       u.role === "admin"
-                        ? "bg-red-900/50 text-red-300"
-                        : "bg-blue-900/50 text-blue-300"
+                        ? "bg-red-50 text-red-700"
+                        : "bg-sky-50 text-sky-800"
                     }`}
                   >
                     {String(u.role)}
                   </span>
                 </td>
-                <td className="p-3 text-slate-500">
+                <td className="p-3 text-[#9ca3af]">
                   {u.createdAt ? new Date(String(u.createdAt)).toLocaleDateString() : "—"}
                 </td>
-                <td className="p-3 text-slate-400">{String(u.agencyName || "—")}</td>
-                <td className="p-3 text-slate-400">{String(u.applicationCount ?? 0)}</td>
+                <td className="p-3 text-[#6b7280]">{String(u.agencyName || "—")}</td>
+                <td className="p-3 text-[#6b7280]">{String(u.applicationCount ?? 0)}</td>
                 <td className="p-3">
                   {u.role === "admin" ? (
                     <Button
                       size="sm"
                       variant="outline"
-                      className="border-slate-600 text-xs"
+                      className="text-xs border-[#e5e7eb]"
                       onClick={() =>
                         roleMut.mutate({ userId: String(u._id), role: "agency" })
                       }
@@ -75,7 +75,7 @@ export default function AdminUsersPage() {
                     <Button
                       size="sm"
                       variant="outline"
-                      className="border-slate-600 text-xs"
+                      className="text-xs border-[#e5e7eb]"
                       onClick={() =>
                         roleMut.mutate({ userId: String(u._id), role: "admin" })
                       }

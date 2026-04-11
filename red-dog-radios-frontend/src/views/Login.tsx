@@ -2,7 +2,6 @@
 
 import { useState } from "react";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { Eye, EyeOff, LogIn, UserPlus } from "lucide-react";
@@ -14,7 +13,6 @@ import api from "@/lib/api";
 import { useAuth } from "@/lib/AuthContext";
 
 export const Login = () => {
-  const router = useRouter();
   const { login } = useAuth();
   const [showPassword, setShowPassword] = useState(false);
   const [apiError, setApiError] = useState<string | null>(null);
@@ -35,11 +33,9 @@ export const Login = () => {
       const res = await api.post("/auth/login", data);
       const { user, token } = res.data.data;
       login(user, token);
-      if (user.onboardingCompleted) {
-        router.push("/dashboard");
-      } else {
-        router.push("/onboarding");
-      }
+      // Full navigation so middleware receives cookies set above (client router transitions can omit them).
+      const dest = user.onboardingCompleted ? "/dashboard" : "/onboarding";
+      window.location.assign(dest);
     } catch (err: unknown) {
       const msg =
         (err as { response?: { data?: { message?: string } } })?.response?.data?.message ??

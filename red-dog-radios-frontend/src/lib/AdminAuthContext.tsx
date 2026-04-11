@@ -23,6 +23,7 @@ type AdminAuthContextType = {
   token: string | null;
   login: (user: AdminUser, token: string) => void;
   logout: () => void;
+  updateUser: (user: AdminUser) => void;
   isAuthenticated: boolean;
 };
 
@@ -91,6 +92,12 @@ export const AdminAuthProvider = ({ children }: { children: ReactNode }) => {
     clearAdminCookie();
   }, []);
 
+  const updateUser = useCallback((nextUser: AdminUser) => {
+    if (nextUser.role !== "admin") return;
+    setUser(nextUser);
+    localStorage.setItem(USER_KEY, JSON.stringify(nextUser));
+  }, []);
+
   return (
     <AdminAuthContext.Provider
       value={{
@@ -98,6 +105,7 @@ export const AdminAuthProvider = ({ children }: { children: ReactNode }) => {
         token,
         login,
         logout,
+        updateUser,
         isAuthenticated: !!token && user?.role === "admin",
       }}
     >

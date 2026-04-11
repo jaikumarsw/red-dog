@@ -23,24 +23,24 @@ export default function AdminAgenciesPage() {
 
   return (
     <div className="space-y-6">
-      <h1 className="text-2xl font-bold text-white">Agencies</h1>
+      <h1 className="[font-family:'Montserrat',Helvetica] text-2xl font-bold text-[#111827]">Agencies</h1>
       <div className="flex gap-2">
         <Input
           value={search}
           onChange={(e) => setSearch(e.target.value)}
           placeholder="Search name, type, location"
-          className="max-w-md bg-slate-900 border-slate-700 text-white"
+          className="max-w-md border-[#e5e7eb]"
         />
         <Button type="button" variant="secondary" onClick={() => refetch()}>
           Search
         </Button>
       </div>
       {isLoading ? (
-        <p className="text-slate-500">Loading…</p>
+        <p className="text-[#6b7280]">Loading…</p>
       ) : (
-        <div className="overflow-x-auto rounded-lg border border-slate-800">
-          <table className="w-full text-sm text-left">
-            <thead className="bg-slate-900 text-slate-400">
+        <div className="overflow-x-auto rounded-lg border border-[#e5e7eb] bg-white shadow-sm">
+          <table className="w-full text-left text-sm">
+            <thead className="bg-[#f9fafb] text-[#6b7280]">
               <tr>
                 <th className="p-3">Name</th>
                 <th className="p-3">Type</th>
@@ -53,19 +53,19 @@ export default function AdminAgenciesPage() {
             </thead>
             <tbody>
               {rows.map((r: Record<string, unknown>) => (
-                <tr key={String(r._id)} className="border-t border-slate-800">
-                  <td className="p-3 text-white">{String(r.name)}</td>
-                  <td className="p-3 text-slate-400">
+                <tr key={String(r._id)} className="border-t border-[#f0f0f0]">
+                  <td className="p-3 font-medium text-[#111827]">{String(r.name)}</td>
+                  <td className="p-3 text-[#6b7280]">
                     {Array.isArray(r.agencyTypes) ? (r.agencyTypes as string[]).join(", ") : "—"}
                   </td>
-                  <td className="p-3 text-slate-400">{String(r.location || "—")}</td>
-                  <td className="p-3 text-slate-400">{String(r.populationServed ?? "—")}</td>
-                  <td className="p-3 text-slate-400">{String(r.matchCount ?? 0)}</td>
-                  <td className="p-3 text-slate-400">{String(r.applicationCount ?? 0)}</td>
+                  <td className="p-3 text-[#6b7280]">{String(r.location || "—")}</td>
+                  <td className="p-3 text-[#6b7280]">{String(r.populationServed ?? "—")}</td>
+                  <td className="p-3 text-[#6b7280]">{String(r.matchCount ?? 0)}</td>
+                  <td className="p-3 text-[#6b7280]">{String(r.applicationCount ?? 0)}</td>
                   <td className="p-3">
                     <Link
                       href={`/admin/agencies/${r._id}`}
-                      className="text-amber-400 hover:underline text-sm"
+                      className="text-sm font-medium text-[#ef3e34] hover:underline"
                     >
                       View
                     </Link>
@@ -86,7 +86,7 @@ export default function AdminAgenciesPage() {
           >
             Prev
           </Button>
-          <span className="text-slate-400 text-sm self-center">
+          <span className="self-center text-sm text-[#6b7280]">
             Page {pg.page} / {pg.totalPages}
           </span>
           <Button

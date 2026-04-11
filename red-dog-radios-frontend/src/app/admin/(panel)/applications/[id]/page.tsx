@@ -58,16 +58,16 @@ export default function AdminApplicationDetailPage() {
     onSuccess: () => qc.invalidateQueries({ queryKey: ["admin", "application", id] }),
   });
 
-  if (isLoading || !data) return <p className="text-slate-500">Loading…</p>;
+  if (isLoading || !data) return <p className="text-[#6b7280]">Loading…</p>;
 
   return (
-    <div className="space-y-6 max-w-4xl">
-      <h1 className="text-2xl font-bold text-white">Application</h1>
-      <div className="flex flex-wrap gap-4 items-end">
+    <div className="max-w-4xl space-y-6">
+      <h1 className="[font-family:'Montserrat',Helvetica] text-2xl font-bold text-[#111827]">Application</h1>
+      <div className="flex flex-wrap items-end gap-4">
         <div>
-          <p className="text-xs text-slate-500 mb-1">Status</p>
+          <p className="mb-1 text-xs text-[#6b7280]">Status</p>
           <Select value={status} onValueChange={setStatus}>
-            <SelectTrigger className="w-52 bg-slate-800 border-slate-600">
+            <SelectTrigger className="w-52 border-[#e5e7eb]">
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
@@ -93,27 +93,27 @@ export default function AdminApplicationDetailPage() {
         <Button variant="secondary" onClick={() => saveStatus.mutate()} disabled={saveStatus.isPending}>
           Update status
         </Button>
-        <Button className="bg-amber-600" onClick={() => regen.mutate()} disabled={regen.isPending}>
+        <Button className="bg-[#ef3e34] hover:bg-[#d63530] text-white" onClick={() => regen.mutate()} disabled={regen.isPending}>
           {regen.isPending ? "Regenerating…" : "Regenerate with AI"}
         </Button>
       </div>
       <div>
-        <p className="text-xs text-slate-500 mb-1">Notes</p>
+        <p className="mb-1 text-xs text-[#6b7280]">Notes</p>
         <Textarea
           value={notes}
           onChange={(e) => setNotes(e.target.value)}
-          className="bg-slate-900 border-slate-700 text-white"
+          className="border-[#e5e7eb]"
         />
         <Button className="mt-2" variant="outline" onClick={() => saveNotes.mutate()}>
           Save notes
         </Button>
       </div>
       {KEYS.map((k) => (
-        <div key={k} className="rounded-lg border border-slate-800 p-4 bg-slate-900/40">
-          <h2 className="text-amber-400 text-sm font-semibold capitalize mb-2">
+        <div key={k} className="rounded-lg border border-[#e5e7eb] bg-white p-4 shadow-sm">
+          <h2 className="mb-2 text-sm font-semibold capitalize text-[#ef3e34] [font-family:'Montserrat',Helvetica]">
             {k.replace(/([A-Z])/g, " $1")}
           </h2>
-          <p className="text-slate-300 whitespace-pre-wrap text-sm">{String(data[k] || "—")}</p>
+          <p className="whitespace-pre-wrap text-sm text-[#374151]">{String(data[k] || "—")}</p>
         </div>
       ))}
     </div>

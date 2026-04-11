@@ -55,30 +55,30 @@ export default function EditOpportunityPage() {
     onSuccess: () => router.push("/admin/opportunities"),
   });
 
-  if (!data) return <p className="text-slate-500">Loading…</p>;
+  if (!data) return <p className="text-[#6b7280]">Loading…</p>;
 
   return (
     <div className="max-w-xl space-y-4">
-      <h1 className="text-2xl font-bold text-white">Edit opportunity</h1>
+      <h1 className="[font-family:'Montserrat',Helvetica] text-2xl font-bold text-[#111827]">Edit opportunity</h1>
       {Object.keys(form).map((key) => (
         <div key={key}>
           <Label className="capitalize">{key}</Label>
           {key === "description" ? (
             <Textarea
-              className="bg-slate-900 border-slate-700 text-white mt-1"
+              className="mt-1 border-[#e5e7eb]"
               value={form[key]}
               onChange={(e) => setForm({ ...form, [key]: e.target.value })}
             />
           ) : (
             <Input
-              className="bg-slate-900 border-slate-700 text-white mt-1"
+              className="mt-1 border-[#e5e7eb]"
               value={form[key]}
               onChange={(e) => setForm({ ...form, [key]: e.target.value })}
             />
           )}
         </div>
       ))}
-      <Button className="bg-amber-600" onClick={() => save.mutate()} disabled={save.isPending}>
+      <Button className="bg-[#ef3e34] hover:bg-[#d63530] text-white" onClick={() => save.mutate()} disabled={save.isPending}>
         Save
       </Button>
     </div>
