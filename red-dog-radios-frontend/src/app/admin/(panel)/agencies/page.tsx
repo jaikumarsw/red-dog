@@ -1,9 +1,9 @@
 "use client";
 
 import { useState } from "react";
-import Link from "next/link";
 import { useQuery } from "@tanstack/react-query";
 import adminApi from "@/lib/adminApi";
+import { AdminTableViewLink } from "@/components/admin/AdminTableViewLink";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 
@@ -45,10 +45,7 @@ export default function AdminAgenciesPage() {
                 <th className="p-3">Name</th>
                 <th className="p-3">Type</th>
                 <th className="p-3">Location</th>
-                <th className="p-3">Population</th>
-                <th className="p-3">Matches</th>
-                <th className="p-3">Applications</th>
-                <th className="p-3" />
+                <th className="w-14 p-3 text-center" aria-label="View details" />
               </tr>
             </thead>
             <tbody>
@@ -59,16 +56,8 @@ export default function AdminAgenciesPage() {
                     {Array.isArray(r.agencyTypes) ? (r.agencyTypes as string[]).join(", ") : "—"}
                   </td>
                   <td className="p-3 text-[#6b7280]">{String(r.location || "—")}</td>
-                  <td className="p-3 text-[#6b7280]">{String(r.populationServed ?? "—")}</td>
-                  <td className="p-3 text-[#6b7280]">{String(r.matchCount ?? 0)}</td>
-                  <td className="p-3 text-[#6b7280]">{String(r.applicationCount ?? 0)}</td>
-                  <td className="p-3">
-                    <Link
-                      href={`/admin/agencies/${r._id}`}
-                      className="text-sm font-medium text-[#ef3e34] hover:underline"
-                    >
-                      View
-                    </Link>
+                  <td className="p-3 text-center">
+                    <AdminTableViewLink href={`/admin/agencies/${r._id}`} label="View agency details" />
                   </td>
                 </tr>
               ))}

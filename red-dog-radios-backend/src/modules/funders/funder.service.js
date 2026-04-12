@@ -1,5 +1,6 @@
 const Funder = require('./funder.schema');
 const Organization = require('../organizations/organization.schema');
+const Application = require('../applications/application.schema');
 const { AppError } = require('../../middlewares/error.middleware');
 
 const computeFunderScore = (org, funder) => {
@@ -83,6 +84,18 @@ const computeFunderScore = (org, funder) => {
   } else {
     score += 7;
     reasons.push('Grant size data incomplete — estimate only');
+  }
+
+  if (funder.localMatchRequired === true) {
+    if (org.canMeetLocalMatch === false) {
+      reasons.push('Local match required — your profile says you cannot meet it (fit reduced)');
+      score = Math.max(0, score - 25);
+    } else if (org.canMeetLocalMatch === true) {
+      reasons.push('You can meet this funder’s local match requirement (+5)');
+      score += 5;
+    } else {
+      reasons.push('This funder may require local match — set preference in your agency profile');
+    }
   }
 
   const finalScore = Math.min(100, Math.max(0, score));
@@ -181,4 +194,63 @@ const saveFunder = async (funderId, organizationId) => {
   return match;
 };
 
-module.exports = { getAll, getOne, create, update, deactivate, reactivate, saveFunder, computeFunderScore };
+/** Agency portal: only the `notes` field may be updated on the shared funder record. */
+const updateAgencyNotesOnly = async (funderId, notes) => {
+  const funder = await Funder.findByIdAndUpdate(funderId, { $set: { notes: String(notes ?? '') } }, { new: true, runValidators: true });
+  if (!funder) throw new AppError('Funder not found', 404);
+  return funder;
+};
+
+const ACTIVE_APP_STATUSES = new Set(['draft', 'drafting', 'not_started', 'ready_to_submit', 'submitted', 'in_review', 'follow_up_needed', 'awarded']);
+
+const getQueueForAgency = async (funderId, organizationId) => {
+  const funder = await Funder.findById(funderId).lean();
+  if (!funder) throw new AppError('Funder not found', 404);
+
+  const apps = await Application.find({ funder: funderId, status: { $in: [...ACTIVE_APP_STATUSES] } })
+    .sort({ createdAt: 1 })
+    .select('organization createdAt')
+    .lean();
+
+  const totalInQueue = apps.length;
+  const idx = apps.findIndex((a) => String(a.organization) === String(organizationId));
+  let position;
+  let ahead;
+  if (idx >= 0) {
+    position = idx + 1;
+    ahead = idx;
+  } else {
+    position = totalInQueue + 1;
+    ahead = totalInQueue;
+  }
+
+  const max = funder.maxApplicationsAllowed || 5;
+  const filled = funder.currentApplicationCount || 0;
+  let estimatedChance = 'moderate';
+  if (funder.isLocked) estimatedChance = 'closed — no new applications';
+  else if (filled >= max - 1) estimatedChance = 'limited — few spots remain';
+  else if (totalInQueue <= 2) estimatedChance = 'strong — early in the cycle';
+
+  return {
+    position,
+    ahead,
+    totalInQueue,
+    estimatedChance,
+    maxApplicationsAllowed: max,
+    currentApplicationCount: filled,
+    isLocked: !!funder.isLocked,
+  };
+};
+
+module.exports = {
+  getAll,
+  getOne,
+  create,
+  update,
+  deactivate,
+  reactivate,
+  saveFunder,
+  computeFunderScore,
+  updateAgencyNotesOnly,
+  getQueueForAgency,
+};

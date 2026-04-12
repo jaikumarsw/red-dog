@@ -61,9 +61,15 @@ export function AshleenChat() {
 
     const contextMessages = newMessages.slice(-10).map((m) => ({ role: m.role, content: m.content }));
 
-    const systemSuffix = agencyContext
-      ? `\n\nCURRENT USER CONTEXT:\nAgency: ${(agencyContext.name as string) || "Unknown"}\nType: ${(agencyContext.agencyType as string) || "Unknown"}\nLocation: ${(agencyContext.city as string) || ""} ${(agencyContext.state as string) || ""}\nMain Problems: ${((agencyContext.mainProblems as string[]) || []).join(", ")}\nFunding Priorities: ${((agencyContext.fundingPriorities as string[]) || []).join(", ")}`
-      : "";
+    let systemSuffix = "";
+    if (agencyContext) {
+      const types = (agencyContext.agencyTypes as string[] | undefined)?.filter(Boolean) ?? [];
+      const typeLine = types.length ? types.join(", ") : "—";
+      const loc = (agencyContext.location as string)?.trim() || "—";
+      const problems = ((agencyContext.mainProblems as string[]) || []).join(", ") || "—";
+      const priorities = ((agencyContext.fundingPriorities as string[]) || []).join(", ") || "—";
+      systemSuffix = `\n\nCURRENT USER CONTEXT:\nAgency: ${(agencyContext.name as string) || "Unknown"}\nAgency types: ${typeLine}\nLocation: ${loc}\nMain problems: ${problems}\nFunding priorities: ${priorities}`;
+    }
 
     try {
       const res = await api.post("/ashleen/chat", {

@@ -26,4 +26,11 @@ const getInsights = asyncHandler(async (req, res) => {
   return success(res, insights, 'Win insights retrieved');
 });
 
-module.exports = { getAll, getInsights };
+const getPatterns = asyncHandler(async (req, res) => {
+  const organizationId = await resolveAgencyOrganizationId(req.user);
+  if (!organizationId) throw new AppError('No organization linked to your account', 400);
+  const patterns = await winService.getPatterns();
+  return success(res, patterns, 'Win patterns retrieved');
+});
+
+module.exports = { getAll, getInsights, getPatterns };

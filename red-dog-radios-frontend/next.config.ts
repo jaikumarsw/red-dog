@@ -3,9 +3,6 @@ import type { NextConfig } from "next";
 const replitDomain = process.env.REPLIT_DEV_DOMAIN ?? "";
 
 const nextConfig: NextConfig = {
-  experimental: {
-    optimizePackageImports: ["lucide-react"],
-  },
   eslint: {
     ignoreDuringBuilds: true,
   },

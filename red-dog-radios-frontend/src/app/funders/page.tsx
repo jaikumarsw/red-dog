@@ -1,5 +1,5 @@
-import { redirect } from "next/navigation";
+import { Funders } from "@/views/Funders";
 
-export default function FundersIndexPage() {
-  redirect("/dashboard");
+export default function FundersPage() {
+  return <Funders />;
 }

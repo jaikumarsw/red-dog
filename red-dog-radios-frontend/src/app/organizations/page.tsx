@@ -1,5 +1,5 @@
-import { redirect } from "next/navigation";
+import { Organizations } from "@/views/Organizations";
 
-export default function OrganizationsRedirectPage() {
-  redirect("/settings");
+export default function OrganizationsPage() {
+  return <Organizations />;
 }

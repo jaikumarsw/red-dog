@@ -1,5 +1,5 @@
-import { redirect } from "next/navigation";
+import { Opportunities } from "@/views/Opportunities";
 
-export default function OpportunitiesRedirectPage() {
-  redirect("/matches");
+export default function OpportunitiesPage() {
+  return <Opportunities />;
 }

@@ -3,6 +3,7 @@
 import { useParams } from "next/navigation";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import adminApi from "@/lib/adminApi";
+import { AdminBackLink } from "@/components/admin/AdminBackLink";
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import {
@@ -80,6 +81,20 @@ export default function AdminAgencyDetailPage() {
     },
   });
 
+  const matchApproveMutation = useMutation({
+    mutationFn: (matchId: string) => adminApi.put(`admin/matches/${matchId}/approve`),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["admin", "agency", id] });
+    },
+  });
+
+  const matchRejectMutation = useMutation({
+    mutationFn: (matchId: string) => adminApi.put(`admin/matches/${matchId}/reject`),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["admin", "agency", id] });
+    },
+  });
+
   if (isLoading || !data) {
     return <p className="text-[#6b7280]">Loading agency…</p>;
   }
@@ -91,6 +106,7 @@ export default function AdminAgencyDetailPage() {
 
   return (
     <div className="max-w-6xl space-y-6">
+      <AdminBackLink href="/admin/agencies">Back to agencies</AdminBackLink>
       <div className="flex items-start justify-between gap-4">
         <h1 className="[font-family:'Montserrat',Helvetica] text-2xl font-bold text-[#111827]">{profile.name}</h1>
         <Button className="bg-[#ef3e34] hover:bg-[#d63530] text-white" onClick={() => setModal(true)}>
@@ -165,13 +181,36 @@ export default function AdminAgencyDetailPage() {
               <p className="text-sm text-[#6b7280]">
                 {(m.opportunity as { title?: string })?.title}
               </p>
-              <div className="mt-2 flex gap-2">
+              <div className="mt-2 flex flex-wrap items-center gap-2">
                 <span className="rounded bg-emerald-50 px-2 py-0.5 text-xs font-medium text-emerald-800">
                   {String(m.fitScore)} score
                 </span>
                 <span className="rounded bg-[#f3f4f6] px-2 py-0.5 text-xs text-[#4b5563]">
                   {String(m.tier)}
                 </span>
+                <span className="rounded bg-[#eff6ff] px-2 py-0.5 text-xs font-medium text-[#1d4ed8]">
+                  Status: {String(m.status ?? "pending")}
+                </span>
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  className="h-7 border-green-200 text-green-800 hover:bg-green-50"
+                  disabled={matchApproveMutation.isPending}
+                  onClick={() => matchApproveMutation.mutate(String(m._id))}
+                >
+                  Approve
+                </Button>
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  className="h-7 border-red-200 text-red-700 hover:bg-red-50"
+                  disabled={matchRejectMutation.isPending}
+                  onClick={() => matchRejectMutation.mutate(String(m._id))}
+                >
+                  Reject
+                </Button>
               </div>
               <ul className="mt-2 list-disc pl-4 text-xs text-[#9ca3af]">
                 {((m.reasons as string[]) || []).slice(0, 6).map((x) => (

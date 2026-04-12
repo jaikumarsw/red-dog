@@ -8,6 +8,7 @@ const appService = require('../applications/application.service');
 const oppService = require('../opportunities/opportunity.service');
 const funderService = require('../funders/funder.service');
 const matchService = require('../matches/match.service');
+const activityLogService = require('../activityLogs/activityLog.service');
 const { AppError } = require('../../middlewares/error.middleware');
 
 const HIGH_MATCH = 75;
@@ -246,7 +247,17 @@ const getOpportunityAdmin = async (id) => {
   return { ...plain, applications };
 };
 const updateOpportunityAdmin = (id, body) => oppService.update(id, body);
-const deleteOpportunityAdmin = (id) => oppService.remove(id);
+const deleteOpportunityAdmin = async (id, actorId) => {
+  const o = await Opportunity.findById(id).select('title');
+  await oppService.remove(id);
+  await activityLogService.log({
+    category: 'opportunity',
+    action: 'deleted',
+    summary: `Deleted opportunity "${o?.title || id}"`,
+    actorId,
+    meta: { opportunityId: id },
+  });
+};
 
 const listFundersAdmin = (query) => funderService.getAll({ ...query, status: query.status || 'active' });
 const normalizeFunderPayload = (body) => {
@@ -257,13 +268,29 @@ const normalizeFunderPayload = (body) => {
       .map((s) => s.trim())
       .filter(Boolean);
   }
+  if (typeof b.equipmentTags === 'string') {
+    b.equipmentTags = b.equipmentTags
+      .split(/,|\n/)
+      .map((s) => s.trim())
+      .filter(Boolean);
+  }
+  if (b.localMatchRequired === true || b.localMatchRequired === 'true') b.localMatchRequired = true;
+  else if (b.localMatchRequired === false || b.localMatchRequired === 'false') b.localMatchRequired = false;
   return b;
 };
 
 const createFunderAdmin = (body, userId) => funderService.create(normalizeFunderPayload(body), userId);
 const updateFunderAdmin = (id, body) => funderService.update(id, normalizeFunderPayload(body));
-const deleteFunderAdmin = async (id) => {
+const deleteFunderAdmin = async (id, actorId) => {
+  const f = await Funder.findById(id).select('name');
   await Funder.findByIdAndDelete(id);
+  await activityLogService.log({
+    category: 'funder',
+    action: 'deleted',
+    summary: `Deleted funder "${f?.name || id}"`,
+    actorId,
+    meta: { funderId: id },
+  });
 };
 
 const listApplicationsAdmin = async (query) => {
@@ -368,6 +395,53 @@ const recomputeAllMatches = async () => {
   return { organizations: orgs.length, opportunities: opps.length, processed };
 };
 
+const getUserAdmin = async (userId) => {
+  const u = await User.findById(userId).select('-password');
+  if (!u) throw new AppError('User not found', 404);
+  const o = u.toObject();
+  const appCount = o.organizationId
+    ? await Application.countDocuments({ organization: o.organizationId })
+    : 0;
+  let agencyName = null;
+  if (o.organizationId) {
+    const org = await Organization.findById(o.organizationId).select('name location agencyTypes');
+    agencyName = org?.name;
+    return { ...o, applicationCount: appCount, agencyName, organization: org };
+  }
+  return { ...o, applicationCount: appCount, agencyName };
+};
+
+const getFunderAdmin = async (id) => {
+  const funder = await funderService.getOne(id, null);
+  const applicantOrgs = await Application.find({ funder: id })
+    .populate('organization', 'name location')
+    .select('organization status createdAt projectTitle')
+    .sort({ createdAt: -1 })
+    .limit(100)
+    .lean();
+  return { ...funder, applicantOrgs };
+};
+
+const unlockFunderAdmin = async (id) => {
+  const f = await Funder.findByIdAndUpdate(
+    id,
+    { $set: { isLocked: false, currentApplicationCount: 0 } },
+    { new: true }
+  );
+  if (!f) throw new AppError('Funder not found', 404);
+  return f;
+};
+
+const setFunderLimitAdmin = async (id, body) => {
+  const max = parseInt(body.maxApplicationsAllowed, 10);
+  if (Number.isNaN(max) || max < 1) throw new AppError('maxApplicationsAllowed must be a positive number', 400);
+  const f = await Funder.findByIdAndUpdate(id, { $set: { maxApplicationsAllowed: max } }, { new: true });
+  if (!f) throw new AppError('Funder not found', 404);
+  return f;
+};
+
+const getActivityLogAdmin = (id) => activityLogService.getByIdAdmin(id);
+
 const listUsersAdmin = async (query) => {
   const { page = 1, limit = 20 } = query;
   const result = await User.paginate(
@@ -404,6 +478,12 @@ const updateUserRole = async (userId, { role }) => {
   return u;
 };
 
+const listActivityLogsAdmin = (query) => activityLogService.listAdmin(query);
+
+const approveMatchAdmin = (matchId) => matchService.approveMatch(matchId);
+
+const rejectMatchAdmin = (matchId) => matchService.rejectMatch(matchId);
+
 module.exports = {
   dashboard,
   listAgencies,
@@ -425,6 +505,14 @@ module.exports = {
   createApplicationForAgency,
   listMatchesAdmin,
   recomputeAllMatches,
+  getUserAdmin,
+  getFunderAdmin,
+  unlockFunderAdmin,
+  setFunderLimitAdmin,
+  getActivityLogAdmin,
   listUsersAdmin,
   updateUserRole,
+  listActivityLogsAdmin,
+  approveMatchAdmin,
+  rejectMatchAdmin,
 };

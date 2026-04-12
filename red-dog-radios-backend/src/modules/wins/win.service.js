@@ -59,4 +59,31 @@ const getInsights = async (organizationId) => {
 
 const create = async (data) => Win.create(data);
 
-module.exports = { getAll, getInsights, create };
+const getPatterns = async () => {
+  const wins = await Win.find().sort({ createdAt: -1 }).limit(200).lean();
+  const funderCounts = {};
+  const agencyTypeCounts = {};
+  const factorCounts = {};
+  for (const w of wins) {
+    if (w.funderName) funderCounts[w.funderName] = (funderCounts[w.funderName] || 0) + 1;
+    if (w.agencyType) agencyTypeCounts[w.agencyType] = (agencyTypeCounts[w.agencyType] || 0) + 1;
+    for (const f of w.winFactors || []) {
+      factorCounts[f] = (factorCounts[f] || 0) + 1;
+    }
+  }
+  const topFunders = Object.entries(funderCounts)
+    .map(([name, count]) => ({ name, count }))
+    .sort((a, b) => b.count - a.count)
+    .slice(0, 8);
+  const topAgencyTypes = Object.entries(agencyTypeCounts)
+    .map(([agencyType, count]) => ({ agencyType, count }))
+    .sort((a, b) => b.count - a.count)
+    .slice(0, 8);
+  const correlatedSections = Object.entries(factorCounts)
+    .map(([factor, count]) => ({ factor, count }))
+    .sort((a, b) => b.count - a.count)
+    .slice(0, 15);
+  return { totalSampled: wins.length, topFunders, topAgencyTypes, correlatedSections };
+};
+
+module.exports = { getAll, getInsights, create, getPatterns };

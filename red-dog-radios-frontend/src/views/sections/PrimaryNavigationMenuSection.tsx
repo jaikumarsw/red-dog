@@ -2,6 +2,7 @@
 
 import { useRouter, usePathname } from "next/navigation";
 import { useAuth } from "@/lib/AuthContext";
+import { RedDogLogo } from "@/components/RedDogLogo";
 
 const menuItems = [
   { id: "dashboard", label: "Dashboard", icon: "/figmaAssets/svg-8.svg", path: "/dashboard" },
@@ -32,23 +33,7 @@ export const PrimaryNavigationMenuSection = () => {
     <nav className="z-[1] flex w-72 min-h-screen flex-col items-stretch self-stretch border-r border-solid border-[#1f1f1f] bg-[#0d0d0d]">
       {/* Logo / Brand Header */}
       <div className="h-20 items-center px-6 py-0 border-[#1f1f1f] flex self-stretch w-full border-b border-solid flex-shrink-0">
-        <div className="inline-flex items-center gap-3 relative flex-[0_0_auto]">
-          <div className="flex w-10 h-10 items-center justify-center relative bg-[#ef3e34] rounded-lg flex-shrink-0">
-            <div className="absolute top-0 left-0 w-10 h-10 bg-[#ffffff01] rounded-lg shadow-[0px_4px_6px_-4px_#c6102e33,0px_10px_15px_-3px_#c6102e33]" />
-            <span className="relative [font-family:'Oswald',Helvetica] font-bold text-white text-xl tracking-[1.00px] leading-7 whitespace-nowrap">
-              RD
-            </span>
-          </div>
-
-          <div className="inline-flex flex-col items-start relative flex-[0_0_auto]">
-            <span className="relative [font-family:'Oswald',Helvetica] font-bold text-neutral-50 text-lg tracking-[0.45px] leading-[22.5px] whitespace-nowrap">
-              RED DOG LOGO
-            </span>
-            <span className="relative [font-family:'Montserrat',Helvetica] font-semibold text-[#a6a6a6] text-[10px] tracking-[1.00px] leading-[15px] whitespace-nowrap">
-              TAGLINE
-            </span>
-          </div>
-        </div>
+        <RedDogLogo dark />
       </div>
 
       {/* Menu */}

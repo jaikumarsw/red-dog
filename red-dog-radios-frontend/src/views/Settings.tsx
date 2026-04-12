@@ -1,11 +1,12 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { useQuery, useMutation } from "@tanstack/react-query";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { Bell, Globe, Shield, Trash2, Mail, Zap, Clock, CheckCircle, Lock, AlignJustify } from "lucide-react";
+import { Bell, Globe, Shield, Trash2, Mail, Zap, Clock, CheckCircle, Lock, AlignJustify, Target } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { cn } from "@/lib/utils";
 import { SettingsSectionCard, SettingsToggle } from "@/components/settings/SettingsPrimitives";
@@ -20,7 +21,7 @@ type ApiSettings = {
   lastName?: string;
   fullName?: string;
   email?: string;
-  organizationId?: { name?: string } | null;
+  organizationId?: { name?: string; canMeetLocalMatch?: boolean | null } | null;
   settings?: {
     notifications?: Record<string, boolean>;
     preferences?: { language?: string; timezone?: string };
@@ -29,6 +30,7 @@ type ApiSettings = {
 
 export const Settings = () => {
   const router = useRouter();
+  const queryClient = useQueryClient();
   const { toast } = useToast();
   const { user, logout } = useAuth();
   const {
@@ -57,6 +59,7 @@ export const Settings = () => {
   const [timezone, setTimezone] = useState("America/New_York");
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [orgName, setOrgName] = useState<string>("");
+  const [canMeetLocalMatch, setCanMeetLocalMatch] = useState<"unset" | "yes" | "no">("unset");
 
   const { data: settingsData } = useQuery<ApiSettings>({
     queryKey: qk.settings(),
@@ -77,6 +80,10 @@ export const Settings = () => {
         newPassword: "",
       });
       setOrgName(u.organizationId?.name ?? "—");
+      const cm = u.organizationId && typeof u.organizationId === "object" ? u.organizationId.canMeetLocalMatch : undefined;
+      if (cm === true) setCanMeetLocalMatch("yes");
+      else if (cm === false) setCanMeetLocalMatch("no");
+      else setCanMeetLocalMatch("unset");
       if (u.settings?.notifications) {
         setNotifications((prev) => ({ ...prev, ...u.settings!.notifications }));
       }
@@ -94,15 +101,26 @@ export const Settings = () => {
   }, [settingsData, user, reset]);
 
   const saveMutation = useMutation({
-    mutationFn: (data: SettingsSaveFormValues) =>
-      api.put("/settings", {
+    mutationFn: (data: SettingsSaveFormValues) => {
+      const body: Record<string, unknown> = {
         firstName: data.firstName,
         lastName: data.lastName,
         email: data.email,
         notifications,
         preferences: { language, timezone },
-      }),
-    onSuccess: () => {
+        canMeetLocalMatch:
+          canMeetLocalMatch === "unset" ? null : canMeetLocalMatch === "yes",
+      };
+      const np = data.newPassword?.trim() ?? "";
+      if (np) {
+        body.currentPassword = data.currentPassword;
+        body.newPassword = np;
+      }
+      return api.put("/settings", body);
+    },
+    onSuccess: (_, variables) => {
+      void queryClient.invalidateQueries({ queryKey: qk.settings() });
+      reset({ ...variables, currentPassword: "", newPassword: "" });
       toast({ title: "Settings saved successfully", description: "Your preferences have been updated." });
     },
     onError: (err: unknown) => {
@@ -194,9 +212,38 @@ export const Settings = () => {
           </div>
           <div className="flex flex-col gap-1.5">
             <label className={labelCls}>Organization</label>
-            <div className="border border-[#e5e7eb] rounded-lg px-4 py-2.5 bg-[#f9fafb]">
+            <div className="flex flex-col gap-2 rounded-lg border border-[#e5e7eb] bg-[#f9fafb] px-4 py-2.5 sm:flex-row sm:items-center sm:justify-between">
               <span className="[font-family:'Montserrat',Helvetica] font-semibold text-[#111827] text-sm">{orgName || "—"}</span>
+              <Link
+                href="/organizations"
+                className="[font-family:'Montserrat',Helvetica] text-xs font-semibold text-[#ef3e34] hover:underline"
+              >
+                Manage organizations
+              </Link>
             </div>
+          </div>
+        </SettingsSectionCard>
+
+        <SettingsSectionCard
+          icon={<Target size={15} />}
+          title="Grant matching"
+          subtitle="Used when grants or funders require a local funding match"
+        >
+          <div className="flex flex-col gap-1.5">
+            <label className={labelCls}>Local match capacity</label>
+            <select
+              data-testid="select-local-match"
+              className={`${inputCls} appearance-none cursor-pointer`}
+              value={canMeetLocalMatch}
+              onChange={(e) => setCanMeetLocalMatch(e.target.value as "unset" | "yes" | "no")}
+            >
+              <option value="unset">Not specified</option>
+              <option value="yes">Yes — we can meet local match when required</option>
+              <option value="no">No — we typically cannot meet local match</option>
+            </select>
+            <p className="text-xs text-[#9ca3af] [font-family:'Montserrat',Helvetica]">
+              Improves fit scores for opportunities that flag a local match requirement.
+            </p>
           </div>
         </SettingsSectionCard>
 

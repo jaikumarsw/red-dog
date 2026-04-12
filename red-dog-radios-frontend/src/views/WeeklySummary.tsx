@@ -1,10 +1,14 @@
 "use client";
 
 import { useState } from "react";
-import { useQuery } from "@tanstack/react-query";
-import { FileText, Eye, Calendar, Zap, Mail } from "lucide-react";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { FileText, Eye, Calendar, Zap, Mail, Send, Sparkles } from "lucide-react";
 import api from "@/lib/api";
 import { qk } from "@/lib/queryKeys";
+import { useAuth } from "@/lib/AuthContext";
+import { useToast } from "@/hooks/use-toast";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 
 type DigestOpp = {
   title: string;
@@ -147,6 +151,10 @@ const LivePreview = ({ digest }: { digest: Digest | null }) => {
 
 export const WeeklySummary = () => {
   const [selected, setSelected] = useState<Digest | null>(null);
+  const [sendEmail, setSendEmail] = useState("");
+  const { user } = useAuth();
+  const { toast } = useToast();
+  const queryClient = useQueryClient();
 
   const { data: digests = [], isLoading: loading, isError, refetch } = useQuery<Digest[]>({
     queryKey: qk.digests(),
@@ -157,15 +165,85 @@ export const WeeklySummary = () => {
     },
   });
 
+  const generateMutation = useMutation({
+    mutationFn: () => api.post("/digests/generate", {}),
+    onSuccess: async () => {
+      await queryClient.invalidateQueries({ queryKey: qk.digests() });
+      toast({ title: "Digest generated", description: "A new weekly summary draft was created." });
+      setSelected(null);
+    },
+    onError: (err: unknown) => {
+      const msg =
+        (err as { response?: { data?: { message?: string } } })?.response?.data?.message ?? "Could not generate digest.";
+      toast({ title: "Error", description: msg, variant: "destructive" });
+    },
+  });
+
+  const sendMutation = useMutation({
+    mutationFn: ({ id, recipientEmail, recipientName }: { id: string; recipientEmail: string; recipientName?: string }) =>
+      api.post(`/digests/${id}/send`, { recipientEmail, recipientName }),
+    onSuccess: async () => {
+      await queryClient.invalidateQueries({ queryKey: qk.digests() });
+      toast({ title: "Digest sent", description: "The weekly summary was queued for email delivery." });
+    },
+    onError: (err: unknown) => {
+      const msg =
+        (err as { response?: { data?: { message?: string } } })?.response?.data?.message ?? "Could not send digest.";
+      toast({ title: "Error", description: msg, variant: "destructive" });
+    },
+  });
+
+  const defaultEmail = user?.email?.trim() ?? "";
+  const effectiveSendEmail = sendEmail.trim() || defaultEmail;
+
   return (
     <div className="flex h-full min-w-0 flex-col gap-6 bg-neutral-50 p-4 sm:p-6 lg:p-8">
-      <div className="flex min-w-0 flex-col gap-1">
+      <div className="flex min-w-0 flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-start sm:justify-between">
+        <div className="flex min-w-0 flex-col gap-1">
         <h1 className="[font-family:'Oswald',Helvetica] text-2xl font-bold uppercase leading-tight tracking-[0.5px] text-black sm:text-3xl break-words">
           Weekly Summary
         </h1>
         <p className="[font-family:'Montserrat',Helvetica] text-sm font-normal text-[#6b7280] max-w-prose break-words">
           Manage and dispatch automated grant reports
         </p>
+        </div>
+        <div className="flex w-full min-w-0 flex-col gap-2 sm:w-auto sm:max-w-md">
+          <Button
+            type="button"
+            className="w-full bg-[#ef3e34] hover:bg-[#d63530] sm:w-auto"
+            disabled={generateMutation.isPending}
+            onClick={() => generateMutation.mutate()}
+          >
+            <Sparkles size={16} className="mr-2" />
+            {generateMutation.isPending ? "Generating…" : "Generate new digest"}
+          </Button>
+          <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
+            <Input
+              type="email"
+              placeholder="Recipient email"
+              className="border-[#e5e7eb] text-sm"
+              value={sendEmail}
+              onChange={(e) => setSendEmail(e.target.value)}
+            />
+            <Button
+              type="button"
+              variant="outline"
+              className="shrink-0 border-[#e5e7eb]"
+              disabled={!selected || sendMutation.isPending || !effectiveSendEmail}
+              onClick={() => {
+                if (!selected) return;
+                sendMutation.mutate({
+                  id: selected.id,
+                  recipientEmail: effectiveSendEmail,
+                  recipientName: user?.fullName ?? user?.firstName,
+                });
+              }}
+            >
+              <Send size={16} className="mr-2" />
+              {sendMutation.isPending ? "Sending…" : "Send selected"}
+            </Button>
+          </div>
+        </div>
       </div>
 
       <div className="flex min-h-0 min-w-0 flex-1 flex-col gap-4 lg:flex-row lg:gap-5">

@@ -8,6 +8,8 @@ router.post('/auth/login', ctrl.adminLogin);
 router.get('/auth/me', protectAdmin, ctrl.adminMe);
 
 router.get('/dashboard', protectAdmin, ctrl.dashboard);
+router.get('/activity-logs', protectAdmin, ctrl.listActivityLogs);
+router.get('/activity-logs/:id', protectAdmin, ctrl.getActivityLog);
 
 router.get('/agencies', protectAdmin, ctrl.listAgencies);
 router.get('/agencies/:id', protectAdmin, ctrl.getAgency);
@@ -20,6 +22,9 @@ router.delete('/opportunities/:id', protectAdmin, ctrl.deleteOpportunity);
 
 router.get('/funders', protectAdmin, ctrl.listFunders);
 router.post('/funders', protectAdmin, ctrl.createFunder);
+router.put('/funders/:id/unlock', protectAdmin, ctrl.unlockFunder);
+router.put('/funders/:id/set-limit', protectAdmin, ctrl.setFunderLimit);
+router.get('/funders/:id', protectAdmin, ctrl.getFunder);
 router.put('/funders/:id', protectAdmin, ctrl.updateFunder);
 router.delete('/funders/:id', protectAdmin, ctrl.deleteFunder);
 
@@ -32,8 +37,11 @@ router.post('/applications/:id/generate-ai', protectAdmin, ctrl.generateApplicat
 
 router.get('/matches', protectAdmin, ctrl.listMatches);
 router.post('/matches/recompute-all', protectAdmin, ctrl.recomputeMatches);
+router.put('/matches/:id/approve', protectAdmin, ctrl.approveMatch);
+router.put('/matches/:id/reject', protectAdmin, ctrl.rejectMatch);
 
 router.get('/users', protectAdmin, ctrl.listUsers);
+router.get('/users/:id', protectAdmin, ctrl.getUser);
 router.put('/users/:id/role', protectAdmin, ctrl.updateUserRole);
 
 module.exports = router;

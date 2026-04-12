@@ -26,7 +26,7 @@ export const RedDogLogo = ({ dark = false }: RedDogLogoProps) => {
         <span
           className={`[font-family:'Montserrat',Helvetica] text-[11px] font-medium leading-snug tracking-[0.02em] sm:text-xs sm:leading-relaxed ${taglineCls}`}
         >
-          Real-time intelligence on grants
+          Grant Intelligence for Public Safety
         </span>
       </div>
     </div>

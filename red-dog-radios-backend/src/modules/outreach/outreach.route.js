@@ -5,8 +5,8 @@ const { protect } = require('../../middlewares/auth.middleware');
 const router = express.Router();
 
 router.get('/', protect, getAll);
-router.get('/:id', protect, getOne);
 router.post('/generate', protect, generate);
+router.get('/:id', protect, getOne);
 router.put('/:id', protect, update);
 router.put('/:id/sent', protect, markSent);
 

@@ -5,16 +5,11 @@ import { useRouter } from "next/navigation";
 import { ChevronRight, Search, FileText, Sparkles, ClipboardList, Check } from "lucide-react";
 import api from "@/lib/api";
 import { useAuth } from "@/lib/AuthContext";
+import { RedDogLogo } from "@/components/RedDogLogo";
 
 const OnboardingLogo = () => (
-  <div className="flex items-center gap-2.5 mb-8">
-    <div className="flex w-9 h-9 items-center justify-center bg-[#ef3e34] rounded-lg flex-shrink-0">
-      <span className="[font-family:'Oswald',Helvetica] font-bold text-white text-base tracking-[1px]">RD</span>
-    </div>
-    <div className="flex flex-col items-start">
-      <span className="[font-family:'Oswald',Helvetica] font-bold text-black text-base tracking-[0.5px] leading-tight">RED DOG LOGO</span>
-      <span className="[font-family:'Montserrat',Helvetica] font-semibold text-[#9ca3af] text-[9px] tracking-[0.8px] leading-tight uppercase">Real Time Intelligence On Grants</span>
-    </div>
+  <div className="mb-8 self-start">
+    <RedDogLogo />
   </div>
 );
 
@@ -73,18 +68,23 @@ export const OnboardingStep5 = () => {
     setGoalsError(null);
     setLoading(true);
 
-    const step1 = getStoredStep<{ opportunityTitle: string; location: string; websiteUrl: string; missionStatement: string }>("rdg_onboarding_step1");
-    const step2 = getStoredStep<{ agencyType: string }>("rdg_onboarding_step2");
-    const step3 = getStoredStep<{ programArea: string }>("rdg_onboarding_step3");
+    const step1 = getStoredStep<{
+      organizationName: string;
+      location: string;
+      websiteUrl: string;
+      missionStatement: string;
+    }>("rdg_onboarding_step1");
+    const step2 = getStoredStep<{ agencyTypes: string[] }>("rdg_onboarding_step2");
+    const step3 = getStoredStep<{ programAreas: string[] }>("rdg_onboarding_step3");
     const step4 = getStoredStep<{ requestDescription: string; budgetRange: string; timeline: string }>("rdg_onboarding_step4");
 
     const payload = {
-      opportunityTitle: step1?.opportunityTitle ?? "",
+      organizationName: step1?.organizationName ?? "",
       location: step1?.location ?? "",
       websiteUrl: step1?.websiteUrl ?? "",
       missionStatement: step1?.missionStatement ?? "",
-      agencyTypes: step2?.agencyType ? [step2.agencyType] : [],
-      programAreas: step3?.programArea ? [step3.programArea] : [],
+      agencyTypes: Array.isArray(step2?.agencyTypes) ? step2.agencyTypes : [],
+      programAreas: Array.isArray(step3?.programAreas) ? step3.programAreas : [],
       specificRequest: step4?.requestDescription ?? "",
       budgetRange: step4?.budgetRange ?? "under-25k",
       timeline: step4?.timeline ?? "planned",

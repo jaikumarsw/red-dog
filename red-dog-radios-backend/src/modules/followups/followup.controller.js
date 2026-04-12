@@ -5,7 +5,7 @@ const followupService = require('./followup.service');
 const getAll = asyncHandler(async (req, res) => {
   const { page, limit, status, dueToday } = req.query;
   const result = await followupService.getAll({ page, limit, userId: req.user._id, status, dueToday });
-  return paginate(res, result.docs, result.totalDocs, result.page, result.totalPages, 'Follow-ups retrieved');
+  return paginate(res, result.docs, result, 'Follow-ups retrieved');
 });
 
 const markSent = asyncHandler(async (req, res) => {

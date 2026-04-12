@@ -2,6 +2,7 @@
 
 import { useRouter } from "next/navigation";
 import { Target, FileText, CheckCircle, ChevronRight } from "lucide-react";
+import { RedDogLogo } from "@/components/RedDogLogo";
 
 const features = [
   { icon: Target, label: "Smart matching" },
@@ -14,21 +15,8 @@ export const OnboardingWelcome = () => {
 
   return (
     <div className="flex min-h-screen flex-col items-center justify-start bg-white px-4 pb-12 pt-6 sm:pt-8">
-      {/* Logo */}
-      <div className="flex items-center gap-2.5 mb-8">
-        <div className="flex w-9 h-9 items-center justify-center bg-[#ef3e34] rounded-lg flex-shrink-0">
-          <span className="[font-family:'Oswald',Helvetica] font-bold text-white text-base tracking-[1px]">
-            RD
-          </span>
-        </div>
-        <div className="flex flex-col items-start">
-          <span className="[font-family:'Oswald',Helvetica] font-bold text-black text-base tracking-[0.5px] leading-tight">
-            RED DOG LOGO
-          </span>
-          <span className="[font-family:'Montserrat',Helvetica] font-semibold text-[#9ca3af] text-[9px] tracking-[0.8px] leading-tight uppercase">
-            Real Time Intelligence On Grants
-          </span>
-        </div>
+      <div className="mb-8 self-start">
+        <RedDogLogo />
       </div>
 
       {/* Card */}

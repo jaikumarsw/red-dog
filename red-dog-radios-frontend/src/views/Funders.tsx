@@ -3,9 +3,13 @@
 import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { useRouter } from "next/navigation";
+import { Lock } from "lucide-react";
 import api from "@/lib/api";
 import { qk } from "@/lib/queryKeys";
 import { cn } from "@/lib/utils";
+import { Switch } from "@/components/ui/switch";
+import { Label } from "@/components/ui/label";
+import { Progress } from "@/components/ui/progress";
 
 interface Funder {
   _id: string;
@@ -64,6 +68,7 @@ export const Funders = () => {
   const [search, setSearch] = useState("");
   const [categoryFilter, setCategoryFilter] = useState("");
   const [tierFilter, setTierFilter] = useState("");
+  const [openOnly, setOpenOnly] = useState(false);
 
   const { data, isLoading, isError, refetch } = useQuery<{ data: Funder[] }>({
     queryKey: qk.funders(),
@@ -85,7 +90,8 @@ export const Funders = () => {
       !categoryFilter ||
       f.fundingCategories?.some((c) => c.toLowerCase().includes(categoryFilter.toLowerCase()));
     const matchTier = !tierFilter || f.matchTier === tierFilter;
-    return matchSearch && matchCat && matchTier;
+    const matchOpen = !openOnly || !f.isLocked;
+    return matchSearch && matchCat && matchTier && matchOpen;
   });
 
   return (
@@ -137,6 +143,12 @@ export const Funders = () => {
             <option value="low">Low Match (&lt;50%)</option>
           </select>
         )}
+        <div className="flex items-center gap-2 sm:ml-2">
+          <Switch id="open-funders" checked={openOnly} onCheckedChange={setOpenOnly} />
+          <Label htmlFor="open-funders" className="[font-family:'Montserrat',Helvetica] text-sm text-[#374151] cursor-pointer">
+            Open funders only
+          </Label>
+        </div>
       </div>
 
       {/* Legend */}
@@ -201,11 +213,27 @@ export const Funders = () => {
                       <MatchScoreBadge score={f.matchScore} tier={f.matchTier} />
                     )}
                     {f.isLocked && (
-                      <span className="rounded-full bg-red-100 px-2 py-0.5 text-xs font-semibold text-red-700 [font-family:'Montserrat',Helvetica]">
-                        LOCKED
+                      <span className="flex items-center gap-0.5 rounded-full bg-red-100 px-2 py-0.5 text-xs font-semibold text-red-700 [font-family:'Montserrat',Helvetica]">
+                        <Lock size={11} className="shrink-0" /> LOCKED
                       </span>
                     )}
                   </div>
+                </div>
+
+                <div className="flex flex-col gap-1">
+                  <div className="flex justify-between text-xs [font-family:'Montserrat',Helvetica] text-[#6b7280]">
+                    <span>Application spots</span>
+                    <span className="font-semibold text-[#111827]">
+                      {f.currentApplicationCount ?? 0} / {f.maxApplicationsAllowed ?? 5} filled
+                    </span>
+                  </div>
+                  <Progress
+                    value={Math.min(
+                      100,
+                      ((f.currentApplicationCount ?? 0) / Math.max(1, f.maxApplicationsAllowed ?? 5)) * 100
+                    )}
+                    className="h-2 bg-[#f3f4f6]"
+                  />
                 </div>
 
                 <p className="[font-family:'Montserrat',Helvetica] text-[#6b7280] text-sm leading-relaxed line-clamp-2">

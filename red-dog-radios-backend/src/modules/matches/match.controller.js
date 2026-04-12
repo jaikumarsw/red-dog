@@ -48,18 +48,12 @@ const computeAll = asyncHandler(async (req, res) => {
   return success(res, result, `Computed matches for all opportunities. Processed: ${result.processed}, Errors: ${result.errors}`);
 });
 
-const approve = asyncHandler(async (req, res) => {
-  const organizationId = await resolveAgencyOrganizationId(req.user);
-  await assertMatchInOrg(req.params.id, organizationId);
-  const match = await matchService.approveMatch(req.params.id);
-  return success(res, match, 'Match approved');
+const approve = asyncHandler(async () => {
+  throw new AppError('Match approval is handled by Red Dog staff in the admin portal.', 403);
 });
 
-const reject = asyncHandler(async (req, res) => {
-  const organizationId = await resolveAgencyOrganizationId(req.user);
-  await assertMatchInOrg(req.params.id, organizationId);
-  const match = await matchService.rejectMatch(req.params.id);
-  return success(res, match, 'Match rejected');
+const reject = asyncHandler(async () => {
+  throw new AppError('Match rejection is handled by Red Dog staff in the admin portal.', 403);
 });
 
 module.exports = { getAll, getOne, create, computeAndSave, computeAll, approve, reject };

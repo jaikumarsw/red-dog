@@ -33,6 +33,8 @@ const organizationSchema = new mongoose.Schema(
     currentEquipment: { type: String },
     mainProblems: [{ type: String }],
     fundingPriorities: [{ type: String }],
+    /** Whether the agency can meet a local match requirement when applying. */
+    canMeetLocalMatch: { type: Boolean },
 
     matchCount: { type: Number, default: 0 },
     status: { type: String, enum: ['active', 'inactive'], default: 'active' },

@@ -1,9 +1,9 @@
 "use client";
 
 import { useState } from "react";
-import Link from "next/link";
 import { useQuery } from "@tanstack/react-query";
 import adminApi from "@/lib/adminApi";
+import { AdminTableViewLink } from "@/components/admin/AdminTableViewLink";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 
@@ -53,10 +53,8 @@ export default function AdminApplicationsPage() {
             <tr>
               <th className="p-3">Agency</th>
               <th className="p-3">Funder</th>
-              <th className="p-3">Started</th>
-              <th className="p-3">Submitted</th>
               <th className="p-3">Status</th>
-              <th className="p-3" />
+              <th className="w-14 p-3 text-center" aria-label="View details" />
             </tr>
           </thead>
           <tbody>
@@ -69,21 +67,13 @@ export default function AdminApplicationsPage() {
                   {(r.funder as { name?: string })?.name ||
                     (r.opportunity as { funder?: string })?.funder}
                 </td>
-                <td className="p-3 text-[#9ca3af]">
-                  {r.dateStarted ? new Date(String(r.dateStarted)).toLocaleDateString() : "—"}
-                </td>
-                <td className="p-3 text-[#9ca3af]">
-                  {r.dateSubmitted ? new Date(String(r.dateSubmitted)).toLocaleDateString() : "—"}
-                </td>
                 <td className="p-3">
                   <span className="rounded bg-[#f3f4f6] px-2 py-0.5 text-xs text-[#374151]">
                     {String(r.status)}
                   </span>
                 </td>
-                <td className="p-3">
-                  <Link href={`/admin/applications/${r._id}`} className="text-sm font-medium text-[#ef3e34] hover:underline">
-                    View
-                  </Link>
+                <td className="p-3 text-center">
+                  <AdminTableViewLink href={`/admin/applications/${r._id}`} label="View application details" />
                 </td>
               </tr>
             ))}

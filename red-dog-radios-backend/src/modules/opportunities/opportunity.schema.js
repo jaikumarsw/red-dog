@@ -13,6 +13,8 @@ const opportunitySchema = new mongoose.Schema(
     agencyTypes: [{ type: String }],
     description: { type: String },
     category: { type: String },
+    equipmentTags: [{ type: String }],
+    localMatchRequired: { type: Boolean, default: false },
     status: { type: String, enum: ['open', 'closing', 'closed'], default: 'open' },
     createdBy: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
   },

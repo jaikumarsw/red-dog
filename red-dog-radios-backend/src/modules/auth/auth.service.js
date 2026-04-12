@@ -1,6 +1,15 @@
+const crypto = require('crypto');
+const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
 const User = require('./user.schema');
 const { AppError } = require('../../middlewares/error.middleware');
+
+let transporter;
+try {
+  transporter = require('../../config/email.config');
+} catch {
+  transporter = null;
+}
 
 const signToken = (id) =>
   jwt.sign({ id }, process.env.JWT_SECRET, { expiresIn: process.env.JWT_EXPIRES_IN || '7d' });
@@ -69,4 +78,88 @@ const loginAdmin = async ({ email, password }) => {
   return { user: safeUser, token };
 };
 
-module.exports = { register, login, getMe, loginAdmin };
+const forgotPassword = async ({ email }) => {
+  const normalized = String(email || '')
+    .trim()
+    .toLowerCase();
+  const generic = { ok: true, message: 'If an account exists for this email, a reset code was sent.' };
+  if (!normalized) return generic;
+
+  const user = await User.findOne({ email: normalized });
+  if (!user) return generic;
+
+  const otp = String(Math.floor(100000 + Math.random() * 900000));
+  user.resetOtp = await bcrypt.hash(otp, 10);
+  user.resetOtpExpiry = new Date(Date.now() + 15 * 60 * 1000);
+  user.resetToken = undefined;
+  user.resetTokenExpiry = undefined;
+  await user.save();
+
+  try {
+    if (transporter && process.env.SMTP_USER && process.env.SMTP_PASS) {
+      await transporter.sendMail({
+        from: process.env.SMTP_FROM || process.env.SMTP_USER,
+        to: user.email,
+        subject: 'Your Red Dog password reset code',
+        text: `Your verification code is: ${otp}. It expires in 15 minutes.`,
+        html: `<p>Your verification code is: <strong>${otp}</strong></p><p>It expires in 15 minutes.</p>`,
+      });
+    } else {
+      console.info(`[auth] Password reset OTP for ${user.email}: ${otp} (SMTP not configured)`);
+    }
+  } catch (e) {
+    console.error('[auth] Forgot password email failed:', e.message);
+  }
+
+  return generic;
+};
+
+const verifyOtp = async ({ email, otp }) => {
+  const normalized = String(email || '')
+    .trim()
+    .toLowerCase();
+  const user = await User.findOne({ email: normalized }).select('+resetOtp +resetOtpExpiry');
+  if (!user?.resetOtp || !user.resetOtpExpiry) throw new AppError('Invalid or expired code', 400);
+  if (user.resetOtpExpiry < new Date()) throw new AppError('Invalid or expired code', 400);
+  const ok = await bcrypt.compare(String(otp).trim(), user.resetOtp);
+  if (!ok) throw new AppError('Invalid or expired code', 400);
+
+  const resetToken = crypto.randomBytes(32).toString('hex');
+  user.resetToken = await bcrypt.hash(resetToken, 10);
+  user.resetTokenExpiry = new Date(Date.now() + 60 * 60 * 1000);
+  user.resetOtp = undefined;
+  user.resetOtpExpiry = undefined;
+  await user.save();
+
+  return { resetToken };
+};
+
+const resetPassword = async ({ email, resetToken, newPassword }) => {
+  if (!newPassword || String(newPassword).length < 8) {
+    throw new AppError('Password must be at least 8 characters', 400);
+  }
+  const normalized = String(email || '')
+    .trim()
+    .toLowerCase();
+  const user = await User.findOne({ email: normalized }).select('+password +resetToken +resetTokenExpiry');
+  if (!user?.resetToken || !user.resetTokenExpiry) throw new AppError('Invalid or expired reset link', 400);
+  if (user.resetTokenExpiry < new Date()) throw new AppError('Invalid or expired reset link', 400);
+  const ok = await bcrypt.compare(String(resetToken).trim(), user.resetToken);
+  if (!ok) throw new AppError('Invalid or expired reset link', 400);
+
+  user.password = newPassword;
+  user.resetToken = undefined;
+  user.resetTokenExpiry = undefined;
+  await user.save();
+  return { ok: true };
+};
+
+module.exports = {
+  register,
+  login,
+  getMe,
+  loginAdmin,
+  forgotPassword,
+  verifyOtp,
+  resetPassword,
+};

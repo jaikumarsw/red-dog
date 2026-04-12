@@ -3,6 +3,7 @@
 import { useParams } from "next/navigation";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import adminApi from "@/lib/adminApi";
+import { AdminBackLink } from "@/components/admin/AdminBackLink";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import {
@@ -62,6 +63,7 @@ export default function AdminApplicationDetailPage() {
 
   return (
     <div className="max-w-4xl space-y-6">
+      <AdminBackLink href="/admin/applications">Back to applications</AdminBackLink>
       <h1 className="[font-family:'Montserrat',Helvetica] text-2xl font-bold text-[#111827]">Application</h1>
       <div className="flex flex-wrap items-end gap-4">
         <div>

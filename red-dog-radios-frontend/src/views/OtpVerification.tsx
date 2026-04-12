@@ -9,15 +9,19 @@ import { RedDogLogo } from "@/components/RedDogLogo";
 import { AuthFooter } from "@/components/AuthFooter";
 import { cn } from "@/lib/utils";
 import { otpSchema } from "@/lib/validation-schemas";
+import api from "@/lib/api";
+import { useToast } from "@/hooks/use-toast";
 
 export const OtpVerification = () => {
   const router = useRouter();
   const searchParams = useSearchParams();
   const flow = searchParams.get("flow");
+  const { toast } = useToast();
 
   const [otp, setOtp] = useState<string[]>(["", "", "", "", "", ""]);
   const [countdown, setCountdown] = useState(60);
   const [otpError, setOtpError] = useState<string | null>(null);
+  const [verifying, setVerifying] = useState(false);
   const inputRefs = useRef<(HTMLInputElement | null)[]>([]);
 
   useEffect(() => {
@@ -30,7 +34,26 @@ export const OtpVerification = () => {
     return () => clearTimeout(timer);
   }, [countdown]);
 
-  const confirmOtp = () => {
+  const resetEmail = () =>
+    typeof window !== "undefined" ? sessionStorage.getItem("rdg_reset_email")?.trim() || "" : "";
+
+  const resendResetOtp = async () => {
+    const email = resetEmail();
+    if (!email) {
+      toast({ title: "Session expired", description: "Start again from forgot password.", variant: "destructive" });
+      router.push("/forgot-password");
+      return;
+    }
+    try {
+      await api.post("/auth/forgot-password", { email });
+      setCountdown(60);
+      toast({ title: "Code sent", description: "Check your email for a new code." });
+    } catch {
+      toast({ title: "Could not resend", variant: "destructive" });
+    }
+  };
+
+  const confirmOtp = async () => {
     const code = otp.join("");
     const parsed = otpSchema.safeParse(code);
     if (!parsed.success) {
@@ -38,10 +61,32 @@ export const OtpVerification = () => {
       return;
     }
     setOtpError(null);
+
     if (flow === "signup") {
       router.push("/onboarding");
-    } else {
+      return;
+    }
+
+    const email = resetEmail();
+    if (!email) {
+      setOtpError("Session expired. Go back to forgot password.");
+      return;
+    }
+
+    setVerifying(true);
+    try {
+      const res = await api.post("/auth/verify-otp", { email, otp: code });
+      const token = res.data?.data?.resetToken as string | undefined;
+      if (!token) throw new Error("missing token");
+      if (typeof window !== "undefined") {
+        sessionStorage.setItem("rdg_reset_token", token);
+      }
       router.push("/create-password");
+    } catch {
+      setOtpError("Invalid or expired code.");
+      toast({ title: "Verification failed", description: "Check the code and try again.", variant: "destructive" });
+    } finally {
+      setVerifying(false);
     }
   };
 
@@ -80,14 +125,14 @@ export const OtpVerification = () => {
       <div className="flex w-full max-w-md flex-col items-center rounded-2xl border border-[#e5e7eb] bg-white p-6 shadow-sm sm:p-10">
         <RedDogLogo />
 
-        <div className="mt-5 w-16 h-16 rounded-full bg-[#fff7ed] border-2 border-[#fed7aa] flex items-center justify-center">
+        <div className="mt-5 flex h-16 w-16 items-center justify-center rounded-full border-2 border-[#fed7aa] bg-[#fff7ed]">
           <ShieldCheck size={28} className="text-[#f97316]" />
         </div>
 
-        <h2 className="[font-family:'Oswald',Helvetica] font-bold text-black text-2xl tracking-[-0.5px] mt-5">
+        <h2 className="mt-5 [font-family:'Oswald',Helvetica] text-2xl font-bold tracking-[-0.5px] text-black">
           OTP Verification
         </h2>
-        <p className="[font-family:'Montserrat',Helvetica] font-normal text-[#6b7280] text-sm mt-2 text-center">
+        <p className="mt-2 text-center [font-family:'Montserrat',Helvetica] text-sm font-normal text-[#6b7280]">
           Enter the 6-digit verification code sent to your email address
         </p>
 
@@ -113,14 +158,27 @@ export const OtpVerification = () => {
           ))}
         </div>
         {otpError && (
-          <p className="[font-family:'Montserrat',Helvetica] text-sm text-red-600 mt-2 text-center">{otpError}</p>
+          <p className="mt-2 text-center [font-family:'Montserrat',Helvetica] text-sm text-red-600">{otpError}</p>
         )}
 
         <div className="mt-4">
-          {countdown > 0 ? (
+          {flow === "reset" ? (
+            countdown > 0 ? (
+              <p className="[font-family:'Montserrat',Helvetica] text-sm text-[#9ca3af]">
+                Resend code in: <span className="font-semibold text-[#ef3e34]">{countdown}</span>
+              </p>
+            ) : (
+              <button
+                type="button"
+                onClick={() => void resendResetOtp()}
+                className="[font-family:'Montserrat',Helvetica] text-sm font-semibold text-[#ef3e34] hover:underline"
+              >
+                Resend code
+              </button>
+            )
+          ) : countdown > 0 ? (
             <p className="[font-family:'Montserrat',Helvetica] text-sm text-[#9ca3af]">
-              Resend Code In:{" "}
-              <span className="font-semibold text-[#ef3e34]">{countdown}</span>
+              Resend Code In: <span className="font-semibold text-[#ef3e34]">{countdown}</span>
             </p>
           ) : (
             <button
@@ -133,14 +191,15 @@ export const OtpVerification = () => {
           )}
         </div>
 
-        <div className="w-full mt-6">
+        <div className="mt-6 w-full">
           <Button
             type="button"
-            onClick={confirmOtp}
+            onClick={() => void confirmOtp()}
+            disabled={verifying}
             data-testid="button-confirm-otp"
-            className="h-11 w-full bg-[#ef3e34] hover:bg-[#d63530] text-white [font-family:'Montserrat',Helvetica] font-bold text-sm"
+            className="h-11 w-full bg-[#ef3e34] text-white [font-family:'Montserrat',Helvetica] text-sm font-bold hover:bg-[#d63530]"
           >
-            CONFIRM OTP
+            {verifying ? "Verifying…" : "CONFIRM OTP"}
           </Button>
         </div>
       </div>

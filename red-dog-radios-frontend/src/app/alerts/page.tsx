@@ -1,5 +1,5 @@
-import { redirect } from "next/navigation";
+import { Alerts } from "@/views/Alerts";
 
-export default function AlertsRedirectPage() {
-  redirect("/dashboard");
+export default function AlertsPage() {
+  return <Alerts />;
 }

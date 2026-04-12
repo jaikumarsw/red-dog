@@ -1,13 +1,13 @@
 "use client";
 
 import { useState } from "react";
-import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { useQuery } from "@tanstack/react-query";
 import { Search, RefreshCw, X, Zap } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { MobileFilterSelect } from "@/components/MobileFilterSelect";
-import { useToast } from "@/hooks/use-toast";
 import api from "@/lib/api";
 import { qk } from "@/lib/queryKeys";
+import { useAuth } from "@/lib/AuthContext";
 
 type Match = {
   id: string;
@@ -39,6 +39,8 @@ type ApiMatch = {
   updatedAt?: string;
   notes?: string;
   aiReasoning?: string;
+  reasons?: string[];
+  fitReasons?: string[];
 };
 
 const fmt = (n: number) =>
@@ -62,6 +64,12 @@ const fmtActivity = (s: string | undefined) => {
   }
 };
 
+const reasoningFrom = (m: ApiMatch) => {
+  const fromLists = [...(m.fitReasons || []), ...(m.reasons || [])].filter(Boolean);
+  if (fromLists.length) return fromLists.join(" ");
+  return m.notes ?? m.aiReasoning ?? "No analysis available yet.";
+};
+
 const mapMatch = (m: ApiMatch): Match => ({
   id: m._id,
   score: m.fitScore ?? 0,
@@ -74,7 +82,7 @@ const mapMatch = (m: ApiMatch): Match => ({
   amount: m.opportunity?.maxAmount ? fmt(m.opportunity.maxAmount) : "—",
   deadline: fmtDate(m.opportunity?.deadline),
   fitScore: `${m.fitScore ?? 0}%`,
-  aiReasoning: m.notes ?? m.aiReasoning ?? "No AI reasoning available.",
+  aiReasoning: reasoningFrom(m),
 });
 
 const scoreColor = (n: number) => {
@@ -97,11 +105,9 @@ const statusLabel = (s: string) => s.charAt(0).toUpperCase() + s.slice(1);
 interface MatchPreviewModalProps {
   match: Match;
   onClose: () => void;
-  onApprove: (id: string) => void;
-  onReject: (id: string) => void;
 }
 
-const MatchPreviewModal = ({ match, onClose, onApprove, onReject }: MatchPreviewModalProps) => {
+const MatchPreviewModal = ({ match, onClose }: MatchPreviewModalProps) => {
   const sc = scoreColor(match.score);
 
   return (
@@ -151,14 +157,17 @@ const MatchPreviewModal = ({ match, onClose, onApprove, onReject }: MatchPreview
           </div>
         </div>
 
-        <div className="flex flex-col-reverse gap-2 border-t border-[#f3f4f6] px-7 py-5 sm:flex-row sm:justify-end sm:gap-3">
-          <button onClick={() => onReject(match.id)}
-            className="h-10 rounded-lg border border-[#ef3e34] px-5 [font-family:'Montserrat',Helvetica] text-sm font-semibold text-[#ef3e34] transition-colors hover:bg-[#fff4f4]">
-            Reject Match
-          </button>
-          <button onClick={() => onApprove(match.id)}
-            className="h-10 rounded-lg bg-[#ef3e34] px-5 text-white [font-family:'Montserrat',Helvetica] text-sm font-semibold transition-colors hover:bg-[#d63530]">
-            Approve Match
+        <div className="border-t border-[#f3f4f6] px-7 py-5">
+          <p className="mb-3 [font-family:'Montserrat',Helvetica] text-xs text-[#6b7280]">
+            Approving or rejecting a match is done by Red Dog staff in the admin portal. You can still apply from{" "}
+            <span className="font-semibold text-[#374151]">Opportunities</span> using Ashleen AI.
+          </p>
+          <button
+            type="button"
+            onClick={onClose}
+            className="h-10 w-full rounded-lg bg-[#ef3e34] px-5 text-white [font-family:'Montserrat',Helvetica] text-sm font-semibold transition-colors hover:bg-[#d63530] sm:w-auto"
+          >
+            Close
           </button>
         </div>
       </div>
@@ -166,16 +175,28 @@ const MatchPreviewModal = ({ match, onClose, onApprove, onReject }: MatchPreview
   );
 };
 
-const filterTabs = ["all", "pending", "approved", "rejected"] as const;
-type FilterTab = typeof filterTabs[number];
+const agencyFilterTabs = ["all", "high", "medium", "saved"] as const;
+const adminFilterTabs = ["all", "high", "medium", "saved", "approved", "rejected"] as const;
+type FilterTab = (typeof adminFilterTabs)[number];
+
+const filterLabel = (t: FilterTab) => {
+  if (t === "all") return "All";
+  if (t === "high") return "High fit (80+)";
+  if (t === "medium") return "Medium (65–79)";
+  if (t === "approved") return "Approved";
+  if (t === "rejected") return "Rejected";
+  return "Saved";
+};
 
 export const Matches = () => {
+  const { user } = useAuth();
+  const isAdmin = user?.role === "admin";
+  const filterTabs = isAdmin ? adminFilterTabs : agencyFilterTabs;
+
   const [search, setSearch] = useState("");
   const [sortBy, setSortBy] = useState<"newest" | "highest">("newest");
   const [activeFilter, setActiveFilter] = useState<FilterTab>("all");
   const [previewMatch, setPreviewMatch] = useState<Match | null>(null);
-  const { toast } = useToast();
-  const queryClient = useQueryClient();
 
   const { data: matches = [], isLoading: loading, isError, refetch } = useQuery<Match[]>({
     queryKey: qk.matches(),
@@ -186,37 +207,19 @@ export const Matches = () => {
     },
   });
 
-  const approveMutation = useMutation({
-    mutationFn: (id: string) => api.put(`/matches/${id}/approve`),
-    onSuccess: (_data, id) => {
-      queryClient.setQueryData<Match[]>(qk.matches(), (prev = []) =>
-        prev.map((m) => m.id === id ? { ...m, status: "approved" } : m)
-      );
-      setPreviewMatch(null);
-      toast({ title: "Match approved successfully", description: "The match has been approved and is now active." });
-    },
-    onError: () => {
-      toast({ title: "Failed to approve match", variant: "destructive" });
-    },
-  });
-
-  const rejectMutation = useMutation({
-    mutationFn: (id: string) => api.put(`/matches/${id}/reject`),
-    onSuccess: (_data, id) => {
-      queryClient.setQueryData<Match[]>(qk.matches(), (prev = []) =>
-        prev.map((m) => m.id === id ? { ...m, status: "rejected" } : m)
-      );
-      setPreviewMatch(null);
-    },
-    onError: () => {
-      toast({ title: "Failed to reject match", variant: "destructive" });
-    },
-  });
-
   const filtered = matches.filter((m) => {
-    const matchSearch = !search || m.org.toLowerCase().includes(search.toLowerCase()) || m.opportunity.toLowerCase().includes(search.toLowerCase()) || m.funder.toLowerCase().includes(search.toLowerCase());
-    const matchFilter = activeFilter === "all" || m.status === activeFilter;
-    return matchSearch && matchFilter;
+    const matchSearch =
+      !search ||
+      m.org.toLowerCase().includes(search.toLowerCase()) ||
+      m.opportunity.toLowerCase().includes(search.toLowerCase()) ||
+      m.funder.toLowerCase().includes(search.toLowerCase());
+    let matchBand = true;
+    if (activeFilter === "high") matchBand = m.score >= 80;
+    else if (activeFilter === "medium") matchBand = m.score >= 65 && m.score < 80;
+    else if (activeFilter === "saved") matchBand = m.status === "approved";
+    else if (activeFilter === "approved") matchBand = m.status === "approved";
+    else if (activeFilter === "rejected") matchBand = m.status === "rejected";
+    return matchSearch && matchBand;
   });
 
   const sorted = [...filtered].sort((a, b) =>
@@ -282,11 +285,11 @@ export const Matches = () => {
             <MobileFilterSelect
               ariaLabel="Filter matches by status"
               label="Status"
-              value={activeFilter}
+              value={(filterTabs as readonly string[]).includes(activeFilter) ? activeFilter : "all"}
               onChange={(v) => setActiveFilter(v as FilterTab)}
               options={filterTabs.map((t) => ({
                 value: t,
-                label: t === "all" ? "All" : statusLabel(t),
+                label: filterLabel(t),
               }))}
               dataTestId="select-filter-matches"
             />
@@ -295,7 +298,7 @@ export const Matches = () => {
                 <button key={t} type="button" onClick={() => setActiveFilter(t)} data-testid={`tab-${t}`}
                   className={`h-8 px-4 rounded-lg [font-family:'Montserrat',Helvetica] font-semibold text-sm transition-all capitalize ${
                     activeFilter === t ? "bg-[#ef3e34] text-white" : "bg-white border border-[#e5e7eb] text-[#6b7280] hover:border-[#ef3e34]/40"}`}>
-                  {t === "all" ? "All" : statusLabel(t)}
+                  {filterLabel(t)}
                 </button>
               ))}
             </div>
@@ -415,14 +418,7 @@ export const Matches = () => {
         </div>
       </div>
 
-      {previewMatch && (
-        <MatchPreviewModal
-          match={previewMatch}
-          onClose={() => setPreviewMatch(null)}
-          onApprove={(id) => approveMutation.mutate(id)}
-          onReject={(id) => rejectMutation.mutate(id)}
-        />
-      )}
+      {previewMatch && <MatchPreviewModal match={previewMatch} onClose={() => setPreviewMatch(null)} />}
     </>
   );
 };

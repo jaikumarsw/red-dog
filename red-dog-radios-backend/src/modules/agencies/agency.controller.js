@@ -39,7 +39,12 @@ const getOne = asyncHandler(async (req, res) => {
 });
 
 const create = asyncHandler(async (req, res) => {
-  const agency = await agencyService.create(req.body);
+  const body = { ...req.body };
+  if (body.email && !body.grantContactEmail) {
+    body.grantContactEmail = body.email;
+  }
+  delete body.email;
+  const agency = await agencyService.create(body);
   return created(res, agency, 'Agency created');
 });
 

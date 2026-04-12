@@ -12,6 +12,7 @@ import { cn } from "@/lib/utils";
 import { signUpSchema, type SignUpFormValues } from "@/lib/validation-schemas";
 import api from "@/lib/api";
 import { useAuth } from "@/lib/AuthContext";
+import { RedDogLogo } from "@/components/RedDogLogo";
 
 export const SignUp = () => {
   const router = useRouter();
@@ -68,21 +69,7 @@ export const SignUp = () => {
 
       <div className="flex min-h-0 min-w-0 flex-1 flex-col items-stretch overflow-y-auto bg-white px-4 py-4 sm:px-8 sm:py-6">
         <div className="mx-auto flex min-h-full w-full max-w-[400px] flex-col items-start justify-center gap-5">
-          <div className="flex items-center gap-3 sm:gap-3.5">
-            <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-[#ef3e34] shadow-[0_4px_14px_-2px_rgba(239,62,52,0.45)] sm:h-14 sm:w-14 sm:rounded-[14px]">
-              <span className="[font-family:'Oswald',Helvetica] text-xl font-bold tracking-[1px] text-white sm:text-2xl">
-                RD
-              </span>
-            </div>
-            <div className="flex min-w-0 flex-col items-start">
-              <span className="[font-family:'Oswald',Helvetica] text-lg font-bold leading-tight tracking-[0.5px] text-black sm:text-xl">
-                RED DOG LOGO
-              </span>
-              <span className="[font-family:'Montserrat',Helvetica] text-[10px] font-semibold uppercase leading-snug tracking-[0.85px] text-[#9ca3af] sm:text-[11px]">
-                Real Time Intelligence On Grants
-              </span>
-            </div>
-          </div>
+          <RedDogLogo />
 
           <div className="w-full bg-[#f3f4f6] rounded-full p-1 flex gap-1">
             <Link

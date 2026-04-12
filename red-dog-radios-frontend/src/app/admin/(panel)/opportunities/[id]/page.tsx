@@ -1,10 +1,11 @@
 "use client";
 
 import Link from "next/link";
-import { useParams } from "next/navigation";
+import { useParams, useRouter } from "next/navigation";
 import { ArrowLeft } from "lucide-react";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import adminApi from "@/lib/adminApi";
+import { AdminTableViewLink } from "@/components/admin/AdminTableViewLink";
 import { Button } from "@/components/ui/button";
 
 type CreatedBy = {
@@ -36,6 +37,8 @@ type OpportunityDetail = {
   maxAmount?: number;
   sourceUrl?: string;
   keywords?: string[];
+  equipmentTags?: string[];
+  localMatchRequired?: boolean;
   agencyTypes?: string[];
   description?: string;
   createdAt?: string;
@@ -61,6 +64,8 @@ function createdByLabel(cb: OpportunityDetail["createdBy"]) {
 
 export default function AdminOpportunityDetailPage() {
   const params = useParams();
+  const router = useRouter();
+  const qc = useQueryClient();
   const id = typeof params.id === "string" ? params.id : params.id?.[0] ?? "";
 
   const { data, isLoading, isError } = useQuery({
@@ -70,6 +75,14 @@ export default function AdminOpportunityDetailPage() {
       return res.data.data as OpportunityDetail;
     },
     enabled: Boolean(id),
+  });
+
+  const deleteOpp = useMutation({
+    mutationFn: () => adminApi.delete(`admin/opportunities/${id}`),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["admin", "opportunities"] });
+      router.push("/admin/opportunities");
+    },
   });
 
   return (
@@ -88,9 +101,22 @@ export default function AdminOpportunityDetailPage() {
           {data?.title && <p className="text-sm text-[#6b7280]">{data.title}</p>}
         </div>
         {data && (
-          <Button asChild className="bg-[#ef3e34] hover:bg-[#d63530]">
-            <Link href={`/admin/opportunities/${data._id}/edit`}>Edit opportunity</Link>
-          </Button>
+          <div className="flex flex-wrap gap-2">
+            <Button asChild className="bg-[#ef3e34] hover:bg-[#d63530]">
+              <Link href={`/admin/opportunities/${data._id}/edit`}>Edit opportunity</Link>
+            </Button>
+            <Button
+              type="button"
+              variant="outline"
+              className="border-red-200 text-red-600 hover:bg-red-50"
+              disabled={deleteOpp.isPending}
+              onClick={() => {
+                if (confirm("Delete this opportunity?")) deleteOpp.mutate();
+              }}
+            >
+              Delete
+            </Button>
+          </div>
         )}
       </div>
 
@@ -138,8 +164,18 @@ export default function AdminOpportunityDetailPage() {
                 <dt className="text-[#6b7280]">Amount range</dt>
                 <dd className="text-[#111827]">{formatAmountRange(data.minAmount, data.maxAmount)}</dd>
               </div>
-              <div className="sm:col-span-2">
-                <dt className="text-[#6b7280]">Source</dt>
+                  <div>
+                    <dt className="text-[#6b7280]">Local match required</dt>
+                    <dd className="text-[#111827]">{data.localMatchRequired ? "Yes" : "No"}</dd>
+                  </div>
+                  <div className="sm:col-span-2">
+                    <dt className="text-[#6b7280]">Equipment tags</dt>
+                    <dd className="text-[#111827]">
+                      {data.equipmentTags?.length ? data.equipmentTags.join(", ") : "—"}
+                    </dd>
+                  </div>
+                  <div className="sm:col-span-2">
+                    <dt className="text-[#6b7280]">Official link</dt>
                 <dd className="text-[#111827]">
                   {data.sourceUrl ? (
                     <a
@@ -199,16 +235,13 @@ export default function AdminOpportunityDetailPage() {
             )}
             {data.applications && data.applications.length > 0 && (
               <div className="overflow-x-auto rounded-md border border-[#e5e7eb] bg-white shadow-sm">
-                <table className="w-full min-w-[640px] text-sm">
+                <table className="w-full text-sm">
                   <thead className="bg-[#f9fafb] text-left text-[#6b7280]">
                     <tr>
                       <th className="p-2">Agency</th>
-                      <th className="p-2">Project</th>
                       <th className="p-2">Status</th>
-                      <th className="p-2">Amount</th>
-                      <th className="p-2">Contact</th>
                       <th className="p-2">Updated</th>
-                      <th className="p-2" />
+                      <th className="w-14 p-2 text-center" aria-label="View details" />
                     </tr>
                   </thead>
                   <tbody>
@@ -220,42 +253,16 @@ export default function AdminOpportunityDetailPage() {
                             <p className="text-xs text-[#6b7280]">{app.organization.location}</p>
                           )}
                         </td>
-                        <td className="max-w-[140px] p-2 text-[#374151]">
-                          <span className="line-clamp-2" title={app.projectTitle || ""}>
-                            {app.projectTitle || "—"}
-                          </span>
-                        </td>
                         <td className="p-2">
                           <span className="inline-block rounded bg-[#f3f4f6] px-2 py-0.5 text-xs text-[#374151]">
                             {app.status}
                           </span>
                         </td>
-                        <td className="whitespace-nowrap p-2 text-[#374151]">
-                          {app.amountRequested != null
-                            ? new Intl.NumberFormat(undefined, {
-                                style: "currency",
-                                currency: "USD",
-                                maximumFractionDigits: 0,
-                              }).format(app.amountRequested)
-                            : "—"}
-                        </td>
-                        <td className="max-w-[160px] p-2 text-xs text-[#374151]">
-                          <div className="line-clamp-2">
-                            {app.contactName && <div>{app.contactName}</div>}
-                            {app.contactEmail && <div className="break-all">{app.contactEmail}</div>}
-                            {!app.contactName && !app.contactEmail && "—"}
-                          </div>
-                        </td>
                         <td className="whitespace-nowrap p-2 text-[#6b7280]">
                           {app.updatedAt ? new Date(String(app.updatedAt)).toLocaleDateString() : "—"}
                         </td>
-                        <td className="p-2">
-                          <Link
-                            href={`/admin/applications/${app._id}`}
-                            className="text-xs font-medium text-[#ef3e34] hover:underline"
-                          >
-                            Open
-                          </Link>
+                        <td className="p-2 text-center">
+                          <AdminTableViewLink href={`/admin/applications/${app._id}`} label="View application" />
                         </td>
                       </tr>
                     ))}

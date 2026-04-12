@@ -2,6 +2,7 @@ const cron = require('node-cron');
 const matchService = require('../modules/matches/match.service');
 const alertService = require('../modules/alerts/alert.service');
 const outboxService = require('../modules/outbox/outbox.service');
+const followupService = require('../modules/followups/followup.service');
 const Organization = require('../modules/organizations/organization.schema');
 const logger = require('./logger');
 
@@ -43,6 +44,17 @@ cron.schedule('45 2 * * *', async () => {
   }
 });
 
+// Daily 8:00 AM — ensure Day 7 / Day 14 follow-ups exist for submitted applications
+cron.schedule('0 8 * * *', async () => {
+  try {
+    logger.info('Cron: Follow-up backfill (submitted applications)');
+    const result = await followupService.backfillMissingFollowUps();
+    logger.info(`Cron: Follow-up backfill complete. Scheduled: ${result.scheduled}`);
+  } catch (err) {
+    logger.error('Cron: Follow-up backfill failed:', err.message);
+  }
+});
+
 // Every hour — process outbox email queue
 cron.schedule('0 * * * *', async () => {
   try {
@@ -54,6 +66,8 @@ cron.schedule('0 * * * *', async () => {
   }
 });
 
-logger.info('✅ Cron jobs registered: match refresh (2am), deadline alerts (2:30am), high-fit alerts (2:45am), outbox processing (hourly)');
+logger.info(
+  '✅ Cron jobs registered: match refresh (2am), deadline alerts (2:30am), high-fit alerts (2:45am), follow-up backfill (8am), outbox (hourly)'
+);
 
 module.exports = {};

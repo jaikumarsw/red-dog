@@ -9,9 +9,11 @@ const outboxSchema = new mongoose.Schema(
     htmlBody: { type: String, required: true },
     emailType: {
       type: String,
-      enum: ['weekly_digest', 'alert_digest', 'outreach', 'manual'],
+      enum: ['weekly_digest', 'alert_digest', 'outreach', 'manual', 'followup_reminder'],
       default: 'manual',
     },
+    /** When set, processQueue will not send until this datetime (UTC). */
+    scheduledFor: { type: Date },
     status: { type: String, enum: ['pending', 'sent', 'failed'], default: 'pending' },
     retryCount: { type: Number, default: 0 },
     providerMessageId: { type: String },

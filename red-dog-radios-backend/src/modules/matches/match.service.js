@@ -22,6 +22,7 @@ const computeMatchScore = (organization, opportunity) => {
     awardSizeFit: 0,
     timelineAlignment: 0,
     dataCompleteness: 0,
+    localMatch: 0,
   };
 
   // 1. Agency type match (20 pts)
@@ -39,6 +40,21 @@ const computeMatchScore = (organization, opportunity) => {
     } else {
       breakdown.agencyType = 0;
       disqualifiers.push('Agency type mismatch — organization type not listed in opportunity requirements');
+    }
+  }
+
+  // 1b Local match requirement (opportunity)
+  if (opportunity.localMatchRequired === true) {
+    if (organization.canMeetLocalMatch === false) {
+      breakdown.localMatch = 0;
+      disqualifiers.push('Local match required — agency profile indicates no local match capacity');
+      reasons.push('Local match requirement not met for this opportunity');
+    } else if (organization.canMeetLocalMatch === true) {
+      breakdown.localMatch = 5;
+      score += 5;
+      reasons.push('Agency can satisfy local match requirement (+5 pts)');
+    } else {
+      reasons.push('This opportunity may require local match — set capability in your agency profile');
     }
   }
 
@@ -213,7 +229,11 @@ const getAll = async ({ page = 1, limit = 20, organizationId, oppId, status, min
     sort: { fitScore: -1 },
     populate: [
       { path: 'organization', select: 'name location status agencyTypes' },
-      { path: 'opportunity', select: 'title funder maxAmount deadline status category' },
+      {
+        path: 'opportunity',
+        select:
+          'title funder minAmount maxAmount deadline status category description keywords agencyTypes sourceUrl equipmentTags localMatchRequired createdAt updatedAt',
+      },
     ],
   });
 };

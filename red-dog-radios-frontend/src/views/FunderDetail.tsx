@@ -7,6 +7,7 @@ import api from "@/lib/api";
 import { qk } from "@/lib/queryKeys";
 import { useToast } from "@/hooks/use-toast";
 import { ArrowLeft, Globe, Mail, Phone, Lock, AlertCircle } from "lucide-react";
+import { Progress } from "@/components/ui/progress";
 
 interface Funder {
   _id: string;
@@ -19,6 +20,8 @@ interface Funder {
   locationFocus?: string[];
   fundingCategories?: string[];
   agencyTypesFunded?: string[];
+  equipmentTags?: string[];
+  localMatchRequired?: boolean;
   avgGrantMin?: number;
   avgGrantMax?: number;
   deadline?: string;
@@ -50,6 +53,23 @@ export const FunderDetail = () => {
       const f = res.data.data as Funder;
       setNotes(f.notes || "");
       return f;
+    },
+    enabled: !!id,
+  });
+
+  const { data: queueInfo } = useQuery({
+    queryKey: qk.funderQueue(id || ""),
+    queryFn: async () => {
+      const res = await api.get(`/funders/${id}/queue`);
+      return res.data.data as {
+        position: number;
+        ahead: number;
+        totalInQueue: number;
+        estimatedChance: string;
+        maxApplicationsAllowed: number;
+        currentApplicationCount: number;
+        isLocked: boolean;
+      };
     },
     enabled: !!id,
   });
@@ -138,16 +158,40 @@ export const FunderDetail = () => {
             {funder.name}
           </h1>
           {funder.isLocked && (
-            <span className="flex items-center gap-1 rounded-full bg-red-100 px-3 py-1 text-sm font-semibold text-red-700 [font-family:'Montserrat',Helvetica]">
-              <Lock size={13} /> LOCKED ({funder.currentApplicationCount}/{funder.maxApplicationsAllowed})
+            <span className="flex items-center gap-1 rounded-full bg-red-100 px-3 py-1 text-xs font-bold uppercase tracking-wide text-red-700 [font-family:'Montserrat',Helvetica]">
+              <Lock size={13} /> FUNDER LOCKED
             </span>
           )}
+        </div>
+        <div className="max-w-xl flex flex-col gap-2">
+          <div className="flex justify-between text-sm [font-family:'Montserrat',Helvetica] text-[#6b7280]">
+            <span>Application capacity</span>
+            <span className="font-semibold text-[#111827]">
+              {funder.currentApplicationCount ?? 0} of {funder.maxApplicationsAllowed ?? 5} filled
+            </span>
+          </div>
+          <Progress
+            value={Math.min(
+              100,
+              ((funder.currentApplicationCount ?? 0) / Math.max(1, funder.maxApplicationsAllowed ?? 5)) * 100
+            )}
+            className="h-2.5 bg-[#f3f4f6]"
+          />
         </div>
         {funder.isLocked && (
           <div className="flex items-center gap-2 rounded-lg border border-red-200 bg-red-50 px-4 py-3">
             <AlertCircle size={16} className="text-red-600 shrink-0" />
             <p className="[font-family:'Montserrat',Helvetica] text-sm text-red-700">
-              This funder has reached the maximum application limit ({funder.currentApplicationCount}/{funder.maxApplicationsAllowed}). New applications are temporarily paused.
+              This funder has reached its application limit. Applications are no longer being accepted.
+            </p>
+          </div>
+        )}
+        {queueInfo && !funder.isLocked && (
+          <div className="rounded-lg border border-[#e5e7eb] bg-white px-4 py-3 text-sm [font-family:'Montserrat',Helvetica] text-[#374151]">
+            <p className="font-semibold text-[#111827]">Your queue position</p>
+            <p className="mt-1">
+              Position <strong>{queueInfo.position}</strong> — {queueInfo.ahead} ahead of you in line · Estimated chance:{" "}
+              <span className="text-[#ef3e34] font-medium">{queueInfo.estimatedChance}</span>
             </p>
           </div>
         )}
@@ -269,6 +313,18 @@ export const FunderDetail = () => {
               <div>
                 <p className="[font-family:'Montserrat',Helvetica] text-xs text-[#9ca3af] uppercase tracking-wide">Location Focus</p>
                 <p className="[font-family:'Montserrat',Helvetica] text-sm text-[#374151]">{funder.locationFocus?.join(", ") || "—"}</p>
+              </div>
+              {funder.equipmentTags && funder.equipmentTags.length > 0 && (
+                <div>
+                  <p className="[font-family:'Montserrat',Helvetica] text-xs text-[#9ca3af] uppercase tracking-wide">Equipment focus</p>
+                  <p className="[font-family:'Montserrat',Helvetica] text-sm text-[#374151]">{funder.equipmentTags.join(", ")}</p>
+                </div>
+              )}
+              <div>
+                <p className="[font-family:'Montserrat',Helvetica] text-xs text-[#9ca3af] uppercase tracking-wide">Local match</p>
+                <p className="[font-family:'Montserrat',Helvetica] text-sm text-[#374151]">
+                  {funder.localMatchRequired ? "Typically required" : "Not flagged"}
+                </p>
               </div>
             </div>
           </div>

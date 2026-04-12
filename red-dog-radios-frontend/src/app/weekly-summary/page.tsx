@@ -1,5 +1,5 @@
-import { redirect } from "next/navigation";
+import { WeeklySummary } from "@/views/WeeklySummary";
 
-export default function WeeklySummaryRedirectPage() {
-  redirect("/dashboard");
+export default function WeeklySummaryPage() {
+  return <WeeklySummary />;
 }

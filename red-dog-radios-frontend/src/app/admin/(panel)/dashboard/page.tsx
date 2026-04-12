@@ -1,8 +1,10 @@
 "use client";
 
 import { useState } from "react";
+import Link from "next/link";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import adminApi from "@/lib/adminApi";
+import { AdminTableViewLink } from "@/components/admin/AdminTableViewLink";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 
@@ -42,6 +44,7 @@ export default function AdminDashboardPage() {
     onSuccess: (res) => {
       setRecomputeMsg((res.data as { message?: string })?.message || "Match scores updated for all agencies.");
       qc.invalidateQueries({ queryKey: ["admin", "dashboard"] });
+      qc.invalidateQueries({ queryKey: ["admin", "activity-logs"] });
     },
     onError: () => setRecomputeMsg("Recompute failed."),
   });
@@ -97,6 +100,12 @@ export default function AdminDashboardPage() {
       {recomputeMsg && (
         <p className="text-sm text-[#374151] [font-family:'Montserrat',Helvetica]">{recomputeMsg}</p>
       )}
+      <p className="text-sm text-[#6b7280]">
+        Staff-only audit trail:{" "}
+        <Link href="/admin/activity" className="font-medium text-[#ef3e34] hover:underline">
+          Activity log
+        </Link>
+      </p>
       <div className="grid grid-cols-2 gap-4 md:grid-cols-3 lg:grid-cols-6">
         {cards.map((c) => (
           <div
@@ -115,14 +124,17 @@ export default function AdminDashboardPage() {
           </h2>
           <ul className="space-y-3 text-sm">
             {data.recentSignups?.map((r) => (
-              <li key={r.id} className="border-b border-[#f0f0f0] pb-2">
-                <p className="font-medium text-[#111827]">{r.name}</p>
-                <p className="text-xs text-[#6b7280]">
-                  {(r.agencyTypes || []).join(", ")} · {r.location}
-                </p>
-                <p className="text-xs text-[#9ca3af]">
-                  {r.signupDate ? new Date(r.signupDate).toLocaleString() : ""}
-                </p>
+              <li key={r.id} className="flex items-start justify-between gap-2 border-b border-[#f0f0f0] pb-2">
+                <div className="min-w-0 flex-1">
+                  <p className="font-medium text-[#111827]">{r.name}</p>
+                  <p className="text-xs text-[#6b7280]">
+                    {(r.agencyTypes || []).join(", ")} · {r.location}
+                  </p>
+                  <p className="text-xs text-[#9ca3af]">
+                    {r.signupDate ? new Date(r.signupDate).toLocaleString() : ""}
+                  </p>
+                </div>
+                <AdminTableViewLink href={`/admin/agencies/${r.id}`} label="View agency" />
               </li>
             ))}
           </ul>
@@ -133,12 +145,15 @@ export default function AdminDashboardPage() {
           </h2>
           <ul className="space-y-3 text-sm">
             {data.recentApplications?.map((r) => (
-              <li key={r.id} className="border-b border-[#f0f0f0] pb-2">
-                <p className="text-[#111827]">{r.agencyName}</p>
-                <p className="text-[#6b7280]">{r.funderName}</p>
-                <span className="mt-1 inline-block rounded bg-[#f3f4f6] px-2 py-0.5 text-xs text-[#374151]">
-                  {r.status}
-                </span>
+              <li key={r.id} className="flex items-start justify-between gap-2 border-b border-[#f0f0f0] pb-2">
+                <div className="min-w-0 flex-1">
+                  <p className="text-[#111827]">{r.agencyName}</p>
+                  <p className="text-[#6b7280]">{r.funderName}</p>
+                  <span className="mt-1 inline-block rounded bg-[#f3f4f6] px-2 py-0.5 text-xs text-[#374151]">
+                    {r.status}
+                  </span>
+                </div>
+                <AdminTableViewLink href={`/admin/applications/${r.id}`} label="View application" />
               </li>
             ))}
           </ul>

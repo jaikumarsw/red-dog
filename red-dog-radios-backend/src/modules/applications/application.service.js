@@ -3,6 +3,9 @@ const Organization = require('../organizations/organization.schema');
 const Opportunity = require('../opportunities/opportunity.schema');
 const Funder = require('../funders/funder.schema');
 const Win = require('../wins/win.schema');
+const User = require('../auth/user.schema');
+const FollowUp = require('../followups/followup.schema');
+const followupService = require('../followups/followup.service');
 const openai = require('../../config/openai.config');
 const logger = require('../../utils/logger');
 const { AppError } = require('../../middlewares/error.middleware');
@@ -32,7 +35,20 @@ const pickOrgForPrompt = (org) => ({
   budgetRange: org.budgetRange,
   timeline: org.timeline,
   goals: org.goals,
+  canMeetLocalMatch: org.canMeetLocalMatch,
 });
+
+const deriveWinFactorsFromApp = (app) => {
+  const factors = [];
+  const ps = app.problemStatement || app.projectSummary || '';
+  if (ps.length > 180) factors.push('Detailed problem statement');
+  if ((app.communityImpact || '').length > 180) factors.push('Strong community impact narrative');
+  if ((app.measurableOutcomes || '').length > 120) factors.push('Clear measurable outcomes');
+  if ((app.budgetSummary || '').length > 80) factors.push('Concrete budget summary');
+  if ((app.proposedSolution || '').length > 120) factors.push('Clear proposed solution');
+  if ((app.urgency || '').length > 60) factors.push('Documented urgency');
+  return factors.length ? factors : ['Complete structured application'];
+};
 
 const pickFunderForPrompt = (funder) =>
   funder && {
@@ -48,11 +64,24 @@ const pickFunderForPrompt = (funder) =>
     pastGrantsAwarded: funder.pastGrantsAwarded,
     notes: funder.notes,
     website: funder.website,
+    localMatchRequired: funder.localMatchRequired,
+    equipmentTags: funder.equipmentTags,
   };
 
 const buildAIContent = async (org, funder, opp, { adminPortal = false } = {}) => {
   if (!openai) return AI_FALLBACK_CONTENT;
   try {
+    const recentWins = await Win.find().sort({ createdAt: -1 }).limit(10).lean();
+    const winPatternsBlock =
+      recentWins.length > 0
+        ? `\n\nPAST_WINNING_APPLICATIONS_THEMES (emphasize similar ideas only when accurate for this agency):\n${recentWins
+            .map(
+              (w) =>
+                `- ${w.funderName || 'Funder'} (${w.agencyType || 'agency type'}): ${(w.winFactors || []).join('; ') || 'n/a'}`
+            )
+            .join('\n')}`
+        : '';
+
     let prompt;
     let systemContent;
     if (adminPortal) {
@@ -68,7 +97,7 @@ ${JSON.stringify(pickOrgForPrompt(org), null, 2)}
 FUNDER_PROFILE_JSON:
 ${JSON.stringify(pickFunderForPrompt(funder) || { name: opp?.funder, keywords: opp?.keywords, maxAmount: opp?.maxAmount }, null, 2)}
 
-Write each section in the first person as the agency. Reference population served, coverage area, equipment, problems, and priorities explicitly where relevant. 4-6 sentences per section where appropriate.`;
+Write each section in the first person as the agency. Reference population served, coverage area, equipment, problems, and priorities explicitly where relevant. 4-6 sentences per section where appropriate.${winPatternsBlock}`;
     } else {
       prompt = `Generate a professional grant application with exactly these 6 labeled sections.
 Return ONLY a JSON object with keys: problemStatement, communityImpact, proposedSolution, measurableOutcomes, urgency, budgetSummary.
@@ -86,7 +115,7 @@ Funder mission: ${funder?.missionStatement || 'public safety and community resil
 Funder categories: ${funder?.fundingCategories?.join(', ') || opp?.keywords?.join(', ') || 'public safety'}
 Typical grant: ${funder ? '$' + (funder.avgGrantMin || 0).toLocaleString() + ' - $' + (funder.avgGrantMax || 0).toLocaleString() : (opp?.maxAmount ? 'up to $' + opp.maxAmount.toLocaleString() : 'amount requested')}
 
-Write each section in the first person as the agency. Be specific, outcome-focused, compelling. 3-5 sentences each.`;
+Write each section in the first person as the agency. Be specific, outcome-focused, compelling. 3-5 sentences each.${winPatternsBlock}`;
       systemContent =
         'You are an expert grant writer specializing in public safety and communications for police, fire, and EMS agencies. Always return valid JSON only.';
     }
@@ -124,7 +153,53 @@ const getAll = async ({ page = 1, limit = 20, status, organizationId } = {}) => 
   });
 };
 
-const create = async (data) => Application.create(data);
+const create = async (data) => {
+  if (!data.funder) return Application.create(data);
+  const funder = await Funder.findById(data.funder);
+  if (!funder) throw new AppError('Funder not found', 404);
+  if (funder.isLocked) throw new AppError('Funder is locked, max applications reached', 423);
+  const existingApp = await Application.findOne({ organization: data.organization, funder: data.funder });
+  if (existingApp && !['denied', 'rejected'].includes(existingApp.status)) return existingApp;
+
+  const app = await Application.create(data);
+  funder.currentApplicationCount = (funder.currentApplicationCount || 0) + 1;
+  if (funder.currentApplicationCount >= (funder.maxApplicationsAllowed || 5)) funder.isLocked = true;
+  await funder.save();
+  return app;
+};
+
+const ensureFollowUpsScheduled = async (before, after, actorUserId) => {
+  const submittedNow = ['submitted', 'in_review'].includes(after.status);
+  const wasSubmitted = ['submitted', 'in_review'].includes(before.status);
+  if (!submittedNow || wasSubmitted) return;
+
+  const existing = await FollowUp.countDocuments({ application: after._id });
+  if (existing > 0) return;
+
+  let uid = actorUserId;
+  if (uid) {
+    const u = await User.findById(uid).select('_id');
+    if (!u) uid = null;
+  }
+  if (!uid) {
+    const u2 = await User.findOne({ organizationId: after.organization }).sort({ createdAt: 1 }).select('_id');
+    uid = u2?._id;
+  }
+  if (!uid) {
+    logger.warn('[Application] follow-up: no user for org', String(after.organization));
+    return;
+  }
+
+  const baseDate = after.dateSubmitted || after.submittedAt || new Date();
+  await followupService.scheduleForApplication(
+    after._id,
+    uid,
+    after.organization,
+    after.funder || undefined,
+    after.opportunity || undefined,
+    baseDate
+  );
+};
 
 const createWithAI = async ({ opportunityId, funderId, organizationId, userId, adminPortal = false }) => {
   const org = await Organization.findById(organizationId);
@@ -140,7 +215,7 @@ const createWithAI = async ({ opportunityId, funderId, organizationId, userId, a
     funder = await Funder.findById(funderId);
     if (!funder) throw new AppError('Funder not found', 404);
     if (!adminPortal) {
-      if (funder.isLocked) throw new AppError('This funder has reached the maximum application limit', 423);
+      if (funder.isLocked) throw new AppError('Funder is locked, max applications reached', 423);
       const existingApp = await Application.findOne({ organization: organizationId, funder: funderId });
       if (existingApp && !['denied', 'rejected'].includes(existingApp.status)) return existingApp;
     }
@@ -158,9 +233,9 @@ const createWithAI = async ({ opportunityId, funderId, organizationId, userId, a
     ...aiContent,
   });
 
-  if (funder) {
+  if (funder && !adminPortal) {
     funder.currentApplicationCount = (funder.currentApplicationCount || 0) + 1;
-    if (funder.currentApplicationCount >= funder.maxApplicationsAllowed) funder.isLocked = true;
+    if (funder.currentApplicationCount >= (funder.maxApplicationsAllowed || 5)) funder.isLocked = true;
     await funder.save();
   }
   return app;
@@ -206,6 +281,9 @@ const updateStatus = async (id, { status, dateSubmitted, followUpDate, notes }, 
     .populate('organization').populate('opportunity').populate('funder');
   if (!app) throw new AppError('Application not found', 404);
 
+  const afterLean = await Application.findById(id).lean();
+  await ensureFollowUpsScheduled(before, afterLean, actorId);
+
   if (status === 'awarded') {
     await Application.findByIdAndUpdate(id, { isWinner: true });
     try {
@@ -222,6 +300,7 @@ const updateStatus = async (id, { status, dateSubmitted, followUpDate, notes }, 
         measurableOutcomes: app.measurableOutcomes,
         urgency: app.urgency,
         budgetSummary: app.budgetSummary,
+        winFactors: deriveWinFactorsFromApp(app),
       });
     } catch (e) { logger.warn('[Application] Failed to create win record:', e.message); }
   }
@@ -283,10 +362,17 @@ const exportApplication = async (id) => {
   return `GRANT APPLICATION\nAgency: ${orgName}\nFunder: ${funderName}\nProject: ${app.projectTitle || 'Grant Application'}\nDate: ${today}\n${'='.repeat(60)}\n\nPROBLEM STATEMENT:\n${app.problemStatement || app.projectSummary || 'Not provided'}\n\n${'='.repeat(60)}\n\nCOMMUNITY IMPACT:\n${app.communityImpact || 'Not provided'}\n\n${'='.repeat(60)}\n\nPROPOSED SOLUTION:\n${app.proposedSolution || 'Not provided'}\n\n${'='.repeat(60)}\n\nMEASURABLE OUTCOMES:\n${app.measurableOutcomes || 'Not provided'}\n\n${'='.repeat(60)}\n\nURGENCY:\n${app.urgency || 'Not provided'}\n\n${'='.repeat(60)}\n\nBUDGET SUMMARY:\n${app.budgetSummary || 'Not provided'}\n\n${'='.repeat(60)}\n\nNOTES:\n${app.notes || 'None'}\n`;
 };
 
-const submit = async (id) => {
-  const app = await Application.findByIdAndUpdate(id, { status: 'submitted', submittedAt: new Date(), dateSubmitted: new Date() }, { new: true });
-  if (!app) throw new AppError('Application not found', 404);
-  return app;
+const submit = async (id, userId) => {
+  const before = await Application.findById(id).lean();
+  if (!before) throw new AppError('Application not found', 404);
+  await Application.findByIdAndUpdate(id, {
+    status: 'submitted',
+    submittedAt: new Date(),
+    dateSubmitted: new Date(),
+  });
+  const afterLean = await Application.findById(id).lean();
+  await ensureFollowUpsScheduled(before, afterLean, userId);
+  return getOne(id);
 };
 
 const remove = async (id) => {

@@ -158,6 +158,51 @@ export const settingsSaveSchema = z
     }
   });
 
+/** Staff portal settings: same as agency profile + password, with confirm field. */
+export const adminSettingsSaveSchema = z
+  .object({
+    firstName: z.string().trim().min(1, "First name is required"),
+    lastName: z.string().trim().min(1, "Last name is required"),
+    email: emailField,
+    currentPassword: z.string(),
+    newPassword: z.string(),
+    confirmPassword: z.string(),
+  })
+  .superRefine((data, ctx) => {
+    const cur = data.currentPassword.trim();
+    const neu = data.newPassword.trim();
+    const conf = data.confirmPassword.trim();
+    if (neu === "" && cur === "") return;
+    if (cur === "") {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: "Enter your current password to set a new one",
+        path: ["currentPassword"],
+      });
+    }
+    if (neu === "") {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: "Enter a new password",
+        path: ["newPassword"],
+      });
+    }
+    if (neu.length > 0 && neu.length < 8) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: "New password must be at least 8 characters",
+        path: ["newPassword"],
+      });
+    }
+    if (neu !== "" && conf !== neu) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: "Passwords do not match",
+        path: ["confirmPassword"],
+      });
+    }
+  });
+
 export const deleteAccountConfirmSchema = z.object({
   confirmation: z
     .string()
@@ -197,5 +242,6 @@ export type OrganizationFormValues = z.infer<typeof organizationFormSchema>;
 export type AgencyFormValues = z.infer<typeof agencyFormSchema>;
 export type AddOpportunityFormValues = z.infer<typeof addOpportunitySchema>;
 export type SettingsSaveFormValues = z.infer<typeof settingsSaveSchema>;
+export type AdminSettingsSaveFormValues = z.infer<typeof adminSettingsSaveSchema>;
 export type DeleteAccountConfirmValues = z.infer<typeof deleteAccountConfirmSchema>;
 export type AshleenApplicationDraftValues = z.infer<typeof ashleenApplicationDraftSchema>;

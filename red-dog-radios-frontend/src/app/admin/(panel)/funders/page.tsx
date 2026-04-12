@@ -1,9 +1,9 @@
 "use client";
 
 import { useState } from "react";
-import Link from "next/link";
-import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { useQuery, useMutation } from "@tanstack/react-query";
 import adminApi from "@/lib/adminApi";
+import { AdminTableViewLink } from "@/components/admin/AdminTableViewLink";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -17,7 +17,6 @@ import {
 import { Textarea } from "@/components/ui/textarea";
 
 export default function AdminFundersPage() {
-  const qc = useQueryClient();
   const [open, setOpen] = useState(false);
   const [search, setSearch] = useState("");
   const [form, setForm] = useState({
@@ -25,10 +24,13 @@ export default function AdminFundersPage() {
     website: "",
     contactName: "",
     contactEmail: "",
+    contactPhone: "",
     missionStatement: "",
     locationFocus: "",
     fundingCategories: "",
     agencyTypesFunded: "",
+    equipmentTags: "",
+    localMatchRequired: false,
     avgGrantMin: "",
     avgGrantMax: "",
     deadline: "",
@@ -46,11 +48,6 @@ export default function AdminFundersPage() {
     },
   });
 
-  const del = useMutation({
-    mutationFn: (id: string) => adminApi.delete(`admin/funders/${id}`),
-    onSuccess: () => qc.invalidateQueries({ queryKey: ["admin", "funders"] }),
-  });
-
   const create = useMutation({
     mutationFn: async () => {
       await adminApi.post("admin/funders", {
@@ -58,10 +55,13 @@ export default function AdminFundersPage() {
         website: form.website,
         contactName: form.contactName,
         contactEmail: form.contactEmail,
+        contactPhone: form.contactPhone || undefined,
         missionStatement: form.missionStatement,
         locationFocus: form.locationFocus.split(",").map((s) => s.trim()).filter(Boolean),
         fundingCategories: form.fundingCategories.split(",").map((s) => s.trim()).filter(Boolean),
         agencyTypesFunded: form.agencyTypesFunded.split(",").map((s) => s.trim()).filter(Boolean),
+        equipmentTags: form.equipmentTags.split(",").map((s) => s.trim()).filter(Boolean),
+        localMatchRequired: form.localMatchRequired,
         avgGrantMin: form.avgGrantMin ? Number(form.avgGrantMin) : undefined,
         avgGrantMax: form.avgGrantMax ? Number(form.avgGrantMax) : undefined,
         deadline: form.deadline || undefined,
@@ -98,24 +98,16 @@ export default function AdminFundersPage() {
           <thead className="bg-[#f9fafb] text-[#6b7280]">
             <tr>
               <th className="p-3">Name</th>
-              <th className="p-3">Location</th>
-              <th className="p-3">Categories</th>
               <th className="p-3">Grant range</th>
-              <th className="p-3">Apps</th>
-              <th className="p-3">Locked</th>
-              <th className="p-3" />
+              <th className="p-3">Applications</th>
+              <th className="p-3">Status</th>
+              <th className="w-14 p-3 text-center" aria-label="View details" />
             </tr>
           </thead>
           <tbody>
             {rows.map((r: Record<string, unknown>) => (
               <tr key={String(r._id)} className="border-t border-[#f0f0f0]">
                 <td className="p-3 font-medium text-[#111827]">{String(r.name)}</td>
-                <td className="p-3 text-[#6b7280]">
-                  {(r.locationFocus as string[])?.join(", ") || "—"}
-                </td>
-                <td className="p-3 text-[#6b7280]">
-                  {(r.fundingCategories as string[])?.slice(0, 3).join(", ") || "—"}
-                </td>
                 <td className="p-3 text-[#6b7280]">
                   ${Number(r.avgGrantMin || 0).toLocaleString()} – $
                   {Number(r.avgGrantMax || 0).toLocaleString()}
@@ -130,19 +122,8 @@ export default function AdminFundersPage() {
                     <span className="text-xs font-medium text-emerald-600">Open</span>
                   )}
                 </td>
-                <td className="flex gap-2 p-3">
-                  <Link href={`/admin/funders/${r._id}/edit`} className="text-sm font-medium text-[#ef3e34] hover:underline">
-                    Edit
-                  </Link>
-                  <button
-                    type="button"
-                    className="text-red-400 text-sm"
-                    onClick={() => {
-                      if (confirm("Delete?")) del.mutate(String(r._id));
-                    }}
-                  >
-                    Delete
-                  </button>
+                <td className="p-3 text-center">
+                  <AdminTableViewLink href={`/admin/funders/${r._id}`} label="View funder details" />
                 </td>
               </tr>
             ))}
@@ -162,10 +143,12 @@ export default function AdminFundersPage() {
                 "website",
                 "contactName",
                 "contactEmail",
+                "contactPhone",
                 "missionStatement",
                 "locationFocus",
                 "fundingCategories",
                 "agencyTypesFunded",
+                "equipmentTags",
                 "avgGrantMin",
                 "avgGrantMax",
                 "deadline",
@@ -176,7 +159,13 @@ export default function AdminFundersPage() {
               ] as const
             ).map((key) => (
               <div key={key}>
-                <Label className="capitalize text-xs">{key.replace(/([A-Z])/g, " $1")}</Label>
+                <Label className="capitalize text-xs">
+                  {key === "equipmentTags"
+                    ? "Equipment tags (comma separated)"
+                    : key === "website"
+                      ? "Website (official funder page)"
+                      : key.replace(/([A-Z])/g, " $1")}
+                </Label>
                 {key === "missionStatement" || key === "notes" || key === "pastGrantsAwarded" ? (
                   <Textarea
                     className="border-[#e5e7eb] text-sm"
@@ -192,6 +181,15 @@ export default function AdminFundersPage() {
                 )}
               </div>
             ))}
+            <label className="flex cursor-pointer items-center gap-2 text-sm text-[#374151]">
+              <input
+                type="checkbox"
+                className="h-4 w-4 rounded border-[#e5e7eb]"
+                checked={form.localMatchRequired}
+                onChange={(e) => setForm({ ...form, localMatchRequired: e.target.checked })}
+              />
+              Local match typically required for this funder’s grants
+            </label>
           </div>
           <DialogFooter>
             <Button variant="ghost" onClick={() => setOpen(false)}>

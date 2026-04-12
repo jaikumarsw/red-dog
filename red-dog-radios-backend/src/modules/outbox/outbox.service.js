@@ -25,7 +25,18 @@ const getOne = async (id) => {
 
 const create = async (data) => Outbox.create(data);
 
-const queueEmail = async ({ recipient, recipientName, subject, htmlBody, emailType, isTest, emailKey, relatedOrganization, relatedUser }) => {
+const queueEmail = async ({
+  recipient,
+  recipientName,
+  subject,
+  htmlBody,
+  emailType,
+  isTest,
+  emailKey,
+  relatedOrganization,
+  relatedUser,
+  scheduledFor,
+}) => {
   return Outbox.create({
     recipient,
     recipientName,
@@ -36,6 +47,7 @@ const queueEmail = async ({ recipient, recipientName, subject, htmlBody, emailTy
     emailKey,
     relatedOrganization,
     relatedUser,
+    scheduledFor: scheduledFor || undefined,
     status: 'pending',
   });
 };
@@ -78,7 +90,13 @@ const sendEmail = async (outboxId) => {
 };
 
 const processQueue = async (limit = 50) => {
-  const pending = await Outbox.find({ status: 'pending' }).limit(limit);
+  const now = new Date();
+  const pending = await Outbox.find({
+    status: 'pending',
+    $or: [{ scheduledFor: { $exists: false } }, { scheduledFor: null }, { scheduledFor: { $lte: now } }],
+  })
+    .sort({ scheduledFor: 1, createdAt: 1 })
+    .limit(limit);
   let sent = 0, failed = 0;
 
   for (const item of pending) {

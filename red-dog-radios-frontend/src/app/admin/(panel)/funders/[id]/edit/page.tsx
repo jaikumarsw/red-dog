@@ -4,6 +4,7 @@ import { useParams, useRouter } from "next/navigation";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import adminApi from "@/lib/adminApi";
 import { useState, useEffect } from "react";
+import { AdminBackLink } from "@/components/admin/AdminBackLink";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -17,10 +18,10 @@ export default function EditFunderPage() {
   const { data } = useQuery({
     queryKey: ["admin", "funder", id],
     queryFn: async () => {
-      const res = await adminApi.get("admin/funders", { params: { limit: 500 } });
-      const row = (res.data.data as Record<string, unknown>[]).find((x) => String(x._id) === id);
-      return row;
+      const res = await adminApi.get(`admin/funders/${id}`);
+      return res.data.data as Record<string, unknown>;
     },
+    enabled: Boolean(id),
   });
 
   useEffect(() => {
@@ -31,6 +32,7 @@ export default function EditFunderPage() {
       website: String(d.website || ""),
       contactName: String(d.contactName || ""),
       contactEmail: String(d.contactEmail || ""),
+      contactPhone: String(d.contactPhone || ""),
       missionStatement: String(d.missionStatement || ""),
       locationFocus: Array.isArray(d.locationFocus) ? (d.locationFocus as string[]).join(", ") : "",
       fundingCategories: Array.isArray(d.fundingCategories)
@@ -39,6 +41,8 @@ export default function EditFunderPage() {
       agencyTypesFunded: Array.isArray(d.agencyTypesFunded)
         ? (d.agencyTypesFunded as string[]).join(", ")
         : "",
+      equipmentTags: Array.isArray(d.equipmentTags) ? (d.equipmentTags as string[]).join(", ") : "",
+      localMatchRequired: d.localMatchRequired === true ? "yes" : "no",
       avgGrantMin: String(d.avgGrantMin ?? ""),
       avgGrantMax: String(d.avgGrantMax ?? ""),
       deadline: d.deadline ? String(d.deadline).slice(0, 10) : "",
@@ -58,10 +62,13 @@ export default function EditFunderPage() {
         website: form.website,
         contactName: form.contactName,
         contactEmail: form.contactEmail,
+        contactPhone: form.contactPhone || undefined,
         missionStatement: form.missionStatement,
         locationFocus: form.locationFocus.split(",").map((s) => s.trim()).filter(Boolean),
         fundingCategories: form.fundingCategories.split(",").map((s) => s.trim()).filter(Boolean),
         agencyTypesFunded: form.agencyTypesFunded.split(",").map((s) => s.trim()).filter(Boolean),
+        equipmentTags: form.equipmentTags.split(",").map((s) => s.trim()).filter(Boolean),
+        localMatchRequired: form.localMatchRequired === "yes",
         avgGrantMin: form.avgGrantMin ? Number(form.avgGrantMin) : undefined,
         avgGrantMax: form.avgGrantMax ? Number(form.avgGrantMax) : undefined,
         deadline: form.deadline || undefined,
@@ -80,11 +87,29 @@ export default function EditFunderPage() {
 
   return (
     <div className="max-w-xl space-y-3">
+      <AdminBackLink href={`/admin/funders/${String(id)}`}>Back to funder</AdminBackLink>
       <h1 className="[font-family:'Montserrat',Helvetica] text-2xl font-bold text-[#111827]">Edit funder</h1>
       {Object.keys(form).map((key) => (
         <div key={key}>
-          <Label className="text-xs capitalize">{key}</Label>
-          {["missionStatement", "notes", "pastGrantsAwarded"].includes(key) ? (
+          <Label className="text-xs capitalize">
+            {key === "equipmentTags"
+              ? "Equipment tags (comma)"
+              : key === "localMatchRequired"
+                ? "Local match required"
+                : key === "website"
+                  ? "Website (official)"
+                  : key}
+          </Label>
+          {key === "localMatchRequired" ? (
+            <select
+              className="mt-1 w-full rounded-md border border-[#e5e7eb] bg-white px-3 py-2 text-sm"
+              value={form[key]}
+              onChange={(e) => setForm({ ...form, [key]: e.target.value })}
+            >
+              <option value="no">No</option>
+              <option value="yes">Yes</option>
+            </select>
+          ) : ["missionStatement", "notes", "pastGrantsAwarded"].includes(key) ? (
             <Textarea
               className="mt-1 border-[#e5e7eb]"
               value={form[key]}

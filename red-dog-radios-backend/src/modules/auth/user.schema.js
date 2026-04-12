@@ -13,6 +13,10 @@ const userSchema = new mongoose.Schema(
     isActive: { type: Boolean, default: true },
     organizationId: { type: mongoose.Schema.Types.ObjectId, ref: 'Organization' },
     onboardingCompleted: { type: Boolean, default: false },
+    resetOtp: { type: String, select: false },
+    resetOtpExpiry: { type: Date },
+    resetToken: { type: String, select: false },
+    resetTokenExpiry: { type: Date },
     settings: {
       notifications: {
         highFitAlerts: { type: Boolean, default: true },

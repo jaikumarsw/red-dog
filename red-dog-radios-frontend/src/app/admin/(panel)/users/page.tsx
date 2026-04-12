@@ -1,23 +1,16 @@
 "use client";
 
-import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { useQuery } from "@tanstack/react-query";
 import adminApi from "@/lib/adminApi";
-import { Button } from "@/components/ui/button";
+import { AdminTableViewLink } from "@/components/admin/AdminTableViewLink";
 
 export default function AdminUsersPage() {
-  const qc = useQueryClient();
   const { data } = useQuery({
     queryKey: ["admin", "users"],
     queryFn: async () => {
       const res = await adminApi.get("admin/users", { params: { limit: 200 } });
       return res.data.data as Record<string, unknown>[];
     },
-  });
-
-  const roleMut = useMutation({
-    mutationFn: ({ userId, role }: { userId: string; role: string }) =>
-      adminApi.put(`admin/users/${userId}/role`, { role }),
-    onSuccess: () => qc.invalidateQueries({ queryKey: ["admin", "users"] }),
   });
 
   const rows = data ?? [];
@@ -32,10 +25,7 @@ export default function AdminUsersPage() {
               <th className="p-3">Name</th>
               <th className="p-3">Email</th>
               <th className="p-3">Role</th>
-              <th className="p-3">Signed up</th>
-              <th className="p-3">Agency</th>
-              <th className="p-3">Apps</th>
-              <th className="p-3">Actions</th>
+              <th className="w-14 p-3 text-center" aria-label="View details" />
             </tr>
           </thead>
           <tbody>
@@ -46,43 +36,14 @@ export default function AdminUsersPage() {
                 <td className="p-3">
                   <span
                     className={`rounded px-2 py-0.5 text-xs font-semibold ${
-                      u.role === "admin"
-                        ? "bg-red-50 text-red-700"
-                        : "bg-sky-50 text-sky-800"
+                      u.role === "admin" ? "bg-red-50 text-red-700" : "bg-sky-50 text-sky-800"
                     }`}
                   >
                     {String(u.role)}
                   </span>
                 </td>
-                <td className="p-3 text-[#9ca3af]">
-                  {u.createdAt ? new Date(String(u.createdAt)).toLocaleDateString() : "—"}
-                </td>
-                <td className="p-3 text-[#6b7280]">{String(u.agencyName || "—")}</td>
-                <td className="p-3 text-[#6b7280]">{String(u.applicationCount ?? 0)}</td>
-                <td className="p-3">
-                  {u.role === "admin" ? (
-                    <Button
-                      size="sm"
-                      variant="outline"
-                      className="text-xs border-[#e5e7eb]"
-                      onClick={() =>
-                        roleMut.mutate({ userId: String(u._id), role: "agency" })
-                      }
-                    >
-                      Demote to agency
-                    </Button>
-                  ) : (
-                    <Button
-                      size="sm"
-                      variant="outline"
-                      className="text-xs border-[#e5e7eb]"
-                      onClick={() =>
-                        roleMut.mutate({ userId: String(u._id), role: "admin" })
-                      }
-                    >
-                      Promote to admin
-                    </Button>
-                  )}
+                <td className="p-3 text-center">
+                  <AdminTableViewLink href={`/admin/users/${u._id}`} label="View user details" />
                 </td>
               </tr>
             ))}

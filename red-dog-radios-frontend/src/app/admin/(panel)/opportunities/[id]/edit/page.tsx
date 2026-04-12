@@ -4,6 +4,7 @@ import { useParams, useRouter } from "next/navigation";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import adminApi from "@/lib/adminApi";
 import { useState, useEffect } from "react";
+import { AdminBackLink } from "@/components/admin/AdminBackLink";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -33,8 +34,10 @@ export default function EditOpportunityPage() {
       maxAmount: String(d.maxAmount ?? ""),
       sourceUrl: String(d.sourceUrl || ""),
       keywords: Array.isArray(d.keywords) ? (d.keywords as string[]).join(", ") : "",
+      equipmentTags: Array.isArray(d.equipmentTags) ? (d.equipmentTags as string[]).join(", ") : "",
       category: String(d.category || ""),
       description: String(d.description || ""),
+      localMatchRequired: d.localMatchRequired === true ? "yes" : "no",
     });
   }, [data]);
 
@@ -48,8 +51,10 @@ export default function EditOpportunityPage() {
         maxAmount: form.maxAmount ? Number(form.maxAmount) : undefined,
         sourceUrl: form.sourceUrl,
         keywords: form.keywords.split(",").map((s) => s.trim()).filter(Boolean),
+        equipmentTags: form.equipmentTags.split(",").map((s) => s.trim()).filter(Boolean),
         category: form.category,
         description: form.description,
+        localMatchRequired: form.localMatchRequired === "yes",
       });
     },
     onSuccess: () => router.push("/admin/opportunities"),
@@ -59,11 +64,29 @@ export default function EditOpportunityPage() {
 
   return (
     <div className="max-w-xl space-y-4">
+      <AdminBackLink href={`/admin/opportunities/${String(id)}`}>Back to opportunity</AdminBackLink>
       <h1 className="[font-family:'Montserrat',Helvetica] text-2xl font-bold text-[#111827]">Edit opportunity</h1>
       {Object.keys(form).map((key) => (
         <div key={key}>
-          <Label className="capitalize">{key}</Label>
-          {key === "description" ? (
+          <Label className="capitalize">
+            {key === "sourceUrl"
+              ? "Official opportunity link"
+              : key === "localMatchRequired"
+                ? "Local match required"
+                : key === "equipmentTags"
+                  ? "Equipment tags (comma separated)"
+                  : key}
+          </Label>
+          {key === "localMatchRequired" ? (
+            <select
+              className="mt-1 w-full rounded-md border border-[#e5e7eb] bg-white px-3 py-2 text-sm"
+              value={form[key]}
+              onChange={(e) => setForm({ ...form, [key]: e.target.value })}
+            >
+              <option value="no">No</option>
+              <option value="yes">Yes</option>
+            </select>
+          ) : key === "description" ? (
             <Textarea
               className="mt-1 border-[#e5e7eb]"
               value={form[key]}

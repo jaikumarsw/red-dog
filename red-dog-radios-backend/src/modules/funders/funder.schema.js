@@ -13,6 +13,10 @@ const funderSchema = new mongoose.Schema(
     locationFocus: [{ type: String }],
     fundingCategories: [{ type: String }],
     agencyTypesFunded: [{ type: String }],
+    /** Equipment / program tags for matching (e.g. radios, repeaters, dispatch). */
+    equipmentTags: [{ type: String }],
+    /** When true, grant typically requires a local funding match. */
+    localMatchRequired: { type: Boolean, default: false },
 
     avgGrantMin: { type: Number },
     avgGrantMax: { type: Number },

@@ -2,6 +2,7 @@ const asyncHandler = require('../../utils/asyncHandler');
 const { success, created, paginate } = require('../../utils/apiResponse');
 const appService = require('./application.service');
 const Application = require('./application.schema');
+const activityLogService = require('../activityLogs/activityLog.service');
 const { resolveAgencyOrganizationId } = require('../../utils/resolveAgencyOrg');
 const { AppError } = require('../../middlewares/error.middleware');
 
@@ -44,6 +45,13 @@ const generate = asyncHandler(async (req, res) => {
     organizationId,
     userId: req.user._id,
   });
+  await activityLogService.log({
+    category: 'application',
+    action: 'ai_generated',
+    summary: `Agency generated AI application draft (${app.projectTitle || app._id})`,
+    actorId: req.user._id,
+    meta: { applicationId: app._id, organizationId, funderId, opportunityId },
+  });
   return created(res, app, 'Application generated with AI');
 });
 
@@ -64,7 +72,7 @@ const updateStatus = asyncHandler(async (req, res) => {
 const submit = asyncHandler(async (req, res) => {
   const organizationId = await resolveAgencyOrganizationId(req.user);
   await assertAppInOrg(req.params.id, organizationId);
-  const app = await appService.submit(req.params.id);
+  const app = await appService.submit(req.params.id, req.user._id);
   return success(res, app, 'Application submitted');
 });
 
