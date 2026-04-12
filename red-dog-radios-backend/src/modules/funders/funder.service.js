@@ -204,8 +204,11 @@ const updateAgencyNotesOnly = async (funderId, notes) => {
 const ACTIVE_APP_STATUSES = new Set(['draft', 'drafting', 'not_started', 'ready_to_submit', 'submitted', 'in_review', 'follow_up_needed', 'awarded']);
 
 const getQueueForAgency = async (funderId, organizationId) => {
+  const Opportunity = require('../opportunities/opportunity.schema');
   const funder = await Funder.findById(funderId).lean();
   if (!funder) throw new AppError('Funder not found', 404);
+
+  const opps = await Opportunity.find({ funder: funder.name, status: { $ne: 'closed' } }).sort({ deadline: 1 }).lean();
 
   const apps = await Application.find({ funder: funderId, status: { $in: [...ACTIVE_APP_STATUSES] } })
     .sort({ createdAt: 1 })
@@ -224,21 +227,35 @@ const getQueueForAgency = async (funderId, organizationId) => {
     ahead = totalInQueue;
   }
 
-  const max = funder.maxApplicationsAllowed || 5;
-  const filled = funder.currentApplicationCount || 0;
+  let maxApplicationsAllowed = 0;
+  let currentApplicationCount = 0;
+  let isLocked = false;
+  if (opps.length === 1) {
+    const o = opps[0];
+    maxApplicationsAllowed = o.maxApplicationsAllowed ?? 0;
+    currentApplicationCount = o.currentApplicationCount ?? 0;
+    isLocked = !!o.isLocked;
+  } else if (opps.length > 1) {
+    isLocked = opps.every((o) => o.isLocked);
+    maxApplicationsAllowed = 0;
+    currentApplicationCount = 0;
+  }
+
   let estimatedChance = 'moderate';
-  if (funder.isLocked) estimatedChance = 'closed — no new applications';
-  else if (filled >= max - 1) estimatedChance = 'limited — few spots remain';
-  else if (totalInQueue <= 2) estimatedChance = 'strong — early in the cycle';
+  if (isLocked) estimatedChance = 'closed — no new applications for this opportunity';
+  else if (maxApplicationsAllowed > 0 && currentApplicationCount >= maxApplicationsAllowed - 1) {
+    estimatedChance = 'limited — few spots remain';
+  } else if (totalInQueue <= 2) estimatedChance = 'strong — early in the cycle';
 
   return {
     position,
     ahead,
     totalInQueue,
     estimatedChance,
-    maxApplicationsAllowed: max,
-    currentApplicationCount: filled,
-    isLocked: !!funder.isLocked,
+    maxApplicationsAllowed,
+    currentApplicationCount,
+    isLocked,
+    opportunityCount: opps.length,
   };
 };
 

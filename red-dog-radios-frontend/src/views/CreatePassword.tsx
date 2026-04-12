@@ -14,8 +14,10 @@ import { cn } from "@/lib/utils";
 import { createPasswordSchema, type CreatePasswordFormValues } from "@/lib/validation-schemas";
 import api from "@/lib/api";
 import { useToast } from "@/hooks/use-toast";
+import { useAuthGateRedirects } from "@/lib/useAuthGateRedirects";
 
 export const CreatePassword = () => {
+  useAuthGateRedirects();
   const router = useRouter();
   const { toast } = useToast();
   const [showNew, setShowNew] = useState(false);

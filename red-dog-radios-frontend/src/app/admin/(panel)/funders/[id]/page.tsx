@@ -2,23 +2,11 @@
 
 import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
-import { useState } from "react";
-import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { useMutation, useQueryClient } from "@tanstack/react-query";
 import adminApi from "@/lib/adminApi";
 import { AdminBackLink } from "@/components/admin/AdminBackLink";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-} from "@/components/ui/alert-dialog";
-import { useToast } from "@/hooks/use-toast";
+import { useQuery } from "@tanstack/react-query";
 
 function formatList(val: unknown) {
   if (Array.isArray(val)) return val.length ? val.join(", ") : "—";
@@ -36,11 +24,7 @@ export default function AdminFunderDetailPage() {
   const params = useParams();
   const router = useRouter();
   const qc = useQueryClient();
-  const { toast } = useToast();
   const id = typeof params.id === "string" ? params.id : params.id?.[0] ?? "";
-  const [unlockOpen, setUnlockOpen] = useState(false);
-  const [limitOpen, setLimitOpen] = useState(false);
-  const [limitInput, setLimitInput] = useState("");
 
   const { data, isLoading, isError } = useQuery({
     queryKey: ["admin", "funder", id],
@@ -56,37 +40,6 @@ export default function AdminFunderDetailPage() {
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["admin", "funders"] });
       router.push("/admin/funders");
-    },
-  });
-
-  const unlockMutation = useMutation({
-    mutationFn: () => adminApi.put(`admin/funders/${id}/unlock`),
-    onSuccess: async () => {
-      await qc.invalidateQueries({ queryKey: ["admin", "funder", id] });
-      setUnlockOpen(false);
-      toast({ title: "Funder unlocked", description: "Application count was reset and the funder is open again." });
-    },
-    onError: (err: unknown) => {
-      const msg =
-        (err as { response?: { data?: { message?: string } } })?.response?.data?.message ?? "Unlock failed";
-      toast({ title: "Error", description: msg, variant: "destructive" });
-      setUnlockOpen(false);
-    },
-  });
-
-  const setLimitMutation = useMutation({
-    mutationFn: (maxApplicationsAllowed: number) =>
-      adminApi.put(`admin/funders/${id}/set-limit`, { maxApplicationsAllowed }),
-    onSuccess: async () => {
-      await qc.invalidateQueries({ queryKey: ["admin", "funder", id] });
-      setLimitOpen(false);
-      toast({ title: "Limit updated" });
-    },
-    onError: (err: unknown) => {
-      const msg =
-        (err as { response?: { data?: { message?: string } } })?.response?.data?.message ?? "Could not update limit";
-      toast({ title: "Error", description: msg, variant: "destructive" });
-      setLimitOpen(false);
     },
   });
 
@@ -119,11 +72,6 @@ export default function AdminFunderDetailPage() {
     ["Created", data.createdAt ? new Date(String(data.createdAt)).toLocaleString() : "—"],
     ["Updated", data.updatedAt ? new Date(String(data.updatedAt)).toLocaleString() : "—"],
   ];
-
-  const openLimitDialog = () => {
-    setLimitInput(String(data.maxApplicationsAllowed ?? 5));
-    setLimitOpen(true);
-  };
 
   return (
     <div className="max-w-3xl space-y-6">
@@ -159,77 +107,6 @@ export default function AdminFunderDetailPage() {
             <p className="mt-0.5 whitespace-pre-wrap text-[#111827]">{value}</p>
           </div>
         ))}
-      </div>
-
-      {/* Application Control */}
-      <div className="rounded-lg border border-[#e5e7eb] bg-white p-6 shadow-sm space-y-5">
-        <h2 className="[font-family:'Montserrat',Helvetica] text-sm font-bold uppercase tracking-wide text-[#111827]">
-          Application Control
-        </h2>
-
-        {(() => {
-          const isLocked = Boolean(data.isLocked);
-          const currentCount = Number(data.currentApplicationCount ?? 0);
-          const maxAllowed = Math.max(1, Number(data.maxApplicationsAllowed ?? 5));
-          const fillPct = Math.min(100, (currentCount / maxAllowed) * 100);
-          return (
-            <>
-              <div className="flex flex-wrap items-center gap-4">
-                <div className="flex flex-col gap-0.5">
-                  <p className="text-xs uppercase tracking-wide text-[#9ca3af]">Applications received</p>
-                  <p className="text-lg font-bold text-[#111827]">
-                    {currentCount}{" "}
-                    <span className="text-sm font-normal text-[#6b7280]">
-                      / {maxAllowed} cap
-                    </span>
-                  </p>
-                </div>
-
-                {isLocked ? (
-                  <span className="inline-flex items-center rounded-full bg-[#fee2e2] px-3 py-1 text-xs font-semibold text-[#dc2626]">
-                    LOCKED
-                  </span>
-                ) : (
-                  <span className="inline-flex items-center rounded-full bg-[#dcfce7] px-3 py-1 text-xs font-semibold text-[#16a34a]">
-                    OPEN
-                  </span>
-                )}
-              </div>
-
-              <div className="w-full">
-                <div className="h-2 w-full overflow-hidden rounded-full bg-[#f3f4f6]">
-                  <div
-                    className={`h-2 rounded-full transition-all ${isLocked ? "bg-[#ef4444]" : "bg-[#22c55e]"}`}
-                    style={{ width: `${fillPct}%` }}
-                  />
-                </div>
-              </div>
-
-              <div className="flex flex-wrap gap-2 pt-1">
-                {isLocked && (
-                  <Button
-                    type="button"
-                    variant="secondary"
-                    className="border-[#e5e7eb]"
-                    onClick={() => setUnlockOpen(true)}
-                    disabled={unlockMutation.isPending}
-                  >
-                    {unlockMutation.isPending ? "Unlocking…" : "Unlock Funder"}
-                  </Button>
-                )}
-                <Button
-                  type="button"
-                  variant="secondary"
-                  className="border-[#e5e7eb]"
-                  onClick={openLimitDialog}
-                  disabled={setLimitMutation.isPending}
-                >
-                  Set Application Limit
-                </Button>
-              </div>
-            </>
-          );
-        })()}
       </div>
 
       <div className="rounded-lg border border-[#e5e7eb] bg-white p-6 shadow-sm">
@@ -274,57 +151,6 @@ export default function AdminFunderDetailPage() {
           </div>
         )}
       </div>
-
-      <AlertDialog open={unlockOpen} onOpenChange={setUnlockOpen}>
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle>Unlock funder?</AlertDialogTitle>
-            <AlertDialogDescription>
-              This clears the application counter and removes the locked state so agencies can submit again (until the cap
-              is reached).
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel>Cancel</AlertDialogCancel>
-            <AlertDialogAction
-              className="bg-[#ef3e34] hover:bg-[#d63530]"
-              onClick={() => unlockMutation.mutate()}
-            >
-              Unlock
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
-
-      <AlertDialog open={limitOpen} onOpenChange={setLimitOpen}>
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle>Application cap</AlertDialogTitle>
-            <AlertDialogDescription>
-              Maximum number of applications accepted for this funder before it locks automatically.
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <Input
-            type="number"
-            min={1}
-            className="border-[#e5e7eb]"
-            value={limitInput}
-            onChange={(e) => setLimitInput(e.target.value)}
-          />
-          <AlertDialogFooter>
-            <AlertDialogCancel>Cancel</AlertDialogCancel>
-            <AlertDialogAction
-              className="bg-[#ef3e34] hover:bg-[#d63530]"
-              onClick={() => {
-                const n = parseInt(limitInput, 10);
-                if (!Number.isNaN(n) && n >= 1) setLimitMutation.mutate(n);
-              }}
-            >
-              Save limit
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
     </div>
   );
 }

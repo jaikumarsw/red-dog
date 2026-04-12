@@ -11,8 +11,10 @@ import { cn } from "@/lib/utils";
 import { otpSchema } from "@/lib/validation-schemas";
 import api from "@/lib/api";
 import { useToast } from "@/hooks/use-toast";
+import { useAuthGateRedirects } from "@/lib/useAuthGateRedirects";
 
 export const OtpVerification = () => {
+  useAuthGateRedirects();
   const router = useRouter();
   const searchParams = useSearchParams();
   const flow = searchParams.get("flow");

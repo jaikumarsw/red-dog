@@ -1,5 +1,6 @@
 const asyncHandler = require('../../utils/asyncHandler');
 const { success, created, paginate } = require('../../utils/apiResponse');
+const { AppError } = require('../../middlewares/error.middleware');
 const authService = require('../auth/auth.service');
 const adminService = require('./admin.service');
 const activityLogService = require('../activityLogs/activityLog.service');
@@ -111,6 +112,11 @@ const getApplication = asyncHandler(async (req, res) => {
   return success(res, app);
 });
 
+const deleteApplication = asyncHandler(async (req, res) => {
+  await adminService.deleteApplicationAdmin(req.params.id);
+  return success(res, null, 'Application deleted');
+});
+
 const updateApplication = asyncHandler(async (req, res) => {
   const app = await adminService.updateApplicationAdmin(req.params.id, req.body);
   return success(res, app, 'Application updated');
@@ -134,6 +140,10 @@ const generateApplicationAI = asyncHandler(async (req, res) => {
 });
 
 const createApplicationForAgency = asyncHandler(async (req, res) => {
+  const { agencyId, funderId, opportunityId } = req.body || {};
+  if (!agencyId || !funderId || !opportunityId) {
+    throw new AppError('agencyId, funderId, and opportunityId are required', 400);
+  }
   const app = await adminService.createApplicationForAgency({
     ...req.body,
     adminUserId: req.user._id,
@@ -267,6 +277,7 @@ module.exports = {
   deleteFunder,
   listApplications,
   getApplication,
+  deleteApplication,
   updateApplication,
   updateApplicationStatus,
   generateApplicationAI,

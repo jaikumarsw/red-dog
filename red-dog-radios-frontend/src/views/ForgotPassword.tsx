@@ -15,8 +15,10 @@ import { cn } from "@/lib/utils";
 import { forgotPasswordSchema, type ForgotPasswordFormValues } from "@/lib/validation-schemas";
 import api from "@/lib/api";
 import { useToast } from "@/hooks/use-toast";
+import { useAuthGateRedirects } from "@/lib/useAuthGateRedirects";
 
 export const ForgotPassword = () => {
+  useAuthGateRedirects();
   const router = useRouter();
   const { toast } = useToast();
   const [loading, setLoading] = useState(false);

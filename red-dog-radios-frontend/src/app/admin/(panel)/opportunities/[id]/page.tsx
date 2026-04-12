@@ -7,6 +7,9 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import adminApi from "@/lib/adminApi";
 import { AdminTableViewLink } from "@/components/admin/AdminTableViewLink";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { useToast } from "@/hooks/use-toast";
+import { useState, useEffect } from "react";
 
 type CreatedBy = {
   firstName?: string;
@@ -45,6 +48,9 @@ type OpportunityDetail = {
   updatedAt?: string;
   createdBy?: CreatedBy | string;
   applications: ApplicationSummary[];
+  maxApplicationsAllowed?: number;
+  currentApplicationCount?: number;
+  isLocked?: boolean;
 };
 
 function formatAmountRange(min?: number, max?: number) {
@@ -66,7 +72,9 @@ export default function AdminOpportunityDetailPage() {
   const params = useParams();
   const router = useRouter();
   const qc = useQueryClient();
+  const { toast } = useToast();
   const id = typeof params.id === "string" ? params.id : params.id?.[0] ?? "";
+  const [maxInput, setMaxInput] = useState("0");
 
   const { data, isLoading, isError } = useQuery({
     queryKey: ["admin", "opportunity", id],
@@ -84,6 +92,25 @@ export default function AdminOpportunityDetailPage() {
       router.push("/admin/opportunities");
     },
   });
+
+  const updateOppMutation = useMutation({
+    mutationFn: (body: Record<string, unknown>) => adminApi.put(`admin/opportunities/${id}`, body),
+    onSuccess: async () => {
+      await qc.invalidateQueries({ queryKey: ["admin", "opportunity", id] });
+      toast({ title: "Opportunity updated" });
+    },
+    onError: (err: unknown) => {
+      const msg =
+        (err as { response?: { data?: { message?: string } } })?.response?.data?.message ?? "Update failed";
+      toast({ title: "Error", description: msg, variant: "destructive" });
+    },
+  });
+
+  useEffect(() => {
+    if (data) {
+      setMaxInput(String(data.maxApplicationsAllowed ?? 0));
+    }
+  }, [data]);
 
   return (
     <div className="space-y-8">
@@ -222,6 +249,78 @@ export default function AdminOpportunityDetailPage() {
                 <dd className="text-[#111827]">{createdByLabel(data.createdBy)}</dd>
               </div>
             </dl>
+          </section>
+
+          <section className="space-y-4 rounded-lg border border-[#e5e7eb] bg-white p-6 shadow-sm">
+            <h2 className="text-xs font-semibold uppercase tracking-wide text-[#ef3e34] [font-family:'Montserrat',Helvetica]">
+              Application Control
+            </h2>
+            <p className="text-sm text-[#6b7280]">
+              When a limit is set (&gt; 0), new applications for this opportunity count toward the cap.{" "}
+              <span className="font-medium text-[#374151]">0</span> means unlimited.
+            </p>
+            <div className="flex flex-wrap items-center gap-4">
+              <div>
+                <p className="text-xs text-[#6b7280]">Current applications</p>
+                <p className="text-lg font-semibold text-[#111827]">{data.applications?.length ?? 0}</p>
+              </div>
+              {data.isLocked ? (
+                <span className="inline-flex rounded-full bg-[#fee2e2] px-3 py-1 text-xs font-semibold text-[#dc2626]">
+                  LOCKED
+                </span>
+              ) : (
+                <span className="inline-flex rounded-full bg-[#dcfce7] px-3 py-1 text-xs font-semibold text-[#16a34a]">
+                  OPEN
+                </span>
+              )}
+            </div>
+            <div className="flex flex-wrap items-end gap-3">
+              <div>
+                <label className="mb-1 block text-xs font-medium text-[#374151]">Max applications allowed</label>
+                <Input
+                  type="number"
+                  min={0}
+                  className="w-36 border-[#e5e7eb]"
+                  value={maxInput}
+                  onChange={(e) => setMaxInput(e.target.value)}
+                />
+              </div>
+              <Button
+                type="button"
+                variant="secondary"
+                className="border-[#e5e7eb]"
+                disabled={updateOppMutation.isPending}
+                onClick={() => {
+                  const n = parseInt(maxInput, 10);
+                  if (Number.isNaN(n) || n < 0) {
+                    toast({ title: "Enter a valid number (0 = unlimited)", variant: "destructive" });
+                    return;
+                  }
+                  updateOppMutation.mutate({
+                    maxApplicationsAllowed: n,
+                    ...(n === 0 ? { isLocked: false } : {}),
+                  });
+                }}
+              >
+                Set Limit
+              </Button>
+              {data.isLocked && (
+                <Button
+                  type="button"
+                  variant="outline"
+                  className="border-[#e5e7eb]"
+                  disabled={updateOppMutation.isPending}
+                  onClick={() =>
+                    updateOppMutation.mutate({ isLocked: false, currentApplicationCount: 0 })
+                  }
+                >
+                  Unlock
+                </Button>
+              )}
+            </div>
+            <p className="text-xs text-[#9ca3af]">
+              When the limit is reached, agencies cannot generate new applications for this opportunity.
+            </p>
           </section>
 
           <section className="space-y-3">

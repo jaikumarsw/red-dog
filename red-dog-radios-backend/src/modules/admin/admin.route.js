@@ -34,9 +34,11 @@ router.get('/applications/:id', protectAdmin, ctrl.getApplication);
 router.put('/applications/:id', protectAdmin, ctrl.updateApplication);
 router.put('/applications/:id/status', protectAdmin, ctrl.updateApplicationStatus);
 router.post('/applications/:id/generate-ai', protectAdmin, ctrl.generateApplicationAI);
+router.delete('/applications/:id', protectAdmin, ctrl.deleteApplication);
 
 router.get('/matches', protectAdmin, ctrl.listMatches);
 router.post('/matches/recompute-all', protectAdmin, ctrl.recomputeMatches);
+// Deprecated: match approve/reject — staff review applications via PUT /applications/:id/status instead.
 router.put('/matches/:id/approve', protectAdmin, ctrl.approveMatch);
 router.put('/matches/:id/reject', protectAdmin, ctrl.rejectMatch);
 

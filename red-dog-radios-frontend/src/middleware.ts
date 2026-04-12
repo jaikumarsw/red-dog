@@ -34,6 +34,11 @@ export function middleware(request: NextRequest) {
       if (adminToken) {
         return NextResponse.redirect(new URL("/admin/dashboard", request.url));
       }
+      if (agencyToken) {
+        const dest =
+          onboardingCookie === "0" ? "/onboarding" : "/dashboard";
+        return NextResponse.redirect(new URL(dest, request.url));
+      }
       return NextResponse.next();
     }
     if (!adminToken) {
@@ -43,6 +48,10 @@ export function middleware(request: NextRequest) {
   }
 
   const isAgencyPublic = AGENCY_PUBLIC.some((p) => pathname === p || pathname.startsWith(`${p}/`));
+
+  if (adminToken && isAgencyPublic) {
+    return NextResponse.redirect(new URL("/admin/dashboard", request.url));
+  }
 
   if (agencyToken && isAgencyPublic) {
     if (onboardingCookie === "0") {

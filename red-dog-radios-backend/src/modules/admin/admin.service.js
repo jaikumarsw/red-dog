@@ -163,11 +163,11 @@ const getAgencyDetail = async (id) => {
   if (!org) throw new AppError('Agency not found', 404);
   const matches = await Match.find({ organization: id })
     .sort({ fitScore: -1 })
-    .populate('opportunity', 'title funder deadline category status maxAmount');
+    .populate('opportunity', '_id title funder deadline category status maxAmount');
   const applications = await Application.find({ organization: id })
     .sort({ createdAt: -1 })
     .populate('funder', 'name')
-    .populate('opportunity', 'title funder');
+    .populate('opportunity', '_id title funder');
   const submissionHistory = applications
     .flatMap((a) =>
       (a.statusHistory || []).map((h) => ({
@@ -300,7 +300,11 @@ const listApplicationsAdmin = async (query) => {
   const { status, agencyId, funderId, dateFrom, dateTo } = query;
   const { page, limit } = parsePagination(query);
   const q = {};
-  if (status) q.status = status;
+  if (status === 'pending_review') {
+    q.status = { $in: ['submitted', 'in_review'] };
+  } else if (status) {
+    q.status = status;
+  }
   if (agencyId) q.organization = agencyId;
   if (funderId) q.funder = funderId;
   if (dateFrom || dateTo) {
@@ -308,7 +312,7 @@ const listApplicationsAdmin = async (query) => {
     if (dateFrom) q.createdAt.$gte = new Date(dateFrom);
     if (dateTo) q.createdAt.$lte = new Date(dateTo);
   }
-  return Application.paginate(q, {
+  const result = await Application.paginate(q, {
     page,
     limit,
     sort: { updatedAt: -1 },
@@ -318,9 +322,44 @@ const listApplicationsAdmin = async (query) => {
       { path: 'opportunity', select: 'title funder' },
     ],
   });
+  const docs = await Promise.all(
+    result.docs.map(async (doc) => {
+      const o = doc.toObject ? doc.toObject() : doc;
+      const orgId = o.organization?._id ?? o.organization;
+      const oppId = o.opportunity?._id ?? o.opportunity;
+      let fitScore = null;
+      if (orgId && oppId) {
+        const m = await Match.findOne({ organization: orgId, opportunity: oppId }).select('fitScore').lean();
+        fitScore = m?.fitScore ?? null;
+      }
+      return { ...o, fitScore };
+    })
+  );
+  return { ...result, docs };
 };
 
-const getApplicationAdmin = (id) => appService.getOne(id);
+const getApplicationAdmin = async (id) => {
+  const app = await appService.getOne(id);
+  const plain = app.toObject ? app.toObject() : app;
+  const orgId = plain.organization?._id ?? plain.organization;
+  const oppId = plain.opportunity?._id ?? plain.opportunity;
+  let fitScore = null;
+  let matchBreakdown = null;
+  let matchReasons = [];
+  if (orgId && oppId) {
+    const m = await Match.findOne({ organization: orgId, opportunity: oppId })
+      .select('fitScore breakdown reasons fitReasons')
+      .lean();
+    if (m) {
+      fitScore = m.fitScore;
+      matchBreakdown = m.breakdown;
+      matchReasons = [...(m.reasons || []), ...(m.fitReasons || [])];
+    }
+  }
+  return { ...plain, fitScore, matchBreakdown, matchReasons };
+};
+
+const deleteApplicationAdmin = (id) => appService.remove(id);
 
 const updateApplicationAdmin = (id, body) => appService.update(id, body);
 
@@ -362,17 +401,38 @@ const listMatchesAdmin = async (query) => {
       { path: 'opportunity', select: 'title funder category keywords' },
     ],
   });
+
+  const pairConditions = result.docs
+    .map((m) => {
+      const o = m.toObject ? m.toObject() : m;
+      const orgId = o.organization?._id ?? o.organization;
+      const oppId = o.opportunity?._id ?? o.opportunity;
+      return { organization: orgId, opportunity: oppId };
+    })
+    .filter((p) => p.organization && p.opportunity);
+  let appByPair = {};
+  if (pairConditions.length > 0) {
+    const apps = await Application.find({ $or: pairConditions }).select('_id organization opportunity status').lean();
+    appByPair = Object.fromEntries(
+      apps.map((a) => [`${String(a.organization)}:${String(a.opportunity)}`, a])
+    );
+  }
+
   const docs = result.docs.map((m) => {
     const o = m.toObject ? m.toObject() : m;
+    const orgId = o.organization?._id ?? o.organization;
+    const oppId = o.opportunity?._id ?? o.opportunity;
+    const appRow = appByPair[`${String(orgId)}:${String(oppId)}`];
     return {
-    ...o,
-    tier: matchTier(o.fitScore),
-    agencyName: o.organization?.name,
-    funderName: o.opportunity?.funder,
-    locationMatch: (o.breakdown?.geography || 0) > 0,
-    categoryMatch: (o.breakdown?.programKeyword || 0) > 0,
-    matchReasons: [...(o.reasons || []), ...(o.fitReasons || [])],
-  };
+      ...o,
+      tier: matchTier(o.fitScore),
+      agencyName: o.organization?.name,
+      funderName: o.opportunity?.funder,
+      locationMatch: (o.breakdown?.geography || 0) > 0,
+      categoryMatch: (o.breakdown?.programKeyword || 0) > 0,
+      matchReasons: [...(o.reasons || []), ...(o.fitReasons || [])],
+      linkedApplication: appRow ? { _id: appRow._id, status: appRow.status } : null,
+    };
   });
   return { ...result, docs };
 };
@@ -504,6 +564,7 @@ module.exports = {
   deleteFunderAdmin,
   listApplicationsAdmin,
   getApplicationAdmin,
+  deleteApplicationAdmin,
   updateApplicationAdmin,
   updateApplicationStatusAdmin,
   generateApplicationAIAdmin,

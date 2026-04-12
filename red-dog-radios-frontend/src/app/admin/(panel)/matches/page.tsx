@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useMemo, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import adminApi from "@/lib/adminApi";
@@ -17,23 +18,36 @@ import {
 } from "@/components/ui/alert-dialog";
 import { useToast } from "@/hooks/use-toast";
 
+type Breakdown = Record<string, number> | undefined;
+
 type MatchRow = {
   _id: string;
   agencyName?: string;
   organization?: { name?: string };
   opportunity?: { title?: string; funder?: string };
   fitScore?: number;
-  status?: string;
+  breakdown?: Breakdown;
+  matchReasons?: string[];
   lastUpdated?: string;
   updatedAt?: string;
+  linkedApplication?: { _id: string; status: string } | null;
 };
 
-type SortKey = "agency" | "opportunity" | "fitScore" | "status" | "lastUpdated";
+type SortKey = "agency" | "opportunity" | "fitScore" | "appStatus" | "lastUpdated";
 
-function statusBadgeCls(s: string) {
-  if (s === "approved") return "bg-[#dcfce7] text-[#16a34a]";
-  if (s === "rejected") return "bg-[#fee2e2] text-[#b91c1c]";
-  return "bg-[#fef9c3] text-[#b45309]";
+function breakdownSummary(b: Breakdown) {
+  if (!b || typeof b !== "object") return "—";
+  const parts = Object.entries(b)
+    .filter(([, v]) => typeof v === "number" && v > 0)
+    .map(([k, v]) => `${k}: ${v}`);
+  return parts.length ? parts.join(", ") : "—";
+}
+
+function appStatusBadgeCls(s: string) {
+  if (s === "approved" || s === "awarded") return "bg-[#dcfce7] text-[#16a34a]";
+  if (s === "rejected" || s === "denied") return "bg-[#fee2e2] text-[#b91c1c]";
+  if (s === "submitted" || s === "in_review") return "bg-[#dbeafe] text-[#1d4ed8]";
+  return "bg-[#f3f4f6] text-[#374151]";
 }
 
 export default function AdminMatchesPage() {
@@ -44,7 +58,6 @@ export default function AdminMatchesPage() {
   const [agencyFilter, setAgencyFilter] = useState("");
   const [sortKey, setSortKey] = useState<SortKey>("fitScore");
   const [sortDir, setSortDir] = useState<"asc" | "desc">("desc");
-  const [pendingAction, setPendingAction] = useState<null | { type: "approve" | "reject"; id: string }>(null);
   const [recomputeOpen, setRecomputeOpen] = useState(false);
 
   const { data, isLoading, refetch } = useQuery({
@@ -85,10 +98,12 @@ export default function AdminMatchesPage() {
       const oppB = b.opportunity?.title ?? b.opportunity?.funder ?? "";
       const dateA = new Date(a.lastUpdated ?? a.updatedAt ?? 0).getTime();
       const dateB = new Date(b.lastUpdated ?? b.updatedAt ?? 0).getTime();
+      const stA = a.linkedApplication?.status ?? "";
+      const stB = b.linkedApplication?.status ?? "";
       if (sortKey === "agency") return agencyA.localeCompare(agencyB) * mult;
       if (sortKey === "opportunity") return oppA.localeCompare(oppB) * mult;
       if (sortKey === "fitScore") return ((a.fitScore ?? 0) - (b.fitScore ?? 0)) * mult;
-      if (sortKey === "status") return (a.status ?? "").localeCompare(b.status ?? "") * mult;
+      if (sortKey === "appStatus") return stA.localeCompare(stB) * mult;
       return (dateA - dateB) * mult;
     });
     return copy;
@@ -98,29 +113,9 @@ export default function AdminMatchesPage() {
     if (sortKey === key) setSortDir((d) => (d === "asc" ? "desc" : "asc"));
     else {
       setSortKey(key);
-      setSortDir(key === "agency" || key === "opportunity" || key === "status" ? "asc" : "desc");
+      setSortDir(key === "agency" || key === "opportunity" || key === "appStatus" ? "asc" : "desc");
     }
   };
-
-  const actMutation = useMutation({
-    mutationFn: async ({ type, id }: { type: "approve" | "reject"; id: string }) => {
-      if (type === "approve") return adminApi.put(`admin/matches/${id}/approve`);
-      return adminApi.put(`admin/matches/${id}/reject`);
-    },
-    onSuccess: (_, v) => {
-      void qc.invalidateQueries({ queryKey: ["admin", "matches"] });
-      toast({
-        title: v.type === "approve" ? "Match approved" : "Match rejected",
-      });
-      setPendingAction(null);
-    },
-    onError: (err: unknown) => {
-      const msg =
-        (err as { response?: { data?: { message?: string } } })?.response?.data?.message ?? "Action failed";
-      toast({ title: "Error", description: msg, variant: "destructive" });
-      setPendingAction(null);
-    },
-  });
 
   const recomputeMutation = useMutation({
     mutationFn: () => adminApi.post("admin/matches/recompute-all"),
@@ -172,6 +167,11 @@ export default function AdminMatchesPage() {
         </div>
       </div>
 
+      <p className="text-sm text-[#6b7280]">
+        Fit scores are computed for each agency–opportunity pair. Approve or reject{" "}
+        <span className="font-medium text-[#374151]">applications</span> after an agency submits — not matches here.
+      </p>
+
       <div className="flex flex-wrap gap-2">
         <select
           className="h-9 rounded-md border border-[#e5e7eb] bg-white px-2 text-sm"
@@ -201,27 +201,28 @@ export default function AdminMatchesPage() {
       </div>
 
       <div className="overflow-x-auto rounded-lg border border-[#e5e7eb] bg-white text-sm shadow-sm">
-        <table className="w-full text-left">
+        <table className="w-full min-w-[880px] text-left">
           <thead className="bg-[#f9fafb] text-[#6b7280]">
             <tr>
               <Th k="agency" label="Agency" />
               <Th k="opportunity" label="Opportunity" />
               <Th k="fitScore" label="Fit score" />
-              <Th k="status" label="Status" />
-              <Th k="lastUpdated" label="Last updated" />
-              <th className="p-3 text-right">Actions</th>
+              <th className="p-3 font-semibold text-[#374151]">Score breakdown</th>
+              <Th k="appStatus" label="Application status" />
+              <Th k="lastUpdated" label="Date computed" />
+              <th className="p-3 text-right font-semibold text-[#374151]">Application</th>
             </tr>
           </thead>
           <tbody>
             {isLoading ? (
               <tr>
-                <td colSpan={6} className="p-8 text-center text-[#9ca3af]">
+                <td colSpan={7} className="p-8 text-center text-[#9ca3af]">
                   Loading…
                 </td>
               </tr>
             ) : sortedRows.length === 0 ? (
               <tr>
-                <td colSpan={6} className="p-8 text-center text-[#9ca3af]">
+                <td colSpan={7} className="p-8 text-center text-[#9ca3af]">
                   No matches found
                 </td>
               </tr>
@@ -229,46 +230,40 @@ export default function AdminMatchesPage() {
               sortedRows.map((m) => {
                 const agency = m.agencyName ?? m.organization?.name ?? "—";
                 const opp = m.opportunity?.title ?? m.opportunity?.funder ?? "—";
-                const st = m.status ?? "pending";
                 const updated = m.lastUpdated ?? m.updatedAt;
+                const app = m.linkedApplication;
                 return (
                   <tr key={m._id} className="border-t border-[#f0f0f0]">
                     <td className="p-3 font-medium text-[#111827]">{agency}</td>
-                    <td className="max-w-[220px] p-3 text-[#6b7280] break-words">{opp}</td>
+                    <td className="max-w-[200px] break-words p-3 text-[#6b7280]">{opp}</td>
                     <td className="p-3 font-semibold text-[#111827]">{m.fitScore ?? "—"}</td>
-                    <td className="p-3">
-                      <span
-                        className={`rounded-full px-2.5 py-0.5 text-xs font-semibold capitalize ${statusBadgeCls(st)}`}
-                      >
-                        {st}
-                      </span>
+                    <td className="max-w-[220px] p-3 text-xs text-[#6b7280]" title={breakdownSummary(m.breakdown)}>
+                      {breakdownSummary(m.breakdown)}
                     </td>
-                    <td className="p-3 text-[#6b7280]">
+                    <td className="p-3">
+                      {app ? (
+                        <span
+                          className={`rounded-full px-2.5 py-0.5 text-xs font-semibold capitalize ${appStatusBadgeCls(app.status)}`}
+                        >
+                          {app.status.replace(/_/g, " ")}
+                        </span>
+                      ) : (
+                        <span className="text-xs text-[#9ca3af]">No application yet</span>
+                      )}
+                    </td>
+                    <td className="whitespace-nowrap p-3 text-[#6b7280]">
                       {updated ? new Date(updated).toLocaleString() : "—"}
                     </td>
                     <td className="p-3 text-right">
-                      <div className="flex flex-wrap justify-end gap-1">
-                        <Button
-                          type="button"
-                          size="sm"
-                          variant="outline"
-                          className="h-8 border-green-200 text-green-700 hover:bg-green-50"
-                          disabled={st === "approved" || actMutation.isPending}
-                          onClick={() => setPendingAction({ type: "approve", id: m._id })}
-                        >
-                          Approve
+                      {app ? (
+                        <Button type="button" variant="outline" size="sm" className="border-[#e5e7eb]" asChild>
+                          <Link href={`/admin/applications/${app._id}`}>View application</Link>
                         </Button>
-                        <Button
-                          type="button"
-                          size="sm"
-                          variant="outline"
-                          className="h-8 border-red-200 text-red-600 hover:bg-red-50"
-                          disabled={st === "rejected" || actMutation.isPending}
-                          onClick={() => setPendingAction({ type: "reject", id: m._id })}
-                        >
-                          Reject
+                      ) : (
+                        <Button type="button" variant="outline" size="sm" disabled className="opacity-50">
+                          View application
                         </Button>
-                      </div>
+                      )}
                     </td>
                   </tr>
                 );
@@ -303,32 +298,6 @@ export default function AdminMatchesPage() {
           </Button>
         </div>
       )}
-
-      <AlertDialog open={Boolean(pendingAction)} onOpenChange={(o) => !o && setPendingAction(null)}>
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle>
-              {pendingAction?.type === "approve" ? "Approve match?" : "Reject match?"}
-            </AlertDialogTitle>
-            <AlertDialogDescription>
-              {pendingAction?.type === "approve"
-                ? "Agency users in the saved/high-fit flows may see this match as approved."
-                : "This match will be marked rejected for staff review."}
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel>Cancel</AlertDialogCancel>
-            <AlertDialogAction
-              onClick={() => pendingAction && actMutation.mutate(pendingAction)}
-              className={
-                pendingAction?.type === "reject" ? "bg-red-600 hover:bg-red-700" : "bg-green-600 hover:bg-green-700"
-              }
-            >
-              Confirm
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
 
       <AlertDialog open={recomputeOpen} onOpenChange={setRecomputeOpen}>
         <AlertDialogContent>

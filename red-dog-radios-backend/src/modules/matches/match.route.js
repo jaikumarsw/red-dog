@@ -95,6 +95,7 @@ router.get('/:id', protect, getOne);
  *     tags: [Matches]
  *     security: [{ bearerAuth: [] }]
  */
+// Deprecated — kept for internal/API compatibility. Prefer application status (admin portal) for approve/reject workflow.
 router.put('/:id/approve', protect, protectAdmin, approve);
 
 /**

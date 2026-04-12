@@ -8,6 +8,7 @@ import { z } from "zod";
 import { LogIn } from "lucide-react";
 import adminApi from "@/lib/adminApi";
 import { useAdminAuth } from "@/lib/AdminAuthContext";
+import { useAuthGateRedirects } from "@/lib/useAuthGateRedirects";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { cn } from "@/lib/utils";
@@ -20,6 +21,7 @@ const schema = z.object({
 type FormValues = z.infer<typeof schema>;
 
 export default function AdminLoginPage() {
+  useAuthGateRedirects();
   const { login } = useAdminAuth();
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);

@@ -156,18 +156,71 @@ const getAll = async ({ page = 1, limit = 20, status, organizationId } = {}) => 
   });
 };
 
+const resolveOpportunityForFunder = async (funderDoc) => {
+  if (!funderDoc) return null;
+  const opps = await Opportunity.find({ funder: funderDoc.name, status: { $ne: 'closed' } }).sort({ deadline: 1 });
+  if (opps.length === 1) return opps[0];
+  return null;
+};
+
+const resolveOpportunityForAI = async ({ opportunityId, funderId, adminPortal }) => {
+  if (opportunityId) {
+    const opp = await Opportunity.findById(opportunityId);
+    if (!opp) throw new AppError('Opportunity not found', 404);
+    return opp;
+  }
+  if (!funderId) return null;
+  const funder = await Funder.findById(funderId);
+  if (!funder) throw new AppError('Funder not found', 404);
+  const opps = await Opportunity.find({ funder: funder.name, status: { $ne: 'closed' } }).sort({ deadline: 1 });
+  if (opps.length === 1) return opps[0];
+  if (opps.length === 0) return null;
+  if (!adminPortal) {
+    throw new AppError(
+      'This funder has multiple grant opportunities. Open the grant from Matches or Opportunities to start your application.',
+      400
+    );
+  }
+  return null;
+};
+
+const bumpOpportunityCountAndMaybeLock = async (opp) => {
+  if (!opp) return;
+  const max = opp.maxApplicationsAllowed != null ? opp.maxApplicationsAllowed : 0;
+  if (max <= 0) return;
+  const updated = await Opportunity.findByIdAndUpdate(opp._id, { $inc: { currentApplicationCount: 1 } }, { new: true });
+  if (updated && updated.currentApplicationCount >= max) {
+    await Opportunity.findByIdAndUpdate(opp._id, { isLocked: true });
+  }
+};
+
 const create = async (data) => {
   if (!data.funder) return Application.create(data);
   const funder = await Funder.findById(data.funder);
   if (!funder) throw new AppError('Funder not found', 404);
-  if (funder.isLocked) throw new AppError('Funder is locked, max applications reached', 423);
-  const existingApp = await Application.findOne({ organization: data.organization, funder: data.funder });
+
+  let opp = null;
+  if (data.opportunity) {
+    opp = await Opportunity.findById(data.opportunity);
+    if (!opp) throw new AppError('Opportunity not found', 404);
+  } else {
+    opp = await resolveOpportunityForFunder(funder);
+  }
+
+  if (opp && opp.isLocked) {
+    throw new AppError('This opportunity has reached its application limit.', 423);
+  }
+
+  const dupQ = { organization: data.organization, funder: data.funder };
+  if (opp) dupQ.opportunity = opp._id;
+  const existingApp = await Application.findOne(dupQ);
   if (existingApp && !['denied', 'rejected'].includes(existingApp.status)) return existingApp;
 
-  const app = await Application.create(data);
-  funder.currentApplicationCount = (funder.currentApplicationCount || 0) + 1;
-  if (funder.currentApplicationCount >= (funder.maxApplicationsAllowed || 5)) funder.isLocked = true;
-  await funder.save();
+  const payload = { ...data };
+  if (opp && !payload.opportunity) payload.opportunity = opp._id;
+
+  const app = await Application.create(payload);
+  await bumpOpportunityCountAndMaybeLock(opp);
   return app;
 };
 
@@ -208,39 +261,47 @@ const createWithAI = async ({ opportunityId, funderId, organizationId, userId, a
   const org = await Organization.findById(organizationId);
   if (!org) throw new AppError('Organization not found', 404);
 
-  let opp = null,
-    funder = null;
-  if (opportunityId) {
-    opp = await Opportunity.findById(opportunityId);
-    if (!opp) throw new AppError('Opportunity not found', 404);
-  }
+  let funder = null;
   if (funderId) {
     funder = await Funder.findById(funderId);
     if (!funder) throw new AppError('Funder not found', 404);
-    if (!adminPortal) {
-      if (funder.isLocked) throw new AppError('Funder is locked, max applications reached', 423);
-      const existingApp = await Application.findOne({ organization: organizationId, funder: funderId });
+  }
+
+  const opp = await resolveOpportunityForAI({ opportunityId, funderId, adminPortal });
+
+  if (opp && opp.isLocked) {
+    throw new AppError('This opportunity has reached its application limit.', 423);
+  }
+
+  if (!adminPortal) {
+    const dupQ = { organization: organizationId };
+    if (opp) dupQ.opportunity = opp._id;
+    else if (funderId) dupQ.funder = funderId;
+    if (dupQ.opportunity || dupQ.funder) {
+      const existingApp = await Application.findOne(dupQ);
       if (existingApp && !['denied', 'rejected'].includes(existingApp.status)) return existingApp;
     }
   }
 
   const aiContent = await buildAIContent(org, funder, opp, { adminPortal });
+  const resolvedOppId = opp ? opp._id : opportunityId || undefined;
+
   const app = await Application.create({
     organization: organizationId,
-    opportunity: opportunityId || undefined,
+    opportunity: resolvedOppId,
     funder: funderId || undefined,
     status: 'drafting',
-    projectTitle: funder ? org.name + ' — ' + funder.name + ' Grant Application' : (opp ? opp.title : 'Grant Application'),
+    projectTitle: funder
+      ? `${org.name} — ${funder.name} Grant Application`
+      : opp
+        ? opp.title
+        : 'Grant Application',
     contactName: org.name,
     dateStarted: new Date(),
     ...aiContent,
   });
 
-  if (funder && !adminPortal) {
-    funder.currentApplicationCount = (funder.currentApplicationCount || 0) + 1;
-    if (funder.currentApplicationCount >= (funder.maxApplicationsAllowed || 5)) funder.isLocked = true;
-    await funder.save();
-  }
+  await bumpOpportunityCountAndMaybeLock(opp);
   return app;
 };
 

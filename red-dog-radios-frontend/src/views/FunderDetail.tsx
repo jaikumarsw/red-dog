@@ -6,8 +6,7 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import api from "@/lib/api";
 import { qk } from "@/lib/queryKeys";
 import { useToast } from "@/hooks/use-toast";
-import { ArrowLeft, Globe, Mail, Phone, Lock, AlertCircle } from "lucide-react";
-import { Progress } from "@/components/ui/progress";
+import { ArrowLeft, Globe, Mail, Phone, AlertCircle } from "lucide-react";
 
 interface Funder {
   _id: string;
@@ -28,9 +27,6 @@ interface Funder {
   cyclesPerYear?: number;
   pastGrantsAwarded?: string[];
   notes?: string;
-  isLocked?: boolean;
-  currentApplicationCount?: number;
-  maxApplicationsAllowed?: number;
   matchScore?: number;
   matchTier?: string;
   matchReasons?: string[];
@@ -57,25 +53,24 @@ export const FunderDetail = () => {
     enabled: !!id,
   });
 
-  const { data: queueInfo, isLoading: isQueueLoading } = useQuery({
-    queryKey: qk.funderQueue(id || ""),
+  type OppRow = { _id: string; funder: string; title: string; isLocked?: boolean };
+  const { data: oppsForFunder } = useQuery({
+    queryKey: ["opportunities-for-funder", funder?.name, id],
     queryFn: async () => {
-      const res = await api.get(`/funders/${id}/queue`);
-      return res.data.data as {
-        position: number;
-        ahead: number;
-        totalInQueue: number;
-        estimatedChance: string;
-        maxApplicationsAllowed: number;
-        currentApplicationCount: number;
-        isLocked: boolean;
-      };
+      const res = await api.get("/opportunities", { params: { limit: 200 } });
+      const rows = res.data.data as OppRow[];
+      return rows.filter((o) => o.funder === funder?.name);
     },
-    enabled: !!id,
+    enabled: !!id && !!funder?.name,
   });
 
   const applyMutation = useMutation({
-    mutationFn: () => api.post("/applications/generate", { funderId: id }),
+    mutationFn: () => {
+      const list = oppsForFunder ?? [];
+      const body: { funderId: string; opportunityId?: string } = { funderId: id! };
+      if (list.length === 1) body.opportunityId = list[0]._id;
+      return api.post("/applications/generate", body);
+    },
     onSuccess: (res) => {
       toast({ title: "Application started", description: "AI is generating your application content." });
       queryClient.invalidateQueries({ queryKey: qk.applications() });
@@ -85,7 +80,13 @@ export const FunderDetail = () => {
       const status = (err as { response?: { status?: number } })?.response?.status;
       const msg = (err as { response?: { data?: { message?: string } } })?.response?.data?.message;
       if (status === 423) {
-        toast({ title: "Funder at capacity", description: msg || "This funder has reached its application limit.", variant: "destructive" });
+        toast({
+          title: "Application limit reached",
+          description: msg || "This opportunity has reached its application limit.",
+          variant: "destructive",
+        });
+      } else if (status === 400) {
+        toast({ title: "Choose from Matches or Opportunities", description: msg, variant: "destructive" });
       } else {
         toast({ title: "Error", description: msg || "Failed to start application.", variant: "destructive" });
       }
@@ -143,6 +144,12 @@ export const FunderDetail = () => {
     ? Math.ceil((new Date(funder.deadline).getTime() - Date.now()) / 86400000)
     : null;
 
+  const opps = oppsForFunder ?? [];
+  const singleOppLocked = opps.length === 1 && !!opps[0].isLocked;
+  const multipleOpps = opps.length > 1;
+  const generateDisabled =
+    applyMutation.isPending || multipleOpps || singleOppLocked;
+
   return (
     <div className="flex w-full min-w-0 flex-col gap-6 bg-neutral-50 p-4 pb-10 sm:p-6 lg:p-8">
       <button
@@ -157,41 +164,21 @@ export const FunderDetail = () => {
           <h1 className="[font-family:'Oswald',Helvetica] font-bold text-black text-2xl sm:text-3xl tracking-[0.5px] uppercase leading-tight">
             {funder.name}
           </h1>
-          {funder.isLocked && (
-            <span className="flex items-center gap-1 rounded-full bg-red-100 px-3 py-1 text-xs font-bold uppercase tracking-wide text-red-700 [font-family:'Montserrat',Helvetica]">
-              <Lock size={13} /> FUNDER LOCKED
-            </span>
-          )}
         </div>
-        <div className="max-w-xl flex flex-col gap-2">
-          <div className="flex justify-between text-sm [font-family:'Montserrat',Helvetica] text-[#6b7280]">
-            <span>Application capacity</span>
-            <span className="font-semibold text-[#111827]">
-              {funder.currentApplicationCount ?? 0} of {funder.maxApplicationsAllowed ?? 5} filled
-            </span>
-          </div>
-          <Progress
-            value={Math.min(
-              100,
-              ((funder.currentApplicationCount ?? 0) / Math.max(1, funder.maxApplicationsAllowed ?? 5)) * 100
-            )}
-            className="h-2.5 bg-[#f3f4f6]"
-          />
-        </div>
-        {funder.isLocked && (
-          <div className="flex items-center gap-2 rounded-lg border border-red-200 bg-red-50 px-4 py-3">
-            <AlertCircle size={16} className="text-red-600 shrink-0" />
-            <p className="[font-family:'Montserrat',Helvetica] text-sm text-red-700">
-              This funder has reached its application limit. Applications are no longer being accepted.
+        {multipleOpps && (
+          <div className="flex items-center gap-2 rounded-lg border border-amber-200 bg-amber-50 px-4 py-3">
+            <AlertCircle size={16} className="shrink-0 text-amber-700" />
+            <p className="[font-family:'Montserrat',Helvetica] text-sm text-amber-900">
+              This funder lists multiple grant opportunities. Start your application from{" "}
+              <strong>Matches</strong> or <strong>Opportunities</strong> so we know which program you are applying to.
             </p>
           </div>
         )}
-        {queueInfo && !funder.isLocked && (
-          <div className="rounded-lg border border-[#e5e7eb] bg-white px-4 py-3 text-sm [font-family:'Montserrat',Helvetica] text-[#374151]">
-            <p className="font-semibold text-[#111827]">Your queue position</p>
-            <p className="mt-1">
-              Position <strong>{queueInfo.position}</strong> — {queueInfo.ahead} ahead of you in line · Estimated chance:{" "}
-              <span className="text-[#ef3e34] font-medium">{queueInfo.estimatedChance}</span>
+        {singleOppLocked && (
+          <div className="flex items-center gap-2 rounded-lg border border-red-200 bg-red-50 px-4 py-3">
+            <AlertCircle size={16} className="shrink-0 text-red-600" />
+            <p className="[font-family:'Montserrat',Helvetica] text-sm text-red-700">
+              This opportunity has reached its application limit.
             </p>
           </div>
         )}
@@ -363,7 +350,7 @@ export const FunderDetail = () => {
           <div className="flex flex-col gap-3">
             <button
               onClick={() => applyMutation.mutate()}
-              disabled={applyMutation.isPending || isQueueLoading || !queueInfo || !!funder.isLocked}
+              disabled={generateDisabled}
               className="w-full rounded-lg bg-[#ef3e34] px-4 py-3 text-sm font-bold text-white [font-family:'Montserrat',Helvetica] hover:bg-[#d63029] disabled:opacity-50 transition-colors"
             >
               {applyMutation.isPending ? "Generating Application..." : "Generate Application"}

@@ -12,9 +12,11 @@ import { cn } from "@/lib/utils";
 import { signUpSchema, type SignUpFormValues } from "@/lib/validation-schemas";
 import api from "@/lib/api";
 import { useAuth } from "@/lib/AuthContext";
+import { useAuthGateRedirects } from "@/lib/useAuthGateRedirects";
 import { RedDogLogo } from "@/components/RedDogLogo";
 
 export const SignUp = () => {
+  useAuthGateRedirects();
   const router = useRouter();
   const { login } = useAuth();
   const [showPassword, setShowPassword] = useState(false);
