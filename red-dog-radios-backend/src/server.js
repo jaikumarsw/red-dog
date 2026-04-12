@@ -3,8 +3,16 @@ const mongoose = require('mongoose');
 const logger = require('./utils/logger');
 const app = require('./app');
 
+// Fail fast on missing critical environment variables
+const REQUIRED_ENV = ['JWT_SECRET', 'MONGO_URI'];
+const missing = REQUIRED_ENV.filter((k) => !process.env[k]);
+if (missing.length > 0) {
+  console.error(`❌ Missing required environment variables: ${missing.join(', ')}`);
+  process.exit(1);
+}
+
 const PORT = parseInt(process.env.PORT || '4000', 10);
-const MONGO_URI = process.env.MONGO_URI || 'mongodb://localhost:27017/reddog_db';
+const MONGO_URI = process.env.MONGO_URI;
 
 mongoose
   .connect(MONGO_URI)

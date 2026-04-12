@@ -19,7 +19,26 @@ const complete = async (userId, data) => {
     goals,
   } = data;
 
-  const orgName = organizationName || opportunityTitle || 'My Organization';
+  // Input validation
+  const rawOrgName = organizationName || opportunityTitle;
+  if (!rawOrgName || typeof rawOrgName !== 'string' || rawOrgName.trim().length === 0) {
+    throw new AppError('Organization name is required', 400);
+  }
+  if (rawOrgName.trim().length > 200) {
+    throw new AppError('Organization name must be 200 characters or fewer', 400);
+  }
+  if (agencyTypes !== undefined && !Array.isArray(agencyTypes)) {
+    throw new AppError('agencyTypes must be an array', 400);
+  }
+  if (programAreas !== undefined && !Array.isArray(programAreas)) {
+    throw new AppError('programAreas must be an array', 400);
+  }
+
+  // Truncate long text fields
+  const safeMission = typeof missionStatement === 'string' ? missionStatement.slice(0, 2000) : missionStatement;
+  const safeRequest = typeof specificRequest === 'string' ? specificRequest.slice(0, 2000) : specificRequest;
+
+  const orgName = rawOrgName.trim();
   const orgWebsite = website || websiteUrl;
 
   const user = await User.findById(userId);
@@ -58,9 +77,8 @@ const complete = async (userId, data) => {
     org = await Organization.create({
       name: orgName,
       location,
-      website: orgWebsite,
       websiteUrl: orgWebsite,
-      missionStatement,
+      missionStatement: safeMission,
       agencyTypes: mappedAgencyTypes,
       programAreas: programAreas || focusAreas || [],
       focusAreas: focusAreas || programAreas || [],
@@ -73,9 +91,8 @@ const complete = async (userId, data) => {
   } else {
     org.name = orgName;
     org.location = location || org.location;
-    org.website = orgWebsite || org.website;
     org.websiteUrl = orgWebsite || org.websiteUrl;
-    org.missionStatement = missionStatement || org.missionStatement;
+    org.missionStatement = safeMission || org.missionStatement;
     org.agencyTypes = mappedAgencyTypes.length ? mappedAgencyTypes : org.agencyTypes;
     org.programAreas = programAreas || focusAreas || org.programAreas;
     org.focusAreas = focusAreas || programAreas || org.focusAreas;

@@ -1,6 +1,7 @@
 const express = require('express');
 const { getAll, getOne, create, computeAndSave, computeAll, approve, reject } = require('./match.controller');
 const { protect } = require('../../middlewares/auth.middleware');
+const { protectAdmin } = require('../../middlewares/adminAuth.middleware');
 
 const router = express.Router();
 
@@ -74,7 +75,7 @@ router.post('/compute', protect, computeAndSave);
  *     responses:
  *       200: { description: Bulk compute results }
  */
-router.post('/compute-all', protect, computeAll);
+router.post('/compute-all', protect, protectAdmin, computeAll);
 
 /**
  * @swagger
@@ -94,7 +95,7 @@ router.get('/:id', protect, getOne);
  *     tags: [Matches]
  *     security: [{ bearerAuth: [] }]
  */
-router.put('/:id/approve', protect, approve);
+router.put('/:id/approve', protect, protectAdmin, approve);
 
 /**
  * @swagger
@@ -104,6 +105,6 @@ router.put('/:id/approve', protect, approve);
  *     tags: [Matches]
  *     security: [{ bearerAuth: [] }]
  */
-router.put('/:id/reject', protect, reject);
+router.put('/:id/reject', protect, protectAdmin, reject);
 
 module.exports = router;

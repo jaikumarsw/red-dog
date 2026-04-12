@@ -38,4 +38,6 @@ const funderSchema = new mongoose.Schema(
 
 funderSchema.plugin(mongoosePaginateV2);
 
+funderSchema.index({ status: 1, isLocked: 1 });
+
 module.exports = mongoose.model('Funder', funderSchema);

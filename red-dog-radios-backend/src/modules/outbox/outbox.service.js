@@ -93,6 +93,7 @@ const processQueue = async (limit = 50) => {
   const now = new Date();
   const pending = await Outbox.find({
     status: 'pending',
+    retryCount: { $lt: 5 },
     $or: [{ scheduledFor: { $exists: false } }, { scheduledFor: null }, { scheduledFor: { $lte: now } }],
   })
     .sort({ scheduledFor: 1, createdAt: 1 })

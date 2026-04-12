@@ -3,11 +3,13 @@ const { success, paginate } = require('../../utils/apiResponse');
 const winService = require('./win.service');
 const { resolveAgencyOrganizationId } = require('../../utils/resolveAgencyOrg');
 const { AppError } = require('../../middlewares/error.middleware');
+const { parsePagination } = require('../../utils/parsePagination');
 
 const getAll = asyncHandler(async (req, res) => {
   const organizationId = await resolveAgencyOrganizationId(req.user);
   if (!organizationId) throw new AppError('No organization linked to your account', 400);
-  const { page, limit, agencyType, fundingType, projectType } = req.query;
+  const { agencyType, fundingType, projectType } = req.query;
+  const { page, limit } = parsePagination(req.query);
   const result = await winService.getAll({
     page,
     limit,

@@ -40,7 +40,7 @@ async function seed() {
     firstName: 'Red',
     lastName: 'Dog',
     email: 'admin@reddogradios.com',
-    password: 'Admin1234',
+    password: 'Admin1234!',
     role: 'admin',
     onboardingCompleted: true,
     organizationId: null,
@@ -366,7 +366,7 @@ async function seed() {
   logger.info('');
   logger.info('========== SEED COMPLETE ==========');
   logger.info('STAFF (admin role) — use /admin/login');
-  logger.info(`  ${admin.email} / Admin1234`);
+  logger.info(`  ${admin.email} / Admin1234!`);
   logger.info('');
   logger.info('AGENCY USERS (agency role) — use main /login');
   logger.info(`  ${chief.email} / Test1234  → Austin Fire Department`);

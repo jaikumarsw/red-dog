@@ -10,6 +10,7 @@ const funderService = require('../funders/funder.service');
 const matchService = require('../matches/match.service');
 const activityLogService = require('../activityLogs/activityLog.service');
 const { AppError } = require('../../middlewares/error.middleware');
+const { parsePagination } = require('../../utils/parsePagination');
 
 const HIGH_MATCH = 75;
 const TIER_HIGH = 80;
@@ -121,15 +122,16 @@ const dashboard = async () => {
 };
 
 const listAgencies = async (query) => {
-  const { page = 1, limit = 20, search } = query;
+  const { search } = query;
+  const { page, limit } = parsePagination(query);
   const q = { status: 'active' };
   if (search) {
     const rx = new RegExp(search, 'i');
     q.$or = [{ name: rx }, { location: rx }, { agencyTypes: rx }];
   }
   const result = await Organization.paginate(q, {
-    page: parseInt(page, 10),
-    limit: parseInt(limit, 10),
+    page,
+    limit,
     sort: { createdAt: -1 },
   });
 
@@ -188,7 +190,8 @@ const getAgencyDetail = async (id) => {
 };
 
 const listOpportunitiesAdmin = async (query) => {
-  const { page = 1, limit = 20, status, category, deadlineFrom, deadlineTo, search } = query;
+  const { status, category, deadlineFrom, deadlineTo, search } = query;
+  const { page, limit } = parsePagination(query);
   const q = {};
   if (status) q.status = status;
   if (category) q.category = new RegExp(category, 'i');
@@ -202,8 +205,8 @@ const listOpportunitiesAdmin = async (query) => {
     q.$or = [{ title: rx }, { funder: rx }];
   }
   const result = await Opportunity.paginate(q, {
-    page: parseInt(page, 10),
-    limit: parseInt(limit, 10),
+    page,
+    limit,
     sort: { deadline: 1 },
   });
   const oppIds = result.docs.map((d) => d._id);
@@ -294,7 +297,8 @@ const deleteFunderAdmin = async (id, actorId) => {
 };
 
 const listApplicationsAdmin = async (query) => {
-  const { page = 1, limit = 20, status, agencyId, funderId, dateFrom, dateTo } = query;
+  const { status, agencyId, funderId, dateFrom, dateTo } = query;
+  const { page, limit } = parsePagination(query);
   const q = {};
   if (status) q.status = status;
   if (agencyId) q.organization = agencyId;
@@ -305,8 +309,8 @@ const listApplicationsAdmin = async (query) => {
     if (dateTo) q.createdAt.$lte = new Date(dateTo);
   }
   return Application.paginate(q, {
-    page: parseInt(page, 10),
-    limit: parseInt(limit, 10),
+    page,
+    limit,
     sort: { updatedAt: -1 },
     populate: [
       { path: 'organization', select: 'name location agencyTypes' },
@@ -334,7 +338,8 @@ const createApplicationForAgency = (body) =>
   });
 
 const listMatchesAdmin = async (query) => {
-  const { page = 1, limit = 20, tier, minScore, maxScore, agencyId, funder } = query;
+  const { tier, minScore, maxScore, agencyId, funder } = query;
+  const { page, limit } = parsePagination(query);
   const q = {};
   if (agencyId) q.organization = agencyId;
   if (minScore !== undefined) q.fitScore = { ...q.fitScore, $gte: parseInt(minScore, 10) };
@@ -349,8 +354,8 @@ const listMatchesAdmin = async (query) => {
     q.opportunity = { $in: opIds };
   }
   const result = await Match.paginate(q, {
-    page: parseInt(page, 10),
-    limit: parseInt(limit, 10),
+    page,
+    limit,
     sort: { fitScore: -1 },
     populate: [
       { path: 'organization', select: 'name location agencyTypes' },
@@ -443,12 +448,12 @@ const setFunderLimitAdmin = async (id, body) => {
 const getActivityLogAdmin = (id) => activityLogService.getByIdAdmin(id);
 
 const listUsersAdmin = async (query) => {
-  const { page = 1, limit = 20 } = query;
+  const { page, limit } = parsePagination(query);
   const result = await User.paginate(
     {},
     {
-      page: parseInt(page, 10),
-      limit: parseInt(limit, 10),
+      page,
+      limit,
       sort: { createdAt: -1 },
     }
   );

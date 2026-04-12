@@ -173,6 +173,16 @@ export const Alerts = () => {
             <div className="flex flex-col items-center justify-center py-16 gap-3">
               <span className="[font-family:'Montserrat',Helvetica] font-normal text-[#9ca3af] text-sm">Loading alerts...</span>
             </div>
+          ) : isError ? (
+            <div className="flex flex-col items-center justify-center py-16 gap-3">
+              <p className="[font-family:'Montserrat',Helvetica] font-normal text-[#ef4444] text-sm">Failed to load alerts.</p>
+              <button
+                onClick={() => refetch()}
+                className="[font-family:'Montserrat',Helvetica] text-xs font-medium text-[#6b7280] underline hover:text-[#374151]"
+              >
+                Try again
+              </button>
+            </div>
           ) : alerts.length === 0 ? (
             <div className="flex flex-col items-center justify-center py-16 gap-3">
               <div className="w-12 h-12 rounded-full bg-[#f3f4f6] flex items-center justify-center">

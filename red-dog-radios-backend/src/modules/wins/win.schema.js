@@ -25,4 +25,6 @@ const winSchema = new mongoose.Schema(
 
 winSchema.plugin(mongoosePaginateV2);
 
+winSchema.index({ agencyType: 1, funderName: 1 });
+
 module.exports = mongoose.model('Win', winSchema);

@@ -1,8 +1,18 @@
 const express = require('express');
+const rateLimit = require('express-rate-limit');
 const { generateSummary, generateEmail, generateApplication, computeMatch } = require('./ai.controller');
 const { protect } = require('../../middlewares/auth.middleware');
 
 const router = express.Router();
+
+const aiLimiter = rateLimit({
+  windowMs: 60 * 60 * 1000,
+  max: 10,
+  keyGenerator: (req) => (req.user?._id?.toString() || req.ip),
+  message: { success: false, message: 'AI generation limit reached. Try again in 1 hour.' },
+  standardHeaders: true,
+  legacyHeaders: false,
+});
 
 /**
  * @swagger
@@ -23,7 +33,7 @@ const router = express.Router();
  *     responses:
  *       200: { description: AI-generated summary }
  */
-router.post('/generate-summary', protect, generateSummary);
+router.post('/generate-summary', protect, aiLimiter, generateSummary);
 
 /**
  * @swagger
@@ -46,7 +56,7 @@ router.post('/generate-summary', protect, generateSummary);
  *               senderName: { type: string }
  *               senderCompany: { type: string }
  */
-router.post('/generate-email', protect, generateEmail);
+router.post('/generate-email', protect, aiLimiter, generateEmail);
 
 /**
  * @swagger
@@ -66,7 +76,7 @@ router.post('/generate-email', protect, generateEmail);
  *               opportunityId: { type: string }
  *               organizationId: { type: string }
  */
-router.post('/generate-application', protect, generateApplication);
+router.post('/generate-application', protect, aiLimiter, generateApplication);
 
 /**
  * @swagger
@@ -86,6 +96,6 @@ router.post('/generate-application', protect, generateApplication);
  *               opportunityId: { type: string }
  *               organizationId: { type: string }
  */
-router.post('/compute-match', protect, computeMatch);
+router.post('/compute-match', protect, aiLimiter, computeMatch);
 
 module.exports = router;

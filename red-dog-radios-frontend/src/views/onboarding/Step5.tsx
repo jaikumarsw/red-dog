@@ -85,6 +85,7 @@ export const OnboardingStep5 = () => {
       missionStatement: step1?.missionStatement ?? "",
       agencyTypes: Array.isArray(step2?.agencyTypes) ? step2.agencyTypes : [],
       programAreas: Array.isArray(step3?.programAreas) ? step3.programAreas : [],
+      // Note: Step4 stores the value as `requestDescription`; the backend expects `specificRequest`
       specificRequest: step4?.requestDescription ?? "",
       budgetRange: step4?.budgetRange ?? "under-25k",
       timeline: step4?.timeline ?? "planned",

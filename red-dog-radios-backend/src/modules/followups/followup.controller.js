@@ -1,9 +1,11 @@
 const asyncHandler = require('../../utils/asyncHandler');
 const { success, paginate } = require('../../utils/apiResponse');
 const followupService = require('./followup.service');
+const { parsePagination } = require('../../utils/parsePagination');
 
 const getAll = asyncHandler(async (req, res) => {
-  const { page, limit, status, dueToday } = req.query;
+  const { status, dueToday } = req.query;
+  const { page, limit } = parsePagination(req.query);
   const result = await followupService.getAll({ page, limit, userId: req.user._id, status, dueToday });
   return paginate(res, result.docs, result, 'Follow-ups retrieved');
 });

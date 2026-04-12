@@ -6,7 +6,6 @@ const organizationSchema = new mongoose.Schema(
     name: { type: String, required: true, trim: true },
     email: { type: String, lowercase: true, trim: true },
     location: { type: String },
-    website: { type: String },
     websiteUrl: { type: String },
     missionStatement: { type: String },
     focusAreas: [{ type: String }],

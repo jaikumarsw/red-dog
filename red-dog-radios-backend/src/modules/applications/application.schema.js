@@ -68,4 +68,8 @@ const applicationSchema = new mongoose.Schema(
 
 applicationSchema.plugin(mongoosePaginateV2);
 
+applicationSchema.index({ organization: 1, status: 1 });
+applicationSchema.index({ organization: 1, createdAt: -1 });
+applicationSchema.index({ funder: 1 });
+
 module.exports = mongoose.model('Application', applicationSchema);

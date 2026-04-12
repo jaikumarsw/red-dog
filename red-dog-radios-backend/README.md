@@ -57,6 +57,10 @@ Creates:
 - Admin: `admin@reddogradios.com` / `Admin1234!`
 - 3 Organizations, 3 Opportunities, scored Matches, 4 Agencies, 3 Alerts
 
+Staff sign-in uses **`/admin/login`** → `POST /api/admin/auth/login`. You must run `npm run seed` (or create an admin user manually) or login returns **401**.
+
+**Older seeds** (before the password was aligned with this README) used `Admin1234` without `!`. If that applies to your database, use that password or re-run `npm run seed` (this wipes and recreates demo data).
+
 ## API Reference
 
 All routes require `Authorization: Bearer <token>` except `/api/auth/register` and `/api/auth/login`.

@@ -23,4 +23,6 @@ const opportunitySchema = new mongoose.Schema(
 
 opportunitySchema.plugin(mongoosePaginateV2);
 
+opportunitySchema.index({ status: 1, deadline: 1 });
+
 module.exports = mongoose.model('Opportunity', opportunitySchema);

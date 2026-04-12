@@ -21,4 +21,7 @@ const followUpSchema = new mongoose.Schema(
 
 followUpSchema.plugin(mongoosePaginateV2);
 
+followUpSchema.index({ application: 1 });
+followUpSchema.index({ scheduledFor: 1, status: 1 });
+
 module.exports = mongoose.model('FollowUp', followUpSchema);

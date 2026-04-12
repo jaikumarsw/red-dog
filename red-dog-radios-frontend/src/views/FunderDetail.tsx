@@ -57,7 +57,7 @@ export const FunderDetail = () => {
     enabled: !!id,
   });
 
-  const { data: queueInfo } = useQuery({
+  const { data: queueInfo, isLoading: isQueueLoading } = useQuery({
     queryKey: qk.funderQueue(id || ""),
     queryFn: async () => {
       const res = await api.get(`/funders/${id}/queue`);
@@ -363,7 +363,7 @@ export const FunderDetail = () => {
           <div className="flex flex-col gap-3">
             <button
               onClick={() => applyMutation.mutate()}
-              disabled={applyMutation.isPending || !!funder.isLocked}
+              disabled={applyMutation.isPending || isQueueLoading || !queueInfo || !!funder.isLocked}
               className="w-full rounded-lg bg-[#ef3e34] px-4 py-3 text-sm font-bold text-white [font-family:'Montserrat',Helvetica] hover:bg-[#d63029] disabled:opacity-50 transition-colors"
             >
               {applyMutation.isPending ? "Generating Application..." : "Generate Application"}

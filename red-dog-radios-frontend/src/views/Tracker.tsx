@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useRouter } from "next/navigation";
+import { RefreshCw } from "lucide-react";
 import api from "@/lib/api";
 import { qk } from "@/lib/queryKeys";
 import { useToast } from "@/hooks/use-toast";
@@ -138,23 +139,34 @@ export const Tracker = () => {
         ))}
       </div>
 
-      <div className="flex items-center gap-2 flex-wrap">
-        {["all", ...STATUS_OPTIONS.map((s) => s.value)].map((v) => {
-          const label = v === "all" ? "All" : STATUS_OPTIONS.find((s) => s.value === v)?.label || v;
-          return (
-            <button
-              key={v}
-              onClick={() => setStatusFilter(v)}
-              className={`rounded-full px-3 py-1.5 text-xs font-semibold [font-family:'Montserrat',Helvetica] transition-colors ${
-                statusFilter === v
-                  ? "bg-[#ef3e34] text-white"
-                  : "border border-[#e5e7eb] bg-white text-[#6b7280] hover:bg-[#f9fafb]"
-              }`}
-            >
-              {label}
-            </button>
-          );
-        })}
+      <div className="flex items-center justify-between gap-2 flex-wrap">
+        <div className="flex items-center gap-2 flex-wrap">
+          {["all", ...STATUS_OPTIONS.map((s) => s.value)].map((v) => {
+            const label = v === "all" ? "All" : STATUS_OPTIONS.find((s) => s.value === v)?.label || v;
+            return (
+              <button
+                key={v}
+                onClick={() => setStatusFilter(v)}
+                className={`rounded-full px-3 py-1.5 text-xs font-semibold [font-family:'Montserrat',Helvetica] transition-colors ${
+                  statusFilter === v
+                    ? "bg-[#ef3e34] text-white"
+                    : "border border-[#e5e7eb] bg-white text-[#6b7280] hover:bg-[#f9fafb]"
+                }`}
+              >
+                {label}
+              </button>
+            );
+          })}
+        </div>
+        <button
+          onClick={() => refetch()}
+          disabled={isLoading}
+          title="Refresh"
+          className="flex items-center gap-1.5 rounded-full border border-[#e5e7eb] bg-white px-3 py-1.5 text-xs font-semibold text-[#6b7280] [font-family:'Montserrat',Helvetica] hover:bg-[#f9fafb] disabled:opacity-50 transition-colors"
+        >
+          <RefreshCw size={12} className={isLoading ? "animate-spin" : ""} />
+          Refresh
+        </button>
       </div>
 
       {isError && (

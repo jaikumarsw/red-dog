@@ -5,6 +5,23 @@ const outboxService = require('../modules/outbox/outbox.service');
 const followupService = require('../modules/followups/followup.service');
 const Organization = require('../modules/organizations/organization.schema');
 const logger = require('./logger');
+const transporter = require('../config/email.config');
+
+const ADMIN_ALERT_EMAIL = process.env.ADMIN_ALERT_EMAIL || process.env.SMTP_USER;
+
+const notifyCronError = async (jobName, err) => {
+  if (!ADMIN_ALERT_EMAIL) return;
+  try {
+    await transporter.sendMail({
+      from: process.env.SMTP_USER,
+      to: ADMIN_ALERT_EMAIL,
+      subject: `[Red Dog] Cron job failed: ${jobName}`,
+      text: `The cron job "${jobName}" failed at ${new Date().toISOString()}.\n\nError: ${err.message}\n\n${err.stack || ''}`,
+    });
+  } catch (mailErr) {
+    logger.error('Cron: Failed to send error notification email:', mailErr.message);
+  }
+};
 
 // Nightly at 2:00 AM — refresh all active organization matches
 cron.schedule('0 2 * * *', async () => {
@@ -19,6 +36,7 @@ cron.schedule('0 2 * * *', async () => {
     logger.info(`Cron: Nightly match refresh complete. Processed ${totalProcessed} matches across ${orgs.length} organizations`);
   } catch (err) {
     logger.error('Cron: Nightly match refresh failed:', err.message);
+    await notifyCronError('Nightly match refresh', err);
   }
 });
 
@@ -30,6 +48,7 @@ cron.schedule('30 2 * * *', async () => {
     logger.info(`Cron: Deadline alerts generated: ${count}`);
   } catch (err) {
     logger.error('Cron: Deadline alert generation failed:', err.message);
+    await notifyCronError('Deadline alert generation', err);
   }
 });
 
@@ -41,6 +60,7 @@ cron.schedule('45 2 * * *', async () => {
     logger.info(`Cron: High-fit alerts generated: ${count}`);
   } catch (err) {
     logger.error('Cron: High-fit alert generation failed:', err.message);
+    await notifyCronError('High-fit alert generation', err);
   }
 });
 
@@ -52,6 +72,7 @@ cron.schedule('0 8 * * *', async () => {
     logger.info(`Cron: Follow-up backfill complete. Scheduled: ${result.scheduled}`);
   } catch (err) {
     logger.error('Cron: Follow-up backfill failed:', err.message);
+    await notifyCronError('Follow-up backfill', err);
   }
 });
 
@@ -63,6 +84,7 @@ cron.schedule('0 * * * *', async () => {
     logger.info(`Cron: Outbox processed. Sent: ${result.sent}, Failed: ${result.failed}`);
   } catch (err) {
     logger.error('Cron: Outbox processing failed:', err.message);
+    await notifyCronError('Outbox processing', err);
   }
 });
 

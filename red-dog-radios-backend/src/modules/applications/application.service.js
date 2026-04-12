@@ -137,13 +137,16 @@ Write each section in the first person as the agency. Be specific, outcome-focus
   }
 };
 
+const { parsePagination } = require('../../utils/parsePagination');
+
 const getAll = async ({ page = 1, limit = 20, status, organizationId } = {}) => {
+  const pg = parsePagination({ page, limit });
   const query = {};
   if (status) query.status = status;
   if (organizationId) query.organization = organizationId;
   return Application.paginate(query, {
-    page: parseInt(page),
-    limit: parseInt(limit),
+    page: pg.page,
+    limit: pg.limit,
     sort: { createdAt: -1 },
     populate: [
       { path: 'organization', select: 'name location' },

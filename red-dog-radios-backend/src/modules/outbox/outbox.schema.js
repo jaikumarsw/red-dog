@@ -28,6 +28,7 @@ const outboxSchema = new mongoose.Schema(
 );
 
 outboxSchema.index({ emailKey: 1 }, { unique: true, sparse: true });
+outboxSchema.index({ status: 1, scheduledFor: 1 });
 outboxSchema.plugin(mongoosePaginateV2);
 
 module.exports = mongoose.model('Outbox', outboxSchema);

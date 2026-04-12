@@ -33,15 +33,22 @@ const updateSettings = async (userId, data) => {
   if (email) update.email = email;
   if (reportEmail !== undefined) update['settings.reportEmail'] = reportEmail;
 
-  if (notifications) {
+  const ALLOWED_NOTIFICATIONS = ['email', 'sms', 'newMatches', 'applicationUpdates', 'weeklyDigest', 'followUpReminders'];
+  const ALLOWED_PREFERENCES = ['theme', 'language', 'timezone', 'dateFormat', 'compactView'];
+
+  if (notifications && typeof notifications === 'object') {
     Object.entries(notifications).forEach(([key, val]) => {
-      update[`settings.notifications.${key}`] = val;
+      if (ALLOWED_NOTIFICATIONS.includes(key)) {
+        update[`settings.notifications.${key}`] = val;
+      }
     });
   }
 
-  if (preferences) {
+  if (preferences && typeof preferences === 'object') {
     Object.entries(preferences).forEach(([key, val]) => {
-      update[`settings.preferences.${key}`] = val;
+      if (ALLOWED_PREFERENCES.includes(key)) {
+        update[`settings.preferences.${key}`] = val;
+      }
     });
   }
 

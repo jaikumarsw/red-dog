@@ -62,7 +62,15 @@ const update = asyncHandler(async (req, res) => {
   return success(res, app, 'Application updated');
 });
 
+const ADMIN_ONLY_STATUSES = ['approved', 'rejected', 'awarded', 'denied', 'in_review'];
+
 const updateStatus = asyncHandler(async (req, res) => {
+  if (req.user.role !== 'admin' && ADMIN_ONLY_STATUSES.includes(req.body.status)) {
+    return res.status(403).json({
+      success: false,
+      message: 'Not authorized to set this status',
+    });
+  }
   const organizationId = await resolveAgencyOrganizationId(req.user);
   await assertAppInOrg(req.params.id, organizationId);
   const app = await appService.updateStatus(req.params.id, req.body, { actorId: req.user._id });

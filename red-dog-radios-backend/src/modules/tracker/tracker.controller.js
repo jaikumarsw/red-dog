@@ -3,11 +3,13 @@ const { success, paginate } = require('../../utils/apiResponse');
 const trackerService = require('./tracker.service');
 const { resolveAgencyOrganizationId } = require('../../utils/resolveAgencyOrg');
 const { AppError } = require('../../middlewares/error.middleware');
+const { parsePagination } = require('../../utils/parsePagination');
 
 const getTracker = asyncHandler(async (req, res) => {
   const organizationId = await resolveAgencyOrganizationId(req.user);
   if (!organizationId) throw new AppError('No organization linked to your account', 400);
-  const { page, limit, status } = req.query;
+  const { status } = req.query;
+  const { page, limit } = parsePagination(req.query);
   const result = await trackerService.getTracker({ page, limit, status, organizationId });
   return paginate(res, result.docs, result, 'Tracker data retrieved');
 });

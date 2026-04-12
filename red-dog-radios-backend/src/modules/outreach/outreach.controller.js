@@ -3,9 +3,10 @@ const { success, paginate } = require('../../utils/apiResponse');
 const outreachService = require('./outreach.service');
 const { resolveAgencyOrganizationId } = require('../../utils/resolveAgencyOrg');
 const { AppError } = require('../../middlewares/error.middleware');
+const { parsePagination } = require('../../utils/parsePagination');
 
 const getAll = asyncHandler(async (req, res) => {
-  const { page, limit } = req.query;
+  const { page, limit } = parsePagination(req.query);
   const organizationId = await resolveAgencyOrganizationId(req.user);
   const result = await outreachService.getAll({
     page,

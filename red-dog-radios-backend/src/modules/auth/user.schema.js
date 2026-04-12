@@ -49,4 +49,6 @@ userSchema.methods.comparePassword = async function (candidatePassword) {
 
 userSchema.plugin(mongoosePaginateV2);
 
+userSchema.index({ organizationId: 1 });
+
 module.exports = mongoose.model('User', userSchema);
