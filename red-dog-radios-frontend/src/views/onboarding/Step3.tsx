@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { ChevronRight } from "lucide-react";
 import { RedDogLogo } from "@/components/RedDogLogo";
@@ -27,6 +27,19 @@ const programAreas = [
 export const OnboardingStep3 = () => {
   const router = useRouter();
   const [selected, setSelected] = useState<string[]>(["comms"]);
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    try {
+      const saved = sessionStorage.getItem("rdg_onboarding_step3");
+      if (saved) {
+        const parsed = JSON.parse(saved) as { programAreas?: string[] };
+        if (Array.isArray(parsed.programAreas) && parsed.programAreas.length > 0) {
+          setSelected(parsed.programAreas);
+        }
+      }
+    } catch {}
+  }, []);
 
   const toggle = (id: string) => {
     setSelected((prev) =>

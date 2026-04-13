@@ -17,6 +17,10 @@ const complete = async (userId, data) => {
     budgetRange,
     timeline,
     goals,
+    populationServed,
+    coverageArea,
+    numberOfStaff,
+    currentEquipment,
   } = data;
 
   // Input validation
@@ -54,6 +58,7 @@ const complete = async (userId, data) => {
     'hospitals': 'hospitals',
     'public-communication': 'public_safety_comms',
     'multi-agency': 'multi_agency',
+    'business': 'business',
   };
 
   const mappedAgencyTypes = (agencyTypes || []).map((t) => agencyTypeMap[t] || t).filter(Boolean);
@@ -87,6 +92,10 @@ const complete = async (userId, data) => {
       goals: goals || [],
       status: 'active',
       createdBy: userId,
+      ...(populationServed != null && { populationServed: Number(populationServed) }),
+      ...(coverageArea && { coverageArea }),
+      ...(numberOfStaff != null && { numberOfStaff: Number(numberOfStaff) }),
+      ...(currentEquipment && { currentEquipment }),
     });
   } else {
     org.name = orgName;
@@ -99,6 +108,10 @@ const complete = async (userId, data) => {
     org.budgetRange = mappedBudget || org.budgetRange;
     org.timeline = timeline || org.timeline;
     org.goals = goals || org.goals;
+    if (populationServed != null) org.populationServed = Number(populationServed);
+    if (coverageArea) org.coverageArea = coverageArea;
+    if (numberOfStaff != null) org.numberOfStaff = Number(numberOfStaff);
+    if (currentEquipment) org.currentEquipment = currentEquipment;
     await org.save();
   }
 

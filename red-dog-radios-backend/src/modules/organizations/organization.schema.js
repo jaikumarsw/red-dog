@@ -1,3 +1,14 @@
+/**
+ * Organization = Agency profile.
+ *
+ * Despite the collection name "organizations", every document here represents a
+ * PUBLIC SAFETY AGENCY (fire dept, law enforcement, EMS, 911 center, etc.) that
+ * has signed up for Red Dog Radios. The model is called "Organization" for
+ * historical reasons. There is a separate thin `Agency` schema that is NOT used
+ * in production — ignore it. All agency-related data lives here.
+ *
+ * One document per user account (createdBy → User._id).
+ */
 const mongoose = require('mongoose');
 const mongoosePaginateV2 = require('mongoose-paginate-v2');
 
@@ -15,6 +26,7 @@ const organizationSchema = new mongoose.Schema(
         enum: [
           'law_enforcement', 'fire_services', 'ems', 'emergency_management',
           '911_centers', 'hospitals', 'public_safety_comms', 'multi_agency', 'utilities',
+          'business',
         ],
       },
     ],

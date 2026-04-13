@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { useRouter } from "next/navigation";
-import { Lock } from "lucide-react";
+import { Lock, Eye } from "lucide-react";
 import api from "@/lib/api";
 import { qk } from "@/lib/queryKeys";
 import { cn } from "@/lib/utils";
@@ -286,12 +286,14 @@ export const Funders = () => {
                 </div>
 
                 <button
-                  className="mt-auto w-full rounded-lg bg-[#ef3e34] px-4 py-2 text-sm font-semibold text-white [font-family:'Montserrat',Helvetica] hover:bg-[#d63029] transition-colors"
+                  type="button"
+                  className="mt-auto flex w-full items-center justify-center gap-2 rounded-lg bg-[#ef3e34] px-4 py-2 text-sm font-semibold text-white [font-family:'Montserrat',Helvetica] hover:bg-[#d63029] transition-colors"
                   onClick={(e) => {
                     e.stopPropagation();
                     router.push(`/funders/${f._id}`);
                   }}
                 >
+                  <Eye size={14} className="shrink-0" />
                   View Details
                 </button>
               </div>

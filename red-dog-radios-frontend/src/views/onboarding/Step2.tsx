@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { ChevronRight } from "lucide-react";
 import { RedDogLogo } from "@/components/RedDogLogo";
@@ -29,6 +29,19 @@ const fullWidthItems = [
 export const OnboardingStep2 = () => {
   const router = useRouter();
   const [selected, setSelected] = useState<string[]>(["law-enforcement"]);
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    try {
+      const saved = sessionStorage.getItem("rdg_onboarding_step2");
+      if (saved) {
+        const parsed = JSON.parse(saved) as { agencyTypes?: string[] };
+        if (Array.isArray(parsed.agencyTypes) && parsed.agencyTypes.length > 0) {
+          setSelected(parsed.agencyTypes);
+        }
+      }
+    } catch {}
+  }, []);
 
   const toggle = (id: string) => {
     setSelected((prev) =>

@@ -76,7 +76,15 @@ export const OnboardingStep5 = () => {
     }>("rdg_onboarding_step1");
     const step2 = getStoredStep<{ agencyTypes: string[] }>("rdg_onboarding_step2");
     const step3 = getStoredStep<{ programAreas: string[] }>("rdg_onboarding_step3");
-    const step4 = getStoredStep<{ requestDescription: string; budgetRange: string; timeline: string }>("rdg_onboarding_step4");
+    const step4 = getStoredStep<{
+      requestDescription: string;
+      budgetRange: string;
+      timeline: string;
+      populationServed?: string;
+      coverageArea?: string;
+      numberOfStaff?: string;
+      currentEquipment?: string;
+    }>("rdg_onboarding_step4");
 
     const payload = {
       organizationName: step1?.organizationName ?? "",
@@ -90,6 +98,10 @@ export const OnboardingStep5 = () => {
       budgetRange: step4?.budgetRange ?? "under-25k",
       timeline: step4?.timeline ?? "planned",
       goals: Array.from(selected),
+      populationServed: step4?.populationServed ? Number(step4.populationServed) : undefined,
+      coverageArea: step4?.coverageArea || undefined,
+      numberOfStaff: step4?.numberOfStaff ? Number(step4.numberOfStaff) : undefined,
+      currentEquipment: step4?.currentEquipment || undefined,
     };
 
     try {

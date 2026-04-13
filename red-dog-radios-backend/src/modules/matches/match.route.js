@@ -1,9 +1,20 @@
 const express = require('express');
+const rateLimit = require('express-rate-limit');
 const { getAll, getOne, create, computeAndSave, computeAll, approve, reject } = require('./match.controller');
 const { protect } = require('../../middlewares/auth.middleware');
 const { protectAdmin } = require('../../middlewares/adminAuth.middleware');
 
 const router = express.Router();
+
+// Allow each agency to recompute match scores at most 3 times per minute.
+const computeLimiter = rateLimit({
+  windowMs: 60 * 1000,
+  max: 3,
+  keyGenerator: (req) => (req.user?._id?.toString()) || req.ip,
+  message: { success: false, message: 'Please wait before recomputing scores again.' },
+  standardHeaders: true,
+  legacyHeaders: false,
+});
 
 /**
  * @swagger
@@ -75,7 +86,7 @@ router.post('/compute', protect, computeAndSave);
  *     responses:
  *       200: { description: Bulk compute results }
  */
-router.post('/compute-all', protect, protectAdmin, computeAll);
+router.post('/compute-all', protect, computeLimiter, computeAll);
 
 /**
  * @swagger

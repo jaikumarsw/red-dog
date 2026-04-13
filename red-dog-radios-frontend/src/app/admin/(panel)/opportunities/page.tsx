@@ -4,6 +4,8 @@ import { useState } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import adminApi from "@/lib/adminApi";
 import { AdminTableViewLink } from "@/components/admin/AdminTableViewLink";
+import { TagSelect, CategorySelect } from "@/components/admin/TagSelect";
+import { EQUIPMENT_TAGS, FUNDING_CATEGORIES } from "@/lib/adminConstants";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -44,8 +46,6 @@ const emptyCreateForm = {
   maxAmount: "",
   sourceUrl: "",
   keywords: "",
-  equipmentTags: "",
-  category: "",
   description: "",
   localMatchRequired: false,
 };
@@ -55,6 +55,8 @@ export default function AdminOpportunitiesPage() {
   const [open, setOpen] = useState(false);
   const [statusFilter, setStatusFilter] = useState("");
   const [form, setForm] = useState(emptyCreateForm);
+  const [selectedEquipmentTags, setSelectedEquipmentTags] = useState<string[]>([]);
+  const [selectedCategory, setSelectedCategory] = useState<string>("");
 
   const { data, refetch } = useQuery({
     queryKey: ["admin", "opportunities", statusFilter],
@@ -95,17 +97,16 @@ export default function AdminOpportunitiesPage() {
           .split(",")
           .map((s) => s.trim())
           .filter(Boolean),
-        equipmentTags: form.equipmentTags
-          .split(",")
-          .map((s) => s.trim())
-          .filter(Boolean),
-        category: form.category,
+        equipmentTags: selectedEquipmentTags,
+        category: selectedCategory,
         description: form.description,
         localMatchRequired: form.localMatchRequired,
       });
     },
     onSuccess: () => {
       setForm(emptyCreateForm);
+      setSelectedEquipmentTags([]);
+      setSelectedCategory("");
       setOpen(false);
       refetch();
     },
@@ -127,6 +128,8 @@ export default function AdminOpportunitiesPage() {
           className="bg-[#ef3e34] hover:bg-[#d63530] text-white"
           onClick={() => {
             setForm(emptyCreateForm);
+            setSelectedEquipmentTags([]);
+            setSelectedCategory("");
             setOpen(true);
           }}
         >
@@ -189,7 +192,11 @@ export default function AdminOpportunitiesPage() {
         open={open}
         onOpenChange={(v) => {
           setOpen(v);
-          if (!v) setForm(emptyCreateForm);
+          if (!v) {
+            setForm(emptyCreateForm);
+            setSelectedEquipmentTags([]);
+            setSelectedCategory("");
+          }
         }}
       >
         <DialogContent className="max-h-[90vh] overflow-y-auto">
@@ -266,15 +273,12 @@ export default function AdminOpportunitiesPage() {
                 onChange={(e) => setForm({ ...form, sourceUrl: e.target.value })}
               />
             </div>
-            <div>
-              <Label>Equipment tags (comma separated)</Label>
-              <Input
-                className="border-[#e5e7eb]"
-                placeholder="radios, repeaters, dispatch"
-                value={form.equipmentTags}
-                onChange={(e) => setForm({ ...form, equipmentTags: e.target.value })}
-              />
-            </div>
+            <TagSelect
+              label="Equipment tags"
+              options={EQUIPMENT_TAGS}
+              selected={selectedEquipmentTags}
+              onChange={setSelectedEquipmentTags}
+            />
             <div>
               <Label>Keywords (comma separated)</Label>
               <Input
@@ -283,14 +287,12 @@ export default function AdminOpportunitiesPage() {
                 onChange={(e) => setForm({ ...form, keywords: e.target.value })}
               />
             </div>
-            <div>
-              <Label>Category</Label>
-              <Input
-                className="border-[#e5e7eb]"
-                value={form.category}
-                onChange={(e) => setForm({ ...form, category: e.target.value })}
-              />
-            </div>
+            <CategorySelect
+              label="Category"
+              options={FUNDING_CATEGORIES}
+              value={selectedCategory}
+              onChange={setSelectedCategory}
+            />
             <div>
               <Label>Description</Label>
               <Textarea

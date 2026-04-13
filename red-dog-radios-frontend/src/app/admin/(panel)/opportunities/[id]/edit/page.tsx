@@ -5,6 +5,8 @@ import { useQuery, useMutation } from "@tanstack/react-query";
 import adminApi from "@/lib/adminApi";
 import { useState, useEffect } from "react";
 import { AdminBackLink } from "@/components/admin/AdminBackLink";
+import { TagSelect, CategorySelect } from "@/components/admin/TagSelect";
+import { EQUIPMENT_TAGS, FUNDING_CATEGORIES } from "@/lib/adminConstants";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -14,6 +16,8 @@ export default function EditOpportunityPage() {
   const { id } = useParams();
   const router = useRouter();
   const [form, setForm] = useState<Record<string, string>>({});
+  const [selectedEquipmentTags, setSelectedEquipmentTags] = useState<string[]>([]);
+  const [selectedCategory, setSelectedCategory] = useState<string>("");
 
   const { data } = useQuery({
     queryKey: ["admin", "opportunity", id],
@@ -34,11 +38,11 @@ export default function EditOpportunityPage() {
       maxAmount: String(d.maxAmount ?? ""),
       sourceUrl: String(d.sourceUrl || ""),
       keywords: Array.isArray(d.keywords) ? (d.keywords as string[]).join(", ") : "",
-      equipmentTags: Array.isArray(d.equipmentTags) ? (d.equipmentTags as string[]).join(", ") : "",
-      category: String(d.category || ""),
       description: String(d.description || ""),
       localMatchRequired: d.localMatchRequired === true ? "yes" : "no",
     });
+    setSelectedEquipmentTags(Array.isArray(d.equipmentTags) ? (d.equipmentTags as string[]) : []);
+    setSelectedCategory(String(d.category || ""));
   }, [data]);
 
   const save = useMutation({
@@ -51,8 +55,8 @@ export default function EditOpportunityPage() {
         maxAmount: form.maxAmount ? Number(form.maxAmount) : undefined,
         sourceUrl: form.sourceUrl,
         keywords: form.keywords.split(",").map((s) => s.trim()).filter(Boolean),
-        equipmentTags: form.equipmentTags.split(",").map((s) => s.trim()).filter(Boolean),
-        category: form.category,
+        equipmentTags: selectedEquipmentTags,
+        category: selectedCategory,
         description: form.description,
         localMatchRequired: form.localMatchRequired === "yes",
       });
@@ -73,9 +77,7 @@ export default function EditOpportunityPage() {
               ? "Official opportunity link"
               : key === "localMatchRequired"
                 ? "Local match required"
-                : key === "equipmentTags"
-                  ? "Equipment tags (comma separated)"
-                  : key}
+                : key}
           </Label>
           {key === "localMatchRequired" ? (
             <select
@@ -101,6 +103,18 @@ export default function EditOpportunityPage() {
           )}
         </div>
       ))}
+      <CategorySelect
+        label="Category"
+        options={FUNDING_CATEGORIES}
+        value={selectedCategory}
+        onChange={setSelectedCategory}
+      />
+      <TagSelect
+        label="Equipment tags"
+        options={EQUIPMENT_TAGS}
+        selected={selectedEquipmentTags}
+        onChange={setSelectedEquipmentTags}
+      />
       <Button className="bg-[#ef3e34] hover:bg-[#d63530] text-white" onClick={() => save.mutate()} disabled={save.isPending}>
         Save
       </Button>

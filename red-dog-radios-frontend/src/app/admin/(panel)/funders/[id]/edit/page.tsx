@@ -5,6 +5,8 @@ import { useQuery, useMutation } from "@tanstack/react-query";
 import adminApi from "@/lib/adminApi";
 import { useState, useEffect } from "react";
 import { AdminBackLink } from "@/components/admin/AdminBackLink";
+import { TagSelect } from "@/components/admin/TagSelect";
+import { EQUIPMENT_TAGS, FUNDER_FUNDING_CATEGORIES, FUNDER_AGENCY_TYPES } from "@/lib/adminConstants";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -14,6 +16,9 @@ export default function EditFunderPage() {
   const { id } = useParams();
   const router = useRouter();
   const [form, setForm] = useState<Record<string, string>>({});
+  const [selectedFundingCategories, setSelectedFundingCategories] = useState<string[]>([]);
+  const [selectedAgencyTypesFunded, setSelectedAgencyTypesFunded] = useState<string[]>([]);
+  const [selectedEquipmentTags, setSelectedEquipmentTags] = useState<string[]>([]);
 
   const { data } = useQuery({
     queryKey: ["admin", "funder", id],
@@ -35,13 +40,6 @@ export default function EditFunderPage() {
       contactPhone: String(d.contactPhone || ""),
       missionStatement: String(d.missionStatement || ""),
       locationFocus: Array.isArray(d.locationFocus) ? (d.locationFocus as string[]).join(", ") : "",
-      fundingCategories: Array.isArray(d.fundingCategories)
-        ? (d.fundingCategories as string[]).join(", ")
-        : "",
-      agencyTypesFunded: Array.isArray(d.agencyTypesFunded)
-        ? (d.agencyTypesFunded as string[]).join(", ")
-        : "",
-      equipmentTags: Array.isArray(d.equipmentTags) ? (d.equipmentTags as string[]).join(", ") : "",
       localMatchRequired: d.localMatchRequired === true ? "yes" : "no",
       avgGrantMin: String(d.avgGrantMin ?? ""),
       avgGrantMax: String(d.avgGrantMax ?? ""),
@@ -53,6 +51,9 @@ export default function EditFunderPage() {
       notes: String(d.notes || ""),
       maxApplicationsAllowed: String(d.maxApplicationsAllowed ?? "5"),
     });
+    setSelectedFundingCategories(Array.isArray(d.fundingCategories) ? (d.fundingCategories as string[]) : []);
+    setSelectedAgencyTypesFunded(Array.isArray(d.agencyTypesFunded) ? (d.agencyTypesFunded as string[]) : []);
+    setSelectedEquipmentTags(Array.isArray(d.equipmentTags) ? (d.equipmentTags as string[]) : []);
   }, [data]);
 
   const save = useMutation({
@@ -65,9 +66,9 @@ export default function EditFunderPage() {
         contactPhone: form.contactPhone || undefined,
         missionStatement: form.missionStatement,
         locationFocus: form.locationFocus.split(",").map((s) => s.trim()).filter(Boolean),
-        fundingCategories: form.fundingCategories.split(",").map((s) => s.trim()).filter(Boolean),
-        agencyTypesFunded: form.agencyTypesFunded.split(",").map((s) => s.trim()).filter(Boolean),
-        equipmentTags: form.equipmentTags.split(",").map((s) => s.trim()).filter(Boolean),
+        fundingCategories: selectedFundingCategories,
+        agencyTypesFunded: selectedAgencyTypesFunded,
+        equipmentTags: selectedEquipmentTags,
         localMatchRequired: form.localMatchRequired === "yes",
         avgGrantMin: form.avgGrantMin ? Number(form.avgGrantMin) : undefined,
         avgGrantMax: form.avgGrantMax ? Number(form.avgGrantMax) : undefined,
@@ -92,13 +93,11 @@ export default function EditFunderPage() {
       {Object.keys(form).map((key) => (
         <div key={key}>
           <Label className="text-xs capitalize">
-            {key === "equipmentTags"
-              ? "Equipment tags (comma)"
-              : key === "localMatchRequired"
-                ? "Local match required"
-                : key === "website"
-                  ? "Website (official)"
-                  : key}
+            {key === "localMatchRequired"
+              ? "Local match required"
+              : key === "website"
+                ? "Website (official)"
+                : key.replace(/([A-Z])/g, " $1")}
           </Label>
           {key === "localMatchRequired" ? (
             <select
@@ -124,6 +123,24 @@ export default function EditFunderPage() {
           )}
         </div>
       ))}
+      <TagSelect
+        label="Funding categories"
+        options={FUNDER_FUNDING_CATEGORIES}
+        selected={selectedFundingCategories}
+        onChange={setSelectedFundingCategories}
+      />
+      <TagSelect
+        label="Agency types funded"
+        options={FUNDER_AGENCY_TYPES}
+        selected={selectedAgencyTypesFunded}
+        onChange={setSelectedAgencyTypesFunded}
+      />
+      <TagSelect
+        label="Equipment tags"
+        options={EQUIPMENT_TAGS}
+        selected={selectedEquipmentTags}
+        onChange={setSelectedEquipmentTags}
+      />
       <Button className="bg-[#ef3e34] hover:bg-[#d63530] text-white" onClick={() => save.mutate()} disabled={save.isPending}>
         Save
       </Button>

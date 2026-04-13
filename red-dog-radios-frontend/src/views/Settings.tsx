@@ -6,7 +6,6 @@ import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { Bell, Globe, Shield, Trash2, Mail, Zap, Clock, CheckCircle, Lock, AlignJustify, Target } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
-import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { cn } from "@/lib/utils";
 import { SettingsSectionCard, SettingsToggle } from "@/components/settings/SettingsPrimitives";
@@ -21,7 +20,14 @@ type ApiSettings = {
   lastName?: string;
   fullName?: string;
   email?: string;
-  organizationId?: { name?: string; canMeetLocalMatch?: boolean | null } | null;
+  organizationId?: {
+    _id?: string;
+    name?: string;
+    location?: string;
+    websiteUrl?: string;
+    missionStatement?: string;
+    canMeetLocalMatch?: boolean | null;
+  } | null;
   settings?: {
     notifications?: Record<string, boolean>;
     preferences?: { language?: string; timezone?: string };
@@ -60,6 +66,9 @@ export const Settings = () => {
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [orgName, setOrgName] = useState<string>("");
   const [canMeetLocalMatch, setCanMeetLocalMatch] = useState<"unset" | "yes" | "no">("unset");
+  const [editingProfile, setEditingProfile] = useState(false);
+  const [orgId, setOrgId] = useState<string>("");
+  const [profileForm, setProfileForm] = useState({ name: "", location: "", websiteUrl: "", missionStatement: "" });
 
   const { data: settingsData } = useQuery<ApiSettings>({
     queryKey: qk.settings(),
@@ -80,6 +89,13 @@ export const Settings = () => {
         newPassword: "",
       });
       setOrgName(u.organizationId?.name ?? "—");
+      setOrgId(u.organizationId?._id ?? "");
+      setProfileForm({
+        name: u.organizationId?.name ?? "",
+        location: u.organizationId?.location ?? "",
+        websiteUrl: u.organizationId?.websiteUrl ?? "",
+        missionStatement: u.organizationId?.missionStatement ?? "",
+      });
       const cm = u.organizationId && typeof u.organizationId === "object" ? u.organizationId.canMeetLocalMatch : undefined;
       if (cm === true) setCanMeetLocalMatch("yes");
       else if (cm === false) setCanMeetLocalMatch("no");
@@ -137,6 +153,27 @@ export const Settings = () => {
       logout();
       setShowDeleteModal(false);
       router.push("/login");
+    },
+  });
+
+  const saveProfileMutation = useMutation({
+    mutationFn: () => api.put(`/organizations/${orgId}`, {
+      name: profileForm.name.trim() || undefined,
+      location: profileForm.location.trim() || undefined,
+      websiteUrl: profileForm.websiteUrl.trim() || undefined,
+      missionStatement: profileForm.missionStatement.trim() || undefined,
+    }),
+    onSuccess: () => {
+      toast({ title: "Agency profile updated", description: "Your agency details have been saved." });
+      void queryClient.invalidateQueries({ queryKey: qk.settings() });
+      setOrgName(profileForm.name || orgName);
+      setEditingProfile(false);
+    },
+    onError: (err: unknown) => {
+      const msg =
+        (err as { response?: { data?: { message?: string } } })?.response?.data?.message ??
+        "Failed to update agency profile.";
+      toast({ title: "Error", description: msg, variant: "destructive" });
     },
   });
 
@@ -211,16 +248,75 @@ export const Settings = () => {
             {errors.email && <p className="text-xs text-red-600 [font-family:'Montserrat',Helvetica]">{errors.email.message}</p>}
           </div>
           <div className="flex flex-col gap-1.5">
-            <label className={labelCls}>Organization</label>
+            <label className={labelCls}>Agency</label>
             <div className="flex flex-col gap-2 rounded-lg border border-[#e5e7eb] bg-[#f9fafb] px-4 py-2.5 sm:flex-row sm:items-center sm:justify-between">
               <span className="[font-family:'Montserrat',Helvetica] font-semibold text-[#111827] text-sm">{orgName || "—"}</span>
-              <Link
-                href="/organizations"
-                className="[font-family:'Montserrat',Helvetica] text-xs font-semibold text-[#ef3e34] hover:underline"
-              >
-                Manage organizations
-              </Link>
+              {!editingProfile && (
+                <button
+                  type="button"
+                  onClick={() => setEditingProfile(true)}
+                  className="[font-family:'Montserrat',Helvetica] text-xs font-semibold text-[#ef3e34] hover:underline text-left"
+                >
+                  Edit agency profile
+                </button>
+              )}
             </div>
+            {editingProfile && (
+              <div className="mt-1 flex flex-col gap-3 rounded-lg border border-[#e5e7eb] bg-white p-4">
+                <div className="flex flex-col gap-1.5">
+                  <label className={labelCls}>Agency Name</label>
+                  <input
+                    className={inputCls}
+                    value={profileForm.name}
+                    onChange={(e) => setProfileForm((f) => ({ ...f, name: e.target.value }))}
+                  />
+                </div>
+                <div className="flex flex-col gap-1.5">
+                  <label className={labelCls}>Location</label>
+                  <input
+                    className={inputCls}
+                    placeholder="City, State or Region"
+                    value={profileForm.location}
+                    onChange={(e) => setProfileForm((f) => ({ ...f, location: e.target.value }))}
+                  />
+                </div>
+                <div className="flex flex-col gap-1.5">
+                  <label className={labelCls}>Website URL</label>
+                  <input
+                    className={inputCls}
+                    placeholder="https://..."
+                    value={profileForm.websiteUrl}
+                    onChange={(e) => setProfileForm((f) => ({ ...f, websiteUrl: e.target.value }))}
+                  />
+                </div>
+                <div className="flex flex-col gap-1.5">
+                  <label className={labelCls}>Mission Statement</label>
+                  <textarea
+                    className={`${inputCls} resize-none`}
+                    rows={3}
+                    value={profileForm.missionStatement}
+                    onChange={(e) => setProfileForm((f) => ({ ...f, missionStatement: e.target.value }))}
+                  />
+                </div>
+                <div className="flex items-center gap-3 pt-1">
+                  <button
+                    type="button"
+                    onClick={() => saveProfileMutation.mutate()}
+                    disabled={saveProfileMutation.isPending || !orgId}
+                    className="flex h-9 items-center justify-center rounded-lg bg-[#ef3e34] px-4 [font-family:'Montserrat',Helvetica] text-sm font-semibold text-white hover:bg-[#d63530] disabled:opacity-60 transition-colors"
+                  >
+                    {saveProfileMutation.isPending ? "Saving..." : "Save Profile"}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setEditingProfile(false)}
+                    className="[font-family:'Montserrat',Helvetica] text-sm font-medium text-[#6b7280] hover:text-[#374151] transition-colors"
+                  >
+                    Cancel
+                  </button>
+                </div>
+              </div>
+            )}
           </div>
         </SettingsSectionCard>
 

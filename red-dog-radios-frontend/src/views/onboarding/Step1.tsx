@@ -1,5 +1,6 @@
 "use client";
 
+import { useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -16,6 +17,7 @@ export const OnboardingStep1 = () => {
   const {
     register,
     handleSubmit,
+    reset,
     formState: { errors },
   } = useForm<OnboardingStep1FormValues>({
     resolver: zodResolver(onboardingStep1Schema),
@@ -26,6 +28,14 @@ export const OnboardingStep1 = () => {
       missionStatement: "",
     },
   });
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    try {
+      const saved = sessionStorage.getItem("rdg_onboarding_step1");
+      if (saved) reset(JSON.parse(saved) as OnboardingStep1FormValues);
+    } catch {}
+  }, [reset]);
 
   const onSubmit = (data: OnboardingStep1FormValues) => {
     if (typeof window !== "undefined") {
@@ -52,7 +62,7 @@ export const OnboardingStep1 = () => {
       >
         <div className="flex flex-col gap-1">
           <h1 className="[font-family:'Oswald',Helvetica] font-bold text-black text-xl tracking-[0.5px] uppercase">
-            Your Organization
+            Your Agency
           </h1>
           <p className="[font-family:'Montserrat',Helvetica] font-normal text-[#6b7280] text-sm">
             Tell us who you are so Ashleen can find the right grants.

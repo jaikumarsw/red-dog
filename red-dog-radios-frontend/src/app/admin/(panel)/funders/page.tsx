@@ -4,6 +4,8 @@ import { useState } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import adminApi from "@/lib/adminApi";
 import { AdminTableViewLink } from "@/components/admin/AdminTableViewLink";
+import { TagSelect } from "@/components/admin/TagSelect";
+import { EQUIPMENT_TAGS, FUNDER_FUNDING_CATEGORIES, FUNDER_AGENCY_TYPES } from "@/lib/adminConstants";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -27,9 +29,6 @@ export default function AdminFundersPage() {
     contactPhone: "",
     missionStatement: "",
     locationFocus: "",
-    fundingCategories: "",
-    agencyTypesFunded: "",
-    equipmentTags: "",
     localMatchRequired: false,
     avgGrantMin: "",
     avgGrantMax: "",
@@ -39,6 +38,9 @@ export default function AdminFundersPage() {
     notes: "",
     maxApplicationsAllowed: "5",
   });
+  const [selectedFundingCategories, setSelectedFundingCategories] = useState<string[]>([]);
+  const [selectedAgencyTypesFunded, setSelectedAgencyTypesFunded] = useState<string[]>([]);
+  const [selectedEquipmentTags, setSelectedEquipmentTags] = useState<string[]>([]);
 
   const { data, refetch } = useQuery({
     queryKey: ["admin", "funders", search],
@@ -58,9 +60,9 @@ export default function AdminFundersPage() {
         contactPhone: form.contactPhone || undefined,
         missionStatement: form.missionStatement,
         locationFocus: form.locationFocus.split(",").map((s) => s.trim()).filter(Boolean),
-        fundingCategories: form.fundingCategories.split(",").map((s) => s.trim()).filter(Boolean),
-        agencyTypesFunded: form.agencyTypesFunded.split(",").map((s) => s.trim()).filter(Boolean),
-        equipmentTags: form.equipmentTags.split(",").map((s) => s.trim()).filter(Boolean),
+        fundingCategories: selectedFundingCategories,
+        agencyTypesFunded: selectedAgencyTypesFunded,
+        equipmentTags: selectedEquipmentTags,
         localMatchRequired: form.localMatchRequired,
         avgGrantMin: form.avgGrantMin ? Number(form.avgGrantMin) : undefined,
         avgGrantMax: form.avgGrantMax ? Number(form.avgGrantMax) : undefined,
@@ -72,6 +74,9 @@ export default function AdminFundersPage() {
       });
     },
     onSuccess: () => {
+      setSelectedFundingCategories([]);
+      setSelectedAgencyTypesFunded([]);
+      setSelectedEquipmentTags([]);
       setOpen(false);
       refetch();
     },
@@ -146,9 +151,6 @@ export default function AdminFundersPage() {
                 "contactPhone",
                 "missionStatement",
                 "locationFocus",
-                "fundingCategories",
-                "agencyTypesFunded",
-                "equipmentTags",
                 "avgGrantMin",
                 "avgGrantMax",
                 "deadline",
@@ -160,11 +162,9 @@ export default function AdminFundersPage() {
             ).map((key) => (
               <div key={key}>
                 <Label className="capitalize text-xs">
-                  {key === "equipmentTags"
-                    ? "Equipment tags (comma separated)"
-                    : key === "website"
-                      ? "Website (official funder page)"
-                      : key.replace(/([A-Z])/g, " $1")}
+                  {key === "website"
+                    ? "Website (official funder page)"
+                    : key.replace(/([A-Z])/g, " $1")}
                 </Label>
                 {key === "missionStatement" || key === "notes" || key === "pastGrantsAwarded" ? (
                   <Textarea
@@ -181,6 +181,24 @@ export default function AdminFundersPage() {
                 )}
               </div>
             ))}
+            <TagSelect
+              label="Funding categories"
+              options={FUNDER_FUNDING_CATEGORIES}
+              selected={selectedFundingCategories}
+              onChange={setSelectedFundingCategories}
+            />
+            <TagSelect
+              label="Agency types funded"
+              options={FUNDER_AGENCY_TYPES}
+              selected={selectedAgencyTypesFunded}
+              onChange={setSelectedAgencyTypesFunded}
+            />
+            <TagSelect
+              label="Equipment tags"
+              options={EQUIPMENT_TAGS}
+              selected={selectedEquipmentTags}
+              onChange={setSelectedEquipmentTags}
+            />
             <label className="flex cursor-pointer items-center gap-2 text-sm text-[#374151]">
               <input
                 type="checkbox"

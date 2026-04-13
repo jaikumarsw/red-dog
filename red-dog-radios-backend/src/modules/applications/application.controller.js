@@ -62,7 +62,7 @@ const update = asyncHandler(async (req, res) => {
   return success(res, app, 'Application updated');
 });
 
-const ADMIN_ONLY_STATUSES = ['approved', 'rejected', 'awarded', 'denied', 'in_review'];
+const ADMIN_ONLY_STATUSES = ['approved', 'rejected', 'awarded', 'denied', 'in_review', 'under_review', 'under-review', 'declined'];
 
 const updateStatus = asyncHandler(async (req, res) => {
   if (req.user.role !== 'admin' && ADMIN_ONLY_STATUSES.includes(req.body.status)) {

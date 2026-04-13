@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -18,7 +18,7 @@ const OnboardingLogo = () => (
 
 const budgets = [
   { id: "under-25k", title: "Under $25K", sub: "Small equipment, training" },
-  { id: "25k-100k", title: "$25K – $100K", sub: "Mid-size equipment, fleet" },
+  { id: "25k-100k", title: "$25K – $150K", sub: "Mid-size equipment, fleet" },
   { id: "100k-500k", title: "$100K – $500K", sub: "Large systems, vehicles" },
   { id: "500k-plus", title: "$500K+", sub: "Infrastructure, major systems" },
 ];
@@ -32,14 +32,44 @@ export const OnboardingStep4 = () => {
   const router = useRouter();
   const [selectedBudget, setSelectedBudget] = useState<string>("under-25k");
   const [selectedTimeline, setSelectedTimeline] = useState<string>("urgent");
+  const [populationServed, setPopulationServed] = useState<string>("");
+  const [coverageArea, setCoverageArea] = useState<string>("");
+  const [numberOfStaff, setNumberOfStaff] = useState<string>("");
+  const [currentEquipment, setCurrentEquipment] = useState<string>("");
   const {
     register,
     handleSubmit,
+    reset,
     formState: { errors },
   } = useForm<OnboardingStep4FormValues>({
     resolver: zodResolver(onboardingStep4Schema),
     defaultValues: { requestDescription: "" },
   });
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    try {
+      const saved = sessionStorage.getItem("rdg_onboarding_step4");
+      if (saved) {
+        const parsed = JSON.parse(saved) as {
+          requestDescription?: string;
+          budgetRange?: string;
+          timeline?: string;
+          populationServed?: string;
+          coverageArea?: string;
+          numberOfStaff?: string;
+          currentEquipment?: string;
+        };
+        if (parsed.requestDescription) reset({ requestDescription: parsed.requestDescription });
+        if (parsed.budgetRange) setSelectedBudget(parsed.budgetRange);
+        if (parsed.timeline) setSelectedTimeline(parsed.timeline);
+        if (parsed.populationServed) setPopulationServed(parsed.populationServed);
+        if (parsed.coverageArea) setCoverageArea(parsed.coverageArea);
+        if (parsed.numberOfStaff) setNumberOfStaff(parsed.numberOfStaff);
+        if (parsed.currentEquipment) setCurrentEquipment(parsed.currentEquipment);
+      }
+    } catch {}
+  }, [reset]);
 
   const onSubmit = (data: OnboardingStep4FormValues) => {
     if (typeof window !== "undefined") {
@@ -49,6 +79,10 @@ export const OnboardingStep4 = () => {
           requestDescription: data.requestDescription,
           budgetRange: selectedBudget,
           timeline: selectedTimeline,
+          populationServed,
+          coverageArea,
+          numberOfStaff,
+          currentEquipment,
         })
       );
     }
@@ -130,6 +164,59 @@ export const OnboardingStep4 = () => {
                 </span>
               </button>
             ))}
+          </div>
+        </div>
+
+        <div className="flex flex-col gap-4">
+          <div className="flex flex-col gap-1">
+            <p className="[font-family:'Montserrat',Helvetica] font-semibold text-sm text-[#111827]">Tell us about your agency</p>
+            <p className="[font-family:'Montserrat',Helvetica] text-xs text-[#9ca3af]">Optional — helps us find better-matched funders</p>
+          </div>
+
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+            <div className="flex flex-col gap-1.5">
+              <label className="[font-family:'Montserrat',Helvetica] font-medium text-xs text-[#374151]">Population Served</label>
+              <input
+                type="number"
+                min={0}
+                placeholder="e.g. 50000"
+                value={populationServed}
+                onChange={(e) => setPopulationServed(e.target.value)}
+                className="rounded-lg border border-[#e5e7eb] bg-white px-3 py-2 [font-family:'Montserrat',Helvetica] text-sm text-[#111827] placeholder:text-[#d1d5db] focus:border-[#ef3e34] focus:outline-none focus:ring-1 focus:ring-[#ef3e34]/20"
+              />
+            </div>
+            <div className="flex flex-col gap-1.5">
+              <label className="[font-family:'Montserrat',Helvetica] font-medium text-xs text-[#374151]">Coverage Area</label>
+              <input
+                type="text"
+                placeholder="e.g. 250 square miles"
+                value={coverageArea}
+                onChange={(e) => setCoverageArea(e.target.value)}
+                className="rounded-lg border border-[#e5e7eb] bg-white px-3 py-2 [font-family:'Montserrat',Helvetica] text-sm text-[#111827] placeholder:text-[#d1d5db] focus:border-[#ef3e34] focus:outline-none focus:ring-1 focus:ring-[#ef3e34]/20"
+              />
+            </div>
+            <div className="flex flex-col gap-1.5">
+              <label className="[font-family:'Montserrat',Helvetica] font-medium text-xs text-[#374151]">Number of Staff</label>
+              <input
+                type="number"
+                min={0}
+                placeholder="e.g. 120"
+                value={numberOfStaff}
+                onChange={(e) => setNumberOfStaff(e.target.value)}
+                className="rounded-lg border border-[#e5e7eb] bg-white px-3 py-2 [font-family:'Montserrat',Helvetica] text-sm text-[#111827] placeholder:text-[#d1d5db] focus:border-[#ef3e34] focus:outline-none focus:ring-1 focus:ring-[#ef3e34]/20"
+              />
+            </div>
+          </div>
+
+          <div className="flex flex-col gap-1.5">
+            <label className="[font-family:'Montserrat',Helvetica] font-medium text-xs text-[#374151]">Current Equipment</label>
+            <Textarea
+              placeholder="Describe your current radio/comms equipment"
+              rows={3}
+              value={currentEquipment}
+              onChange={(e) => setCurrentEquipment(e.target.value)}
+              className="border-[#e5e7eb] rounded-lg [font-family:'Montserrat',Helvetica] text-sm placeholder:text-[#d1d5db] focus-visible:ring-[#ef3e34] focus-visible:ring-1 focus-visible:border-[#ef3e34] resize-none"
+            />
           </div>
         </div>
 

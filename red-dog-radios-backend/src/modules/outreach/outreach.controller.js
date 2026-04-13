@@ -20,7 +20,9 @@ const getAll = asyncHandler(async (req, res) => {
 const getOne = asyncHandler(async (req, res) => {
   const organizationId = await resolveAgencyOrganizationId(req.user);
   const record = await outreachService.getOne(req.params.id);
-  if (!organizationId || String(record.organization) !== String(organizationId)) {
+  // record.organization may be a populated Document — extract _id before comparing
+  const recordOrgId = record.organization?._id ?? record.organization;
+  if (!organizationId || String(recordOrgId) !== String(organizationId)) {
     throw new AppError('Outreach record not found', 404);
   }
   return success(res, record, 'Outreach email retrieved');
@@ -45,7 +47,8 @@ const generate = asyncHandler(async (req, res) => {
 const update = asyncHandler(async (req, res) => {
   const organizationId = await resolveAgencyOrganizationId(req.user);
   const existing = await outreachService.getOne(req.params.id);
-  if (!organizationId || String(existing.organization) !== String(organizationId)) {
+  const existingOrgId = existing.organization?._id ?? existing.organization;
+  if (!organizationId || String(existingOrgId) !== String(organizationId)) {
     throw new AppError('Outreach record not found', 404);
   }
   const record = await outreachService.update(req.params.id, req.body);
@@ -55,7 +58,8 @@ const update = asyncHandler(async (req, res) => {
 const markSent = asyncHandler(async (req, res) => {
   const organizationId = await resolveAgencyOrganizationId(req.user);
   const existing = await outreachService.getOne(req.params.id);
-  if (!organizationId || String(existing.organization) !== String(organizationId)) {
+  const existingOrgId = existing.organization?._id ?? existing.organization;
+  if (!organizationId || String(existingOrgId) !== String(organizationId)) {
     throw new AppError('Outreach record not found', 404);
   }
   const record = await outreachService.markSent(req.params.id);

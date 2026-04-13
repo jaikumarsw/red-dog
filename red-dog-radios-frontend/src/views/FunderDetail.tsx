@@ -65,10 +65,14 @@ export const FunderDetail = () => {
   });
 
   const applyMutation = useMutation({
-    mutationFn: () => {
+    mutationFn: (opportunityId?: string) => {
       const list = oppsForFunder ?? [];
       const body: { funderId: string; opportunityId?: string } = { funderId: id! };
-      if (list.length === 1) body.opportunityId = list[0]._id;
+      if (opportunityId) {
+        body.opportunityId = opportunityId;
+      } else if (list.length === 1) {
+        body.opportunityId = list[0]._id;
+      }
       return api.post("/applications/generate", body);
     },
     onSuccess: (res) => {
@@ -147,8 +151,7 @@ export const FunderDetail = () => {
   const opps = oppsForFunder ?? [];
   const singleOppLocked = opps.length === 1 && !!opps[0].isLocked;
   const multipleOpps = opps.length > 1;
-  const generateDisabled =
-    applyMutation.isPending || multipleOpps || singleOppLocked;
+  const generateDisabled = applyMutation.isPending || singleOppLocked;
 
   return (
     <div className="flex w-full min-w-0 flex-col gap-6 bg-neutral-50 p-4 pb-10 sm:p-6 lg:p-8">
@@ -348,14 +351,39 @@ export const FunderDetail = () => {
           </div>
 
           <div className="flex flex-col gap-3">
+            {multipleOpps ? (
+              <>
+                <p className="[font-family:'Montserrat',Helvetica] text-xs font-semibold uppercase tracking-wide text-[#9ca3af]">
+                  Select a grant program to apply
+                </p>
+                {opps.map((opp) => (
+                  <button
+                    key={opp._id}
+                    type="button"
+                    onClick={() => applyMutation.mutate(opp._id)}
+                    disabled={applyMutation.isPending || !!opp.isLocked}
+                    className="w-full rounded-lg bg-[#ef3e34] px-4 py-2.5 text-sm font-bold text-white [font-family:'Montserrat',Helvetica] hover:bg-[#d63029] disabled:opacity-50 transition-colors text-left"
+                  >
+                    {opp.isLocked ? (
+                      <span className="opacity-60">🔒 {opp.title}</span>
+                    ) : (
+                      opp.title
+                    )}
+                  </button>
+                ))}
+              </>
+            ) : (
+              <button
+                type="button"
+                onClick={() => applyMutation.mutate(undefined)}
+                disabled={generateDisabled}
+                className="w-full rounded-lg bg-[#ef3e34] px-4 py-3 text-sm font-bold text-white [font-family:'Montserrat',Helvetica] hover:bg-[#d63029] disabled:opacity-50 transition-colors"
+              >
+                {applyMutation.isPending ? "Generating Application..." : "Generate Application"}
+              </button>
+            )}
             <button
-              onClick={() => applyMutation.mutate()}
-              disabled={generateDisabled}
-              className="w-full rounded-lg bg-[#ef3e34] px-4 py-3 text-sm font-bold text-white [font-family:'Montserrat',Helvetica] hover:bg-[#d63029] disabled:opacity-50 transition-colors"
-            >
-              {applyMutation.isPending ? "Generating Application..." : "Generate Application"}
-            </button>
-            <button
+              type="button"
               onClick={() => outreachMutation.mutate()}
               disabled={outreachMutation.isPending}
               className="w-full rounded-lg border border-[#e5e7eb] bg-white px-4 py-3 text-sm font-semibold text-[#374151] [font-family:'Montserrat',Helvetica] hover:bg-[#f9fafb] disabled:opacity-50 transition-colors"

@@ -4,6 +4,7 @@ const Opportunity = require('../opportunities/opportunity.schema');
 const Application = require('../applications/application.schema');
 const Funder = require('../funders/funder.schema');
 const Match = require('../matches/match.schema');
+const Alert = require('../alerts/alert.schema');
 const appService = require('../applications/application.service');
 const oppService = require('../opportunities/opportunity.service');
 const funderService = require('../funders/funder.service');
@@ -363,7 +364,37 @@ const deleteApplicationAdmin = (id) => appService.remove(id);
 
 const updateApplicationAdmin = (id, body) => appService.update(id, body);
 
-const updateApplicationStatusAdmin = (id, body, actorId) => appService.updateStatus(id, body, { actorId });
+const STATUS_NOTIFY = ['approved', 'rejected', 'awarded', 'denied', 'in_review', 'under_review', 'under-review', 'declined'];
+const STATUS_LABEL = {
+  approved: 'approved', rejected: 'rejected', awarded: 'awarded',
+  denied: 'denied', in_review: 'under review', under_review: 'under review',
+  'under-review': 'under review', declined: 'declined',
+};
+
+const updateApplicationStatusAdmin = async (id, body, actorId) => {
+  const app = await appService.updateStatus(id, body, { actorId });
+  if (body.status && STATUS_NOTIFY.includes(body.status)) {
+    try {
+      const orgId = app.organization?._id ?? app.organization;
+      const grantName = app.funder?.name || app.opportunity?.title || app.projectTitle || 'your application';
+      const statusLabel = STATUS_LABEL[body.status] || body.status;
+      const priority = ['awarded', 'rejected', 'denied', 'declined'].includes(body.status) ? 'high' : 'medium';
+      await Alert.create({
+        organization: orgId,
+        opportunity: app.opportunity?._id ?? app.opportunity ?? undefined,
+        orgName: app.organization?.name,
+        grantName,
+        type: 'application_update',
+        priority,
+        message: `Your application "${grantName}" has been marked as ${statusLabel} by Red Dog staff.`,
+        alertKey: `app-status-${id}-${body.status}-${Date.now()}`,
+      });
+    } catch (e) {
+      // Non-critical — don't fail the status update if alert creation errors
+    }
+  }
+  return app;
+};
 
 const generateApplicationAIAdmin = (id) => appService.adminRegenerateAI(id);
 

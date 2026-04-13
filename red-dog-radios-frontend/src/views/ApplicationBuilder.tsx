@@ -53,10 +53,16 @@ const STATUS_COLORS: Record<string, string> = {
   ready_to_submit: "bg-purple-100 text-purple-700",
   submitted: "bg-orange-100 text-orange-700",
   in_review: "bg-yellow-100 text-yellow-700",
+  under_review: "bg-yellow-100 text-yellow-700",
+  "under-review": "bg-yellow-100 text-yellow-700",
   awarded: "bg-green-100 text-green-700",
   denied: "bg-red-100 text-red-700",
+  declined: "bg-red-100 text-red-700",
   rejected: "bg-red-100 text-red-700",
 };
+
+// Statuses set by Red Dog staff — agency cannot change these
+const ADMIN_CONTROLLED_STATUSES = ["under_review", "under-review", "in_review", "awarded", "declined", "denied", "rejected", "approved"];
 
 const EmptyContent = () => (
   <span className="text-[#9ca3af] italic text-sm [font-family:'Montserrat',Helvetica]">
@@ -185,6 +191,7 @@ export const ApplicationBuilder = () => {
   const funderName = app.funder?.name || app.opportunity?.funder || "Unknown Funder";
   const statusColor = STATUS_COLORS[app.status] || "bg-gray-100 text-gray-700";
   const hasAligned = !!app.alignedVersion;
+  const isAdminControlled = ADMIN_CONTROLLED_STATUSES.includes(app.status);
 
   const appRecord = app as unknown as Record<string, unknown>;
   const alignedRecord = app.alignedVersion as unknown as Record<string, unknown> | undefined;
@@ -209,6 +216,11 @@ export const ApplicationBuilder = () => {
             <span className={`rounded-full px-3 py-0.5 text-xs font-semibold [font-family:'Montserrat',Helvetica] ${statusColor}`}>
               {app.status.replace(/_/g, " ").replace(/\b\w/g, (l) => l.toUpperCase())}
             </span>
+            {isAdminControlled && (
+              <span className="[font-family:'Montserrat',Helvetica] text-xs text-[#9ca3af] italic">
+                — set by Red Dog staff
+              </span>
+            )}
           </div>
         </div>
 
@@ -457,7 +469,7 @@ export const ApplicationBuilder = () => {
             <><CheckCircle size={14} /> Align to Funder Language</>
           )}
         </button>
-        {app.status !== "submitted" && app.status !== "awarded" && (
+        {!isAdminControlled && app.status !== "submitted" && (
           <button
             onClick={() => statusMutation.mutate("submitted")}
             disabled={statusMutation.isPending}

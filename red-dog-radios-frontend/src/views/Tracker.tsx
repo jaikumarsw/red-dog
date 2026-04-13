@@ -30,6 +30,7 @@ interface TrackerStats {
   totalDollarsAwarded: number;
 }
 
+// Full list used only for the filter tabs (showing existing statuses from any source)
 const STATUS_OPTIONS = [
   { value: "not_started", label: "Not Started" },
   { value: "draft", label: "Draft" },
@@ -41,6 +42,17 @@ const STATUS_OPTIONS = [
   { value: "awarded", label: "Awarded" },
   { value: "denied", label: "Denied" },
 ];
+
+// What agency users may SET — all other statuses are admin-controlled (read-only)
+const AGENCY_STATUS_OPTIONS = [
+  { value: "drafting", label: "Drafting" },
+  { value: "ready_to_submit", label: "Ready to Submit" },
+  { value: "submitted", label: "Submitted" },
+  { value: "withdrawn", label: "Withdrawn" },
+];
+
+// Statuses that an admin has set — agency cannot change these inline
+const TRACKER_ADMIN_STATUSES = ["in_review", "awarded", "denied", "declined", "rejected", "approved", "under_review", "under-review"];
 
 const STATUS_COLORS: Record<string, string> = {
   not_started: "bg-gray-100 text-gray-700",
@@ -228,15 +240,29 @@ export const Tracker = () => {
                       {app.dateSubmitted ? new Date(app.dateSubmitted).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" }) : "—"}
                     </td>
                     <td className="px-4 py-4">
-                      <select
-                        value={app.status}
-                        onChange={(e) => statusMutation.mutate({ id: app._id, status: e.target.value })}
-                        className={`rounded-full px-2.5 py-1 text-xs font-semibold [font-family:'Montserrat',Helvetica] border-0 cursor-pointer focus:outline-none focus:ring-2 focus:ring-[#ef3e34]/20 ${STATUS_COLORS[app.status] || "bg-gray-100 text-gray-700"}`}
-                      >
-                        {STATUS_OPTIONS.map((s) => (
-                          <option key={s.value} value={s.value}>{s.label}</option>
-                        ))}
-                      </select>
+                      {TRACKER_ADMIN_STATUSES.includes(app.status) ? (
+                        <div className="flex flex-col gap-0.5">
+                          <span className={`inline-block rounded-full px-2.5 py-1 text-xs font-semibold [font-family:'Montserrat',Helvetica] ${STATUS_COLORS[app.status] || "bg-gray-100 text-gray-700"}`}>
+                            {STATUS_OPTIONS.find((s) => s.value === app.status)?.label ?? app.status.replace(/_/g, " ")}
+                          </span>
+                          <span className="[font-family:'Montserrat',Helvetica] text-[10px] text-[#9ca3af] italic pl-0.5">set by staff</span>
+                        </div>
+                      ) : (
+                        <select
+                          value={AGENCY_STATUS_OPTIONS.find((s) => s.value === app.status) ? app.status : ""}
+                          onChange={(e) => e.target.value && statusMutation.mutate({ id: app._id, status: e.target.value })}
+                          className={`rounded-full px-2.5 py-1 text-xs font-semibold [font-family:'Montserrat',Helvetica] border-0 cursor-pointer focus:outline-none focus:ring-2 focus:ring-[#ef3e34]/20 ${STATUS_COLORS[app.status] || "bg-gray-100 text-gray-700"}`}
+                        >
+                          {!AGENCY_STATUS_OPTIONS.find((s) => s.value === app.status) && (
+                            <option value="" disabled>
+                              {app.status.replace(/_/g, " ")}
+                            </option>
+                          )}
+                          {AGENCY_STATUS_OPTIONS.map((s) => (
+                            <option key={s.value} value={s.value}>{s.label}</option>
+                          ))}
+                        </select>
+                      )}
                     </td>
                     <td className="px-4 py-4">
                       {app.followUpDate ? (

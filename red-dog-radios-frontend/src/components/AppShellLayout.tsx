@@ -119,7 +119,7 @@ const SidebarContent = ({
         )}
       </div>
 
-      <div className="flex min-h-0 w-full flex-1 flex-col overflow-y-auto overscroll-y-contain [scrollbar-width:thin] [&::-webkit-scrollbar]:w-1.5 [&::-webkit-scrollbar-thumb]:rounded-full [&::-webkit-scrollbar-thumb]:bg-[#333]">
+      <div className="flex w-full flex-col">
         <div className={`flex flex-col items-start gap-2.5 py-6 w-full ${collapsed ? "px-2" : "px-4"}`}>
           {!collapsed && (
             <div className="flex flex-col items-start px-2 self-stretch w-full">

@@ -110,7 +110,7 @@ export function AshleenChat() {
       <button
         onClick={() => setIsOpen((o) => !o)}
         title="Chat with Ashleen"
-        className="fixed bottom-7 right-7 z-[10000] flex h-[60px] w-[60px] items-center justify-center rounded-full border-0 shadow-[0_4px_20px_rgba(229,57,53,0.45)] transition-transform duration-200"
+        className="fixed bottom-7 right-4 z-[10000] flex h-[60px] w-[60px] items-center justify-center rounded-full border-0 shadow-[0_4px_20px_rgba(229,57,53,0.45)] transition-transform duration-200"
         style={{
           background: "linear-gradient(135deg,#ef3e34 0%,#b71c1c 100%)",
           transform: isOpen ? "scale(0.92)" : "scale(1)",
@@ -132,7 +132,7 @@ export function AshleenChat() {
       {!isOpen && (
         <span
           className="fixed z-[10001] h-[10px] w-[10px] rounded-full border-2 border-white bg-green-500"
-          style={{ bottom: 78, right: 28 }}
+          style={{ bottom: 78, right: 20 }}
         />
       )}
 
@@ -140,7 +140,13 @@ export function AshleenChat() {
       {isOpen && (
         <div
           className="fixed z-[9999] flex flex-col overflow-hidden rounded-2xl border border-[#f0f0f0] bg-white shadow-[0_8px_40px_rgba(0,0,0,0.18)]"
-          style={{ bottom: 100, right: 28, width: 380, height: 560, fontFamily: "Montserrat, Arial, sans-serif" }}
+          style={{
+            bottom: 100,
+            right: 16,
+            width: "min(380px, calc(100vw - 32px))",
+            height: "min(560px, calc(100dvh - 120px))",
+            fontFamily: "Montserrat, Arial, sans-serif",
+          }}
         >
           {/* Header */}
           <div
@@ -170,7 +176,10 @@ export function AshleenChat() {
           {agencyContext && (
             <div className="shrink-0 border-b border-red-100 bg-red-50 px-4 py-1.5 text-xs text-red-700 flex items-center gap-1.5">
               <span>📍</span>
-              <span>{(agencyContext.name as string)} · {(agencyContext.city as string)}, {(agencyContext.state as string)}</span>
+              <span>
+                {(agencyContext.name as string)}
+                {agencyContext.location ? ` · ${agencyContext.location as string}` : ""}
+              </span>
             </div>
           )}
 

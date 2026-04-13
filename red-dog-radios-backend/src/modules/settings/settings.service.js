@@ -3,7 +3,7 @@ const Organization = require('../organizations/organization.schema');
 const { AppError } = require('../../middlewares/error.middleware');
 
 const getSettings = async (userId) => {
-  const user = await User.findById(userId).populate('organizationId', 'name location canMeetLocalMatch');
+  const user = await User.findById(userId).populate('organizationId', 'name location websiteUrl missionStatement canMeetLocalMatch');
   if (!user) throw new AppError('User not found', 404);
   return user;
 };
@@ -70,7 +70,7 @@ const updateSettings = async (userId, data) => {
     if (!exists) throw new AppError('User not found', 404);
   }
 
-  return User.findById(userId).populate('organizationId', 'name location canMeetLocalMatch');
+  return User.findById(userId).populate('organizationId', 'name location websiteUrl missionStatement canMeetLocalMatch');
 };
 
 const deleteAccount = async (userId) => {

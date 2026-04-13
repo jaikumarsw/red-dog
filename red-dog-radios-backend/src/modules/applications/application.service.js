@@ -194,6 +194,16 @@ const bumpOpportunityCountAndMaybeLock = async (opp) => {
   }
 };
 
+const bumpFunderCountAndMaybeLock = async (funderId, maxApplicationsAllowed) => {
+  if (!funderId) return;
+  const max = maxApplicationsAllowed != null ? maxApplicationsAllowed : 0;
+  if (max <= 0) return;
+  const updated = await Funder.findByIdAndUpdate(funderId, { $inc: { currentApplicationCount: 1 } }, { new: true });
+  if (updated && updated.currentApplicationCount >= max) {
+    await Funder.findByIdAndUpdate(funderId, { $set: { isLocked: true } });
+  }
+};
+
 const create = async (data) => {
   if (!data.funder) return Application.create(data);
   const funder = await Funder.findById(data.funder);
@@ -221,6 +231,7 @@ const create = async (data) => {
 
   const app = await Application.create(payload);
   await bumpOpportunityCountAndMaybeLock(opp);
+  await bumpFunderCountAndMaybeLock(data.funder, funder.maxApplicationsAllowed);
   return app;
 };
 
@@ -302,6 +313,7 @@ const createWithAI = async ({ opportunityId, funderId, organizationId, userId, a
   });
 
   await bumpOpportunityCountAndMaybeLock(opp);
+  await bumpFunderCountAndMaybeLock(funderId, funder?.maxApplicationsAllowed);
   return app;
 };
 

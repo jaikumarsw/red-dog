@@ -4,7 +4,7 @@ import type { ElementType } from "react";
 import { useState, useRef, useEffect } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useRouter } from "next/navigation";
-import { FileText, Award, Clock, Eye, Pencil, CalendarClock, ChevronDown, Check } from "lucide-react";
+import { FileText, Award, Clock, Eye, Pencil, CalendarClock, ChevronDown, Check, RefreshCw } from "lucide-react";
 import { MobileFilterSelect } from "@/components/MobileFilterSelect";
 import { useToast } from "@/hooks/use-toast";
 import api from "@/lib/api";
@@ -24,13 +24,15 @@ type AppItem = {
   ashleenMsg: string;
 };
 
+type ApiFunderRef = string | { _id?: string; name?: string; avgGrantMax?: number; deadline?: string } | null;
+
 type ApiApp = {
   _id: string;
   projectTitle?: string;
   title?: string;
   grant?: string;
   opportunity?: { title?: string; funder?: string; maxAmount?: number; category?: string };
-  funder?: string;
+  funder?: ApiFunderRef;
   amount?: number;
   amountRequested?: number;
   organization?: { name?: string };
@@ -75,10 +77,16 @@ const fmtAmount = (n: number | undefined) => {
   return n >= 1000 ? `$${(n / 1000).toFixed(0)},000` : `$${n}`;
 };
 
+const resolveFunderName = (f: ApiFunderRef): string => {
+  if (!f) return "—";
+  if (typeof f === "string") return f || "—";
+  return f.name || "—";
+};
+
 const mapApp = (a: ApiApp): AppItem => ({
   id: a._id,
   grant: a.projectTitle ?? a.opportunity?.title ?? a.title ?? a.grant ?? "Unknown Grant",
-  funder: a.opportunity?.funder ?? a.funder ?? "—",
+  funder: a.opportunity?.funder ?? resolveFunderName(a.funder ?? null),
   amount: a.amountRequested ? fmtAmount(a.amountRequested) : (a.amount ? fmtAmount(a.amount) : (a.opportunity?.maxAmount ? fmtAmount(a.opportunity.maxAmount) : "—")),
   org: a.orgName ?? a.organization?.name ?? "—",
   appliedDate: fmtDate(a.submittedAt ?? a.appliedDate ?? a.createdAt),
@@ -163,16 +171,20 @@ const filterTabs: { label: string; value: string }[] = [
   { label: "Declined", value: "declined" },
 ];
 
-const STATUS_OPTIONS = [
+// Statuses an agency user may SET themselves
+const AGENCY_STATUS_OPTIONS = [
   { value: "drafting", label: "Drafting" },
+  { value: "ready_to_submit", label: "Ready to Submit" },
   { value: "submitted", label: "Submitted" },
-  { value: "under-review", label: "Under Review" },
-  { value: "awarded", label: "Awarded" },
-  { value: "declined", label: "Declined" },
+  { value: "withdrawn", label: "Withdrawn" },
 ];
+
+// Any status NOT in this list was set by an admin — show as read-only badge
+const AGENCY_EDITABLE_STATUSES = ["drafting", "ready_to_submit", "submitted", "withdrawn"];
 
 const AppCard = ({ app }: { app: AppItem }) => {
   const cfg = statusConfig[app.status] ?? defaultCfg;
+  const isAgencyEditable = AGENCY_EDITABLE_STATUSES.includes(app.status);
   const router = useRouter();
   const { toast } = useToast();
   const queryClient = useQueryClient();
@@ -193,7 +205,7 @@ const AppCard = ({ app }: { app: AppItem }) => {
     mutationFn: (newStatus: string) =>
       api.put(`/applications/${app.id}/status`, { status: newStatus }),
     onSuccess: (_, newStatus) => {
-      const label = STATUS_OPTIONS.find((o) => o.value === newStatus)?.label ?? newStatus;
+      const label = AGENCY_STATUS_OPTIONS.find((o) => o.value === newStatus)?.label ?? newStatus;
       toast({ title: "Status updated", description: `Application marked as "${label}".` });
       queryClient.invalidateQueries({ queryKey: qk.applications() });
       setPickerOpen(false);
@@ -247,31 +259,37 @@ const AppCard = ({ app }: { app: AppItem }) => {
           View
         </button>
 
-        <div className="relative" ref={pickerRef}>
-          <button
-            onClick={() => setPickerOpen((p) => !p)}
-            disabled={statusMutation.isPending}
-            className="flex items-center gap-1.5 [font-family:'Montserrat',Helvetica] font-medium text-xs text-[#ef3e34] hover:text-[#d63530] transition-colors disabled:opacity-50"
-          >
-            <Pencil size={13} />
-            {statusMutation.isPending ? "Updating…" : "Update Status"}
-            <ChevronDown size={12} className={`transition-transform ${pickerOpen ? "rotate-180" : ""}`} />
-          </button>
-          {pickerOpen && (
-            <div className="absolute bottom-full right-0 mb-2 w-44 bg-white rounded-xl border border-[#e5e7eb] shadow-[0_4px_20px_rgba(0,0,0,0.12)] z-20 overflow-hidden">
-              {STATUS_OPTIONS.map((opt) => (
-                <button
-                  key={opt.value}
-                  onClick={() => statusMutation.mutate(opt.value)}
-                  className="w-full flex items-center justify-between gap-2 px-3 py-2.5 text-left [font-family:'Montserrat',Helvetica] text-xs font-medium text-[#374151] hover:bg-[#f9fafb] transition-colors"
-                >
-                  {opt.label}
-                  {app.status === opt.value && <Check size={13} className="text-[#ef3e34] flex-shrink-0" />}
-                </button>
-              ))}
-            </div>
-          )}
-        </div>
+        {isAgencyEditable ? (
+          <div className="relative" ref={pickerRef}>
+            <button
+              onClick={() => setPickerOpen((p) => !p)}
+              disabled={statusMutation.isPending}
+              className="flex items-center gap-1.5 [font-family:'Montserrat',Helvetica] font-medium text-xs text-[#ef3e34] hover:text-[#d63530] transition-colors disabled:opacity-50"
+            >
+              <Pencil size={13} />
+              {statusMutation.isPending ? "Updating…" : "Update Status"}
+              <ChevronDown size={12} className={`transition-transform ${pickerOpen ? "rotate-180" : ""}`} />
+            </button>
+            {pickerOpen && (
+              <div className="absolute bottom-full right-0 mb-2 w-48 bg-white rounded-xl border border-[#e5e7eb] shadow-[0_4px_20px_rgba(0,0,0,0.12)] z-20 overflow-hidden">
+                {AGENCY_STATUS_OPTIONS.map((opt) => (
+                  <button
+                    key={opt.value}
+                    onClick={() => statusMutation.mutate(opt.value)}
+                    className="w-full flex items-center justify-between gap-2 px-3 py-2.5 text-left [font-family:'Montserrat',Helvetica] text-xs font-medium text-[#374151] hover:bg-[#f9fafb] transition-colors"
+                  >
+                    {opt.label}
+                    {app.status === opt.value && <Check size={13} className="text-[#ef3e34] flex-shrink-0" />}
+                  </button>
+                ))}
+              </div>
+            )}
+          </div>
+        ) : (
+          <span className="[font-family:'Montserrat',Helvetica] text-xs text-[#9ca3af] italic">
+            Status set by Red Dog staff
+          </span>
+        )}
       </div>
     </div>
   );
@@ -280,13 +298,16 @@ const AppCard = ({ app }: { app: AppItem }) => {
 export const Applications = () => {
   const [activeFilter, setActiveFilter] = useState("all");
 
-  const { data: rawApps = [], isLoading: loading, isError, refetch } = useQuery<AppItem[]>({
+  const { data: rawApps = [], isLoading: loading, isError, refetch, isFetching } = useQuery<AppItem[]>({
     queryKey: qk.applications(),
     queryFn: async () => {
       const res = await api.get("/applications", { params: { limit: 100 } });
       const raw: ApiApp[] = res.data.data ?? [];
       return raw.map(mapApp);
     },
+    staleTime: 0,
+    refetchOnWindowFocus: true,
+    refetchInterval: 30000,
   });
 
   const apps = rawApps;
@@ -307,13 +328,24 @@ export const Applications = () => {
 
   return (
     <div className="flex h-full min-w-0 flex-col gap-5 bg-neutral-50 p-4 sm:gap-6 sm:p-6 lg:p-8">
-      <div className="flex min-w-0 flex-col gap-1">
-        <h1 className="[font-family:'Oswald',Helvetica] font-bold text-black text-2xl min-[400px]:text-3xl tracking-[0.5px] uppercase leading-tight break-words">
-          Applications
-        </h1>
-        <p className="[font-family:'Montserrat',Helvetica] font-normal text-[#6b7280] text-sm max-w-prose break-words">
-          Track all grant applications and outcomes
-        </p>
+      <div className="flex min-w-0 items-start justify-between gap-3">
+        <div className="flex min-w-0 flex-col gap-1">
+          <h1 className="[font-family:'Oswald',Helvetica] font-bold text-black text-2xl min-[400px]:text-3xl tracking-[0.5px] uppercase leading-tight break-words">
+            Applications
+          </h1>
+          <p className="[font-family:'Montserrat',Helvetica] font-normal text-[#6b7280] text-sm max-w-prose break-words">
+            Track all grant applications and outcomes
+          </p>
+        </div>
+        <button
+          onClick={() => refetch()}
+          disabled={isFetching}
+          className="flex shrink-0 items-center gap-1.5 rounded-lg border border-[#e5e7eb] bg-white px-3 py-2 [font-family:'Montserrat',Helvetica] text-xs font-semibold text-[#6b7280] hover:border-[#ef3e34]/40 hover:text-[#ef3e34] transition-colors disabled:opacity-50"
+          title="Refresh applications"
+        >
+          <RefreshCw size={13} className={isFetching ? "animate-spin" : ""} />
+          Refresh
+        </button>
       </div>
 
       <div className="grid grid-cols-1 gap-3 sm:grid-cols-3 sm:gap-4">
