@@ -278,6 +278,7 @@ export default function AdminOpportunitiesPage() {
               options={EQUIPMENT_TAGS}
               selected={selectedEquipmentTags}
               onChange={setSelectedEquipmentTags}
+              allowCustom
             />
             <div>
               <Label>Keywords (comma separated)</Label>

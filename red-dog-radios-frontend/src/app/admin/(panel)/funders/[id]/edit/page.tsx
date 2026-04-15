@@ -128,18 +128,21 @@ export default function EditFunderPage() {
         options={FUNDER_FUNDING_CATEGORIES}
         selected={selectedFundingCategories}
         onChange={setSelectedFundingCategories}
+        allowCustom
       />
       <TagSelect
         label="Agency types funded"
         options={FUNDER_AGENCY_TYPES}
         selected={selectedAgencyTypesFunded}
         onChange={setSelectedAgencyTypesFunded}
+        allowCustom
       />
       <TagSelect
         label="Equipment tags"
         options={EQUIPMENT_TAGS}
         selected={selectedEquipmentTags}
         onChange={setSelectedEquipmentTags}
+        allowCustom
       />
       <Button className="bg-[#ef3e34] hover:bg-[#d63530] text-white" onClick={() => save.mutate()} disabled={save.isPending}>
         Save

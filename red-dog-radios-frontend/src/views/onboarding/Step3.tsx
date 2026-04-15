@@ -27,6 +27,9 @@ const programAreas = [
 export const OnboardingStep3 = () => {
   const router = useRouter();
   const [selected, setSelected] = useState<string[]>(["comms"]);
+  const [otherText, setOtherText] = useState("");
+
+  const PREDEFINED_AREAS = programAreas.map((x) => x.id);
 
   useEffect(() => {
     if (typeof window === "undefined") return;
@@ -35,7 +38,9 @@ export const OnboardingStep3 = () => {
       if (saved) {
         const parsed = JSON.parse(saved) as { programAreas?: string[] };
         if (Array.isArray(parsed.programAreas) && parsed.programAreas.length > 0) {
-          setSelected(parsed.programAreas);
+          const custom = parsed.programAreas.find((t) => !PREDEFINED_AREAS.includes(t));
+          setSelected(parsed.programAreas.map((t) => (!PREDEFINED_AREAS.includes(t) ? "other" : t)));
+          if (custom) setOtherText(custom);
         }
       }
     } catch {}
@@ -57,7 +62,10 @@ export const OnboardingStep3 = () => {
   const handleContinue = () => {
     if (selected.length === 0) return;
     if (typeof window !== "undefined") {
-      sessionStorage.setItem("rdg_onboarding_step3", JSON.stringify({ programAreas: selected }));
+      const finalAreas = selected
+        .filter((x) => x !== "other")
+        .concat(selected.includes("other") && otherText.trim() ? [otherText.trim()] : []);
+      sessionStorage.setItem("rdg_onboarding_step3", JSON.stringify({ programAreas: finalAreas }));
     }
     router.push("/onboarding/step4");
   };
@@ -94,6 +102,17 @@ export const OnboardingStep3 = () => {
               Other
             </span>
           </button>
+          {selected.includes("other") && (
+            <div className="mt-3">
+              <input
+                type="text"
+                value={otherText}
+                onChange={(e) => setOtherText(e.target.value)}
+                placeholder="Describe your program area..."
+                className="w-full rounded-md border border-gray-200 px-3 py-2 text-sm"
+              />
+            </div>
+          )}
           {selected.length === 0 && (
             <p className="[font-family:'Montserrat',Helvetica] text-xs text-red-600">Please select at least one program area.</p>
           )}

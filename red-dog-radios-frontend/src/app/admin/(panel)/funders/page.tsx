@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { useQuery, useMutation } from "@tanstack/react-query";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import adminApi from "@/lib/adminApi";
 import { AdminTableViewLink } from "@/components/admin/AdminTableViewLink";
 import { TagSelect } from "@/components/admin/TagSelect";
@@ -17,27 +17,32 @@ import {
   DialogFooter,
 } from "@/components/ui/dialog";
 import { Textarea } from "@/components/ui/textarea";
+import { useToast } from "@/hooks/use-toast";
+
+const EMPTY_FUNDER_FORM = {
+  name: "",
+  website: "",
+  contactName: "",
+  contactEmail: "",
+  contactPhone: "",
+  missionStatement: "",
+  locationFocus: "",
+  localMatchRequired: false,
+  avgGrantMin: "",
+  avgGrantMax: "",
+  deadline: "",
+  cyclesPerYear: "1",
+  pastGrantsAwarded: "",
+  notes: "",
+  maxApplicationsAllowed: "5",
+};
 
 export default function AdminFundersPage() {
+  const queryClient = useQueryClient();
+  const { toast } = useToast();
   const [open, setOpen] = useState(false);
   const [search, setSearch] = useState("");
-  const [form, setForm] = useState({
-    name: "",
-    website: "",
-    contactName: "",
-    contactEmail: "",
-    contactPhone: "",
-    missionStatement: "",
-    locationFocus: "",
-    localMatchRequired: false,
-    avgGrantMin: "",
-    avgGrantMax: "",
-    deadline: "",
-    cyclesPerYear: "1",
-    pastGrantsAwarded: "",
-    notes: "",
-    maxApplicationsAllowed: "5",
-  });
+  const [form, setForm] = useState(EMPTY_FUNDER_FORM);
   const [selectedFundingCategories, setSelectedFundingCategories] = useState<string[]>([]);
   const [selectedAgencyTypesFunded, setSelectedAgencyTypesFunded] = useState<string[]>([]);
   const [selectedEquipmentTags, setSelectedEquipmentTags] = useState<string[]>([]);
@@ -74,11 +79,13 @@ export default function AdminFundersPage() {
       });
     },
     onSuccess: () => {
+      setForm(EMPTY_FUNDER_FORM);
       setSelectedFundingCategories([]);
       setSelectedAgencyTypesFunded([]);
       setSelectedEquipmentTags([]);
       setOpen(false);
-      refetch();
+      queryClient.invalidateQueries({ queryKey: ["admin", "funders"] });
+      toast({ title: "Funder created successfully" });
     },
   });
 
@@ -136,7 +143,18 @@ export default function AdminFundersPage() {
         </table>
       </div>
 
-      <Dialog open={open} onOpenChange={setOpen}>
+      <Dialog
+        open={open}
+        onOpenChange={(v) => {
+          if (!v) {
+            setForm(EMPTY_FUNDER_FORM);
+            setSelectedFundingCategories([]);
+            setSelectedAgencyTypesFunded([]);
+            setSelectedEquipmentTags([]);
+          }
+          setOpen(v);
+        }}
+      >
         <DialogContent className="max-h-[90vh] max-w-lg overflow-y-auto">
           <DialogHeader>
             <DialogTitle>New funder</DialogTitle>
@@ -186,18 +204,21 @@ export default function AdminFundersPage() {
               options={FUNDER_FUNDING_CATEGORIES}
               selected={selectedFundingCategories}
               onChange={setSelectedFundingCategories}
+              allowCustom
             />
             <TagSelect
               label="Agency types funded"
               options={FUNDER_AGENCY_TYPES}
               selected={selectedAgencyTypesFunded}
               onChange={setSelectedAgencyTypesFunded}
+              allowCustom
             />
             <TagSelect
               label="Equipment tags"
               options={EQUIPMENT_TAGS}
               selected={selectedEquipmentTags}
               onChange={setSelectedEquipmentTags}
+              allowCustom
             />
             <label className="flex cursor-pointer items-center gap-2 text-sm text-[#374151]">
               <input

@@ -29,6 +29,9 @@ const fullWidthItems = [
 export const OnboardingStep2 = () => {
   const router = useRouter();
   const [selected, setSelected] = useState<string[]>(["law-enforcement"]);
+  const [otherText, setOtherText] = useState("");
+
+  const PREDEFINED_TYPES = [...agencyTypes, ...fullWidthItems].map((x) => x.id);
 
   useEffect(() => {
     if (typeof window === "undefined") return;
@@ -37,7 +40,11 @@ export const OnboardingStep2 = () => {
       if (saved) {
         const parsed = JSON.parse(saved) as { agencyTypes?: string[] };
         if (Array.isArray(parsed.agencyTypes) && parsed.agencyTypes.length > 0) {
-          setSelected(parsed.agencyTypes);
+          const custom = parsed.agencyTypes.find((t) => !PREDEFINED_TYPES.includes(t));
+          setSelected(
+            parsed.agencyTypes.map((t) => (!PREDEFINED_TYPES.includes(t) ? "other" : t))
+          );
+          if (custom) setOtherText(custom);
         }
       }
     } catch {}
@@ -59,7 +66,10 @@ export const OnboardingStep2 = () => {
   const handleContinue = () => {
     if (selected.length === 0) return;
     if (typeof window !== "undefined") {
-      sessionStorage.setItem("rdg_onboarding_step2", JSON.stringify({ agencyTypes: selected }));
+      const finalTypes = selected
+        .filter((x) => x !== "other")
+        .concat(selected.includes("other") && otherText.trim() ? [otherText.trim()] : []);
+      sessionStorage.setItem("rdg_onboarding_step2", JSON.stringify({ agencyTypes: finalTypes }));
     }
     router.push("/onboarding/step3");
   };
@@ -101,6 +111,23 @@ export const OnboardingStep2 = () => {
               </span>
             </button>
           ))}
+          <button onClick={() => toggle("other")} className={cardClass("other")}>
+            <span className={`[font-family:'Montserrat',Helvetica] font-semibold text-sm text-left ${selected.includes("other") ? "text-[#ef3e34]" : "text-[#111827]"}`}>
+              Other
+            </span>
+          </button>
+
+          {selected.includes("other") && (
+            <div className="mt-3">
+              <input
+                type="text"
+                value={otherText}
+                onChange={(e) => setOtherText(e.target.value)}
+                placeholder="Describe your agency type..."
+                className="w-full rounded-md border border-gray-200 px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-[#ef3e34]"
+              />
+            </div>
+          )}
           {selected.length === 0 && (
             <p className="[font-family:'Montserrat',Helvetica] text-xs text-red-600">Please select at least one agency type.</p>
           )}

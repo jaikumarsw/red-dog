@@ -14,6 +14,7 @@ interface Opportunity {
   title: string;
   funder: string;
   deadline?: string;
+  minAmount?: number;
   maxAmount?: number;
   sourceUrl?: string;
   keywords?: string[];
@@ -47,6 +48,13 @@ const STATUS_STYLES = {
 };
 
 const fmtAmount = (n?: number) => (n ? "$" + n.toLocaleString() : null);
+const formatAmountRange = (min?: number, max?: number): string | null => {
+  const fmt = (n: number) => "$" + n.toLocaleString();
+  if (min != null && max != null && min > 0 && max > 0) return `${fmt(min)} – ${fmt(max)}`;
+  if (max != null && max > 0) return `Up to ${fmt(max)}`;
+  if (min != null && min > 0) return `From ${fmt(min)}`;
+  return null;
+};
 const fmtDate = (d?: string) => {
   if (!d) return null;
   return new Date(d).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" });
@@ -323,11 +331,11 @@ export const Opportunities = () => {
                 )}
 
                 <div className="flex flex-col gap-1.5">
-                  {opp.maxAmount && (
+                  {formatAmountRange(opp.minAmount, opp.maxAmount) && (
                     <div className="flex items-center gap-2">
                       <DollarSign size={13} className="text-[#9ca3af] shrink-0" />
                       <span className="[font-family:'Montserrat',Helvetica] text-sm font-semibold text-[#111827]">
-                        Up to {fmtAmount(opp.maxAmount)}
+                        {formatAmountRange(opp.minAmount, opp.maxAmount)}
                       </span>
                     </div>
                   )}
@@ -480,13 +488,13 @@ const OppDetailModal = ({
           )}
 
           <div className="grid grid-cols-2 gap-4 rounded-xl border border-[#e5e7eb] bg-[#f9fafb] p-4">
-            {opp.maxAmount && (
+            {formatAmountRange(opp.minAmount, opp.maxAmount) && (
               <div className="flex flex-col gap-0.5">
                 <span className="[font-family:'Montserrat',Helvetica] text-xs text-[#9ca3af] uppercase tracking-wide font-semibold">
                   Award Amount
                 </span>
                 <span className="[font-family:'Montserrat',Helvetica] text-base font-bold text-[#111827]">
-                  Up to {fmtAmount(opp.maxAmount)}
+                  {formatAmountRange(opp.minAmount, opp.maxAmount)}
                 </span>
               </div>
             )}

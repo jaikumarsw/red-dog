@@ -33,6 +33,7 @@ type ApiMatch = {
   opportunity?: {
     title?: string;
     funder?: string;
+    minAmount?: number;
     maxAmount?: number;
     deadline?: string;
   };
@@ -41,6 +42,14 @@ type ApiMatch = {
   aiReasoning?: string;
   reasons?: string[];
   fitReasons?: string[];
+};
+
+const formatAmountRange = (min?: number, max?: number): string | null => {
+  const fmt = (n: number) => "$" + n.toLocaleString();
+  if (min != null && max != null && min > 0 && max > 0) return `${fmt(min)} – ${fmt(max)}`;
+  if (max != null && max > 0) return `Up to ${fmt(max)}`;
+  if (min != null && min > 0) return `From ${fmt(min)}`;
+  return null;
 };
 
 const fmt = (n: number) =>
@@ -79,7 +88,7 @@ const mapMatch = (m: ApiMatch): Match => ({
   lastActivity: fmtActivity(m.updatedAt),
   grant: m.opportunity?.title ?? "Unknown",
   funder: m.opportunity?.funder ?? "—",
-  amount: m.opportunity?.maxAmount ? fmt(m.opportunity.maxAmount) : "—",
+  amount: formatAmountRange(m.opportunity?.minAmount, m.opportunity?.maxAmount) ?? "—",
   deadline: fmtDate(m.opportunity?.deadline),
   fitScore: `${m.fitScore ?? 0}%`,
   aiReasoning: reasoningFrom(m),

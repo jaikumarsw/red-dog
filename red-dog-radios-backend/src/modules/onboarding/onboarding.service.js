@@ -1,6 +1,7 @@
 const User = require('../auth/user.schema');
 const Organization = require('../organizations/organization.schema');
 const { AppError } = require('../../middlewares/error.middleware');
+const logger = require('../../utils/logger');
 
 const complete = async (userId, data) => {
   const {
@@ -113,6 +114,30 @@ const complete = async (userId, data) => {
     if (numberOfStaff != null) org.numberOfStaff = Number(numberOfStaff);
     if (currentEquipment) org.currentEquipment = currentEquipment;
     await org.save();
+  }
+
+  // Bridge: sync Agency record for compatibility
+  const Agency = require('../agencies/agency.schema');
+  try {
+    const primaryType =
+      Array.isArray(mappedAgencyTypes) && mappedAgencyTypes.length > 0
+        ? mappedAgencyTypes[0]
+        : 'law_enforcement';
+
+    await Agency.findOneAndUpdate(
+      { name: orgName },
+      {
+        $set: {
+          name: orgName,
+          type: primaryType,
+          location: location || '',
+          status: 'active',
+        },
+      },
+      { upsert: true, new: true, runValidators: false }
+    );
+  } catch (agencyErr) {
+    logger.warn('[Onboarding] Failed to sync Agency record:', agencyErr.message);
   }
 
   // Mark user onboarding complete

@@ -164,7 +164,7 @@ const getAgencyDetail = async (id) => {
   if (!org) throw new AppError('Agency not found', 404);
   const matches = await Match.find({ organization: id })
     .sort({ fitScore: -1 })
-    .populate('opportunity', '_id title funder deadline category status maxAmount');
+    .populate('opportunity', '_id title funder deadline category status minAmount maxAmount');
   const applications = await Application.find({ organization: id })
     .sort({ createdAt: -1 })
     .populate('funder', 'name')

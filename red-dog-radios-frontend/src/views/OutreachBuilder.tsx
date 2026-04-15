@@ -65,6 +65,19 @@ export const OutreachBuilder = () => {
     },
   });
 
+  const sendMutation = useMutation({
+    mutationFn: () => api.post(`/outreach/${id}/send`),
+    onSuccess: () => {
+      toast({ title: "Email sent!", description: "Outreach email delivered to funder." });
+      queryClient.invalidateQueries({ queryKey: qk.outreach() });
+      queryClient.invalidateQueries({ queryKey: qk.outreachItem(id) });
+    },
+    onError: (err: any) => {
+      const msg = err?.response?.data?.message || "Failed to send email.";
+      toast({ title: "Send failed", description: msg, variant: "destructive" });
+    },
+  });
+
   const handleCopy = () => {
     navigator.clipboard.writeText(`Subject: ${subject}\n\nDear ${contactName},\n\n${body}`);
     toast({ title: "Copied to clipboard" });
@@ -134,15 +147,37 @@ export const OutreachBuilder = () => {
           >
             {saveMutation.isPending ? "Saving..." : "Save"}
           </button>
-          {email.status !== "sent" && (
+          {email.funder && !email.funder.contactEmail && (
+            <p className="text-sm text-amber-600 flex items-center gap-1">
+              ⚠️ No funder email on file — use manual send only.
+            </p>
+          )}
+
+          {email.status !== "sent" && email.funder?.contactEmail && (
             <button
-              onClick={() => markSentMutation.mutate()}
-              disabled={markSentMutation.isPending}
-              className="flex items-center gap-2 rounded-lg bg-[#ef3e34] px-4 py-2 text-sm font-bold text-white [font-family:'Montserrat',Helvetica] hover:bg-[#d63029] disabled:opacity-50"
+              type="button"
+              onClick={() => sendMutation.mutate()}
+              disabled={sendMutation.isPending || saveMutation.isPending}
+              className="px-4 py-2 bg-[#ef3e34] text-white rounded-lg hover:bg-red-700 disabled:opacity-50 font-semibold text-sm"
             >
-              <Send size={14} /> Mark as Sent
+              {sendMutation.isPending ? "Sending..." : "Send Email"}
             </button>
           )}
+
+          <button
+            type="button"
+            onClick={() => markSentMutation.mutate()}
+            disabled={markSentMutation.isPending || email.status === "sent"}
+            className="px-4 py-2 border border-gray-300 text-gray-600 rounded-lg hover:bg-gray-50 disabled:opacity-50 text-sm flex items-center gap-2"
+          >
+            {email.status === "sent" ? (
+              "✓ Sent"
+            ) : (
+              <>
+                <Send size={14} /> Mark as Sent Manually
+              </>
+            )}
+          </button>
         </div>
       </div>
 

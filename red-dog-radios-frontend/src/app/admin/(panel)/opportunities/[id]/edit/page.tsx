@@ -114,6 +114,7 @@ export default function EditOpportunityPage() {
         options={EQUIPMENT_TAGS}
         selected={selectedEquipmentTags}
         onChange={setSelectedEquipmentTags}
+        allowCustom
       />
       <Button className="bg-[#ef3e34] hover:bg-[#d63530] text-white" onClick={() => save.mutate()} disabled={save.isPending}>
         Save

@@ -141,4 +141,60 @@ const markSent = async (id) => {
   return record;
 };
 
-module.exports = { generateFromFunder, generateFromOpportunity, getAll, getOne, update, markSent };
+const send = async (id) => {
+  const OutboxService = require('../outbox/outbox.service');
+
+  const record = await Outreach.findById(id)
+    .populate('funder', 'contactEmail contactName name')
+    .populate('organization', 'name');
+
+  if (!record) throw new AppError('Outreach record not found', 404);
+
+  const recipient = record.funder?.contactEmail;
+  if (!recipient) {
+    throw new AppError('Funder does not have a contact email on file', 400);
+  }
+
+  const htmlBody = `
+    <p>Dear ${record.contactName || record.funder?.contactName || 'Program Officer'},</p>
+    <br/>
+    ${String(record.body || '').replace(/\n/g, '<br/>')}
+    <br/>
+    <p>Best regards,<br/>${record.organization?.name || 'Red Dog Radios'}</p>
+  `;
+
+  let outboxItem;
+  try {
+    outboxItem = await OutboxService.queueEmail({
+      recipient,
+      recipientName: record.funder?.contactName || 'Program Officer',
+      subject: record.subject || 'Grant Outreach',
+      htmlBody,
+      emailType: 'outreach',
+      relatedOrganization: record.organization?._id,
+      relatedUser: record.user,
+      emailKey: `outreach:${String(record._id)}`,
+    });
+  } catch (queueErr) {
+    throw new AppError('Failed to queue email: ' + queueErr.message, 500);
+  }
+
+  let sendResult = { success: false, stub: false };
+  try {
+    sendResult = await OutboxService.sendEmail(outboxItem._id);
+  } catch (sendErr) {
+    // Non-fatal — email queued but not sent yet
+  }
+
+  if (sendResult.success || sendResult.stub) {
+    await Outreach.findByIdAndUpdate(id, { status: 'sent', sentAt: new Date() });
+  }
+
+  return {
+    queued: true,
+    sent: sendResult.success || sendResult.stub || false,
+    outboxId: outboxItem._id,
+  };
+};
+
+module.exports = { generateFromFunder, generateFromOpportunity, getAll, getOne, update, markSent, send };

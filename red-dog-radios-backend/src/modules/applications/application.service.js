@@ -150,7 +150,7 @@ const getAll = async ({ page = 1, limit = 20, status, organizationId } = {}) => 
     sort: { createdAt: -1 },
     populate: [
       { path: 'organization', select: 'name location' },
-      { path: 'opportunity', select: 'title funder maxAmount deadline' },
+      { path: 'opportunity', select: 'title funder minAmount maxAmount deadline' },
       { path: 'funder', select: 'name avgGrantMax deadline' },
     ],
   });

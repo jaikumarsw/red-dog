@@ -66,4 +66,17 @@ const markSent = asyncHandler(async (req, res) => {
   return success(res, record, 'Outreach email marked as sent');
 });
 
-module.exports = { getAll, getOne, generate, update, markSent };
+const sendOutreach = asyncHandler(async (req, res) => {
+  const organizationId = await resolveAgencyOrganizationId(req.user);
+  const record = await outreachService.getOne(req.params.id);
+
+  const recordOrgId = record?.organization?._id ?? record?.organization;
+  if (!organizationId || String(recordOrgId) !== String(organizationId)) {
+    throw new AppError('Outreach record not found', 404);
+  }
+
+  const result = await outreachService.send(req.params.id);
+  return success(res, result, 'Outreach email sent successfully');
+});
+
+module.exports = { getAll, getOne, generate, update, markSent, sendOutreach };

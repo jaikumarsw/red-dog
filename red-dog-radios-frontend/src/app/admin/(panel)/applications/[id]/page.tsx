@@ -37,6 +37,7 @@ export default function AdminApplicationDetailPage() {
   const { toast } = useToast();
   const [notes, setNotes] = useState("");
   const [approveOpen, setApproveOpen] = useState(false);
+  const [awardOpen, setAwardOpen] = useState(false);
   const [rejectOpen, setRejectOpen] = useState(false);
   const [rejectReason, setRejectReason] = useState("");
   const notesHydrated = useRef(false);
@@ -105,12 +106,17 @@ export default function AdminApplicationDetailPage() {
   const status = String(data.status ?? "");
   const isApproved = status === "approved";
   const isRejected = status === "rejected";
+  const canMarkAwarded = status === "approved" || status === "submitted";
   const fitScore = data.fitScore;
   const breakdown = data.matchBreakdown;
   const matchReasons = data.matchReasons ?? [];
 
   const onConfirmApprove = () => {
     statusMutation.mutate({ status: "approved" });
+  };
+
+  const onConfirmAwarded = () => {
+    statusMutation.mutate({ status: "awarded" });
   };
 
   const onConfirmReject = () => {
@@ -145,7 +151,17 @@ export default function AdminApplicationDetailPage() {
               disabled={statusMutation.isPending}
               onClick={() => setApproveOpen(true)}
             >
-              Approve Application
+              Approve
+            </Button>
+          )}
+          {canMarkAwarded && (
+            <Button
+              type="button"
+              className="bg-amber-500 text-white hover:bg-amber-600"
+              disabled={statusMutation.isPending}
+              onClick={() => setAwardOpen(true)}
+            >
+              Mark as Awarded
             </Button>
           )}
           {!isRejected && (
@@ -229,6 +245,26 @@ export default function AdminApplicationDetailPage() {
               onClick={onConfirmApprove}
             >
               Approve
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      <AlertDialog open={awardOpen} onOpenChange={setAwardOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Mark this application as awarded?</AlertDialogTitle>
+            <AlertDialogDescription>
+              Mark this application as awarded? This will record it as a win for the agency.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              className="bg-amber-500 text-white hover:bg-amber-600"
+              onClick={onConfirmAwarded}
+            >
+              Mark as Awarded
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
