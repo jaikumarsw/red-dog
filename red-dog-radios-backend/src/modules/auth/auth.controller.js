@@ -33,4 +33,23 @@ const resetPassword = asyncHandler(async (req, res) => {
   return success(res, result, 'Password updated');
 });
 
-module.exports = { register, login, getMe, forgotPassword, verifyOtp, resetPassword };
+const verifySignupOtp = asyncHandler(async (req, res) => {
+  const result = await authService.verifySignupOtp(req.body);
+  return success(res, result, 'Email verified successfully');
+});
+
+const resendVerificationOtp = asyncHandler(async (req, res) => {
+  const result = await authService.resendVerificationOtp(req.body);
+  return success(res, result, result.message);
+});
+
+module.exports = {
+  register,
+  login,
+  getMe,
+  forgotPassword,
+  verifyOtp,
+  resetPassword,
+  verifySignupOtp,
+  resendVerificationOtp,
+};

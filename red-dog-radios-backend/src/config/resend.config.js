@@ -1,34 +1,71 @@
-const { Resend } = require('resend');
+'use strict';
 
-if (!process.env.RESEND_API_KEY) {
-  console.warn('[Resend] RESEND_API_KEY not set — emails will not send');
-}
+const nodemailer = require('nodemailer');
 
-const resend = process.env.RESEND_API_KEY ? new Resend(process.env.RESEND_API_KEY) : null;
+let transporter = null;
 
-const FROM = process.env.RESEND_FROM || 'onboarding@resend.dev';
+const initTransporter = () => {
+  if (transporter) return transporter;
+
+  if (!process.env.SMTP_USER || !process.env.SMTP_PASS) {
+    console.warn('[Email] SMTP_USER or SMTP_PASS not set — emails will not send');
+    return null;
+  }
+
+  transporter = nodemailer.createTransport({
+    host: process.env.SMTP_HOST || 'smtp.gmail.com',
+    port: parseInt(process.env.SMTP_PORT || '587'),
+    secure: process.env.SMTP_SECURE === 'true',
+    auth: {
+      user: process.env.SMTP_USER,
+      pass: process.env.SMTP_PASS,
+    },
+  });
+
+  console.log('[Email] Nodemailer ready →', process.env.SMTP_USER);
+  return transporter;
+};
 
 const sendEmail = async ({ to, subject, html, text }) => {
-  if (!resend) {
-    console.warn('[Resend] Skipping email send — no API key configured');
+  console.log('[Email] Sending to:', to, '| Subject:', subject);
+
+  const transport = initTransporter();
+
+  if (!transport) {
+    console.warn('[Email] No transporter — email NOT sent');
     return { success: false, stub: true };
   }
 
+  // DEV MODE: redirect all emails to admin inbox
+  // so we can test without sending to real user emails
+  const isDev = process.env.NODE_ENV !== 'production';
+  const originalTo = Array.isArray(to) ? to[0] : to;
+  // In dev, redirect to DEV_REDIRECT_EMAIL if set,
+  // otherwise send to actual recipient (don't self-email)
+  const devRedirect = process.env.DEV_REDIRECT_EMAIL;
+  const actualTo = isDev && devRedirect ? devRedirect : originalTo;
+
+  let finalSubject = subject || 'Red Dog Notification';
+  if (isDev && devRedirect && originalTo !== devRedirect) {
+    finalSubject = `[DEV → ${originalTo}] ${finalSubject}`;
+    console.log('[Email] DEV redirect:', originalTo, '→', devRedirect);
+  }
+
   try {
-    const result = await resend.emails.send({
-      from: FROM,
-      to: Array.isArray(to) ? to : [to],
-      subject,
-      html: html || `<p>${text || ''}</p>`,
+    const info = await transport.sendMail({
+      from: '"Red Dog Radios" <' + (process.env.SMTP_FROM || process.env.SMTP_USER) + '>',
+      to: actualTo,
+      subject: finalSubject,
+      html: html || '<p>' + (text || '') + '</p>',
     });
 
-    console.log('[Resend] Email sent:', result.data?.id, '→', to);
-    return { success: true, id: result.data?.id };
+    console.log('[Email] Sent! MessageId:', info.messageId);
+    return { success: true, id: info.messageId };
   } catch (err) {
-    console.error('[Resend] Failed to send email:', err.message);
+    console.error('[Email] Failed:', err.message);
     return { success: false, error: err.message };
   }
 };
 
-module.exports = { sendEmail, resend, FROM };
+module.exports = { sendEmail };
 

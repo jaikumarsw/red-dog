@@ -11,14 +11,12 @@ import { Label } from "@/components/ui/label";
 import { cn } from "@/lib/utils";
 import { signUpSchema, type SignUpFormValues } from "@/lib/validation-schemas";
 import api from "@/lib/api";
-import { useAuth } from "@/lib/AuthContext";
 import { useAuthGateRedirects } from "@/lib/useAuthGateRedirects";
 import { RedDogLogo } from "@/components/RedDogLogo";
 
 export const SignUp = () => {
   useAuthGateRedirects();
   const router = useRouter();
-  const { login } = useAuth();
   const [showPassword, setShowPassword] = useState(false);
   const [apiError, setApiError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
@@ -40,9 +38,11 @@ export const SignUp = () => {
         email: data.email,
         password: data.password,
       });
-      const { user, token } = res.data.data;
-      login(user, token);
-      router.push("/otp-verification?flow=signup");
+      const pendingEmail = (res.data?.data?.email as string | undefined) ?? data.email;
+      if (typeof window !== "undefined") {
+        sessionStorage.setItem("rdg_pending_email", String(pendingEmail).trim().toLowerCase());
+      }
+      router.push("/otp-verification");
     } catch (err: unknown) {
       const msg =
         (err as { response?: { data?: { message?: string } } })?.response?.data?.message ??

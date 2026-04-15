@@ -16,6 +16,7 @@ export type AgencyUser = {
   lastName?: string;
   email: string;
   onboardingCompleted: boolean;
+  isVerified?: boolean;
   role?: string;
 };
 
@@ -75,6 +76,14 @@ export const AgencyAuthProvider = ({ children }: { children: ReactNode }) => {
     const t = getStoredToken();
     if (u?.role === "admin") {
       clearAdminSession();
+      localStorage.removeItem(USER_KEY);
+      localStorage.removeItem(TOKEN_KEY);
+      clearAuthCookies();
+      setUser(null);
+      setToken(null);
+      return;
+    }
+    if (u && u.isVerified === false) {
       localStorage.removeItem(USER_KEY);
       localStorage.removeItem(TOKEN_KEY);
       clearAuthCookies();

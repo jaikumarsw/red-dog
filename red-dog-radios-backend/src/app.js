@@ -107,13 +107,31 @@ app.use('/api/admin', adminRoutes);
 
 if (process.env.NODE_ENV !== 'production') {
   app.get('/api/test-email', async (req, res) => {
-    const { sendEmail } = require('./config/email.config');
-    const result = await sendEmail({
-      to: process.env.ADMIN_EMAIL,
-      subject: 'Red Dog Email Test',
-      html: '<h1>Email is working!</h1><p>Resend integration successful.</p>',
-    });
-    res.json(result);
+    try {
+      const { sendEmail } = require('./config/resend.config');
+
+      // Allow ?to=anyemail@gmail.com in URL for testing
+      const testTo = req.query.to || process.env.ADMIN_EMAIL;
+
+      const result = await sendEmail({
+        to: testTo,
+        subject: 'Red Dog Email Test ' + new Date().toISOString(),
+        html: `
+        <div style="font-family:Arial;padding:40px;max-width:500px;
+          margin:0 auto;border:1px solid #e5e7eb;border-radius:12px;">
+          <h1 style="color:#ef3e34;margin-top:0;">Email is working!</h1>
+          <p>Gmail + Nodemailer working correctly.</p>
+          <p style="color:#6b7280;font-size:13px;">
+            Sent at: ${new Date().toLocaleString()}
+          </p>
+        </div>
+      `,
+      });
+
+      res.json({ result, sentTo: testTo });
+    } catch (err) {
+      res.status(500).json({ error: err.message });
+    }
   });
 }
 

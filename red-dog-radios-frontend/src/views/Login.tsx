@@ -13,10 +13,14 @@ import api from "@/lib/api";
 import { useAuth } from "@/lib/AuthContext";
 import { useAuthGateRedirects } from "@/lib/useAuthGateRedirects";
 import { RedDogLogo } from "@/components/RedDogLogo";
+import { useRouter } from "next/navigation";
+import { useToast } from "@/hooks/use-toast";
 
 export const Login = () => {
   useAuthGateRedirects();
   const { login } = useAuth();
+  const router = useRouter();
+  const { toast } = useToast();
   const [showPassword, setShowPassword] = useState(false);
   const [apiError, setApiError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
@@ -40,9 +44,21 @@ export const Login = () => {
       const dest = user.onboardingCompleted ? "/dashboard" : "/onboarding";
       window.location.assign(dest);
     } catch (err: unknown) {
+      const status = (err as { response?: { status?: number } })?.response?.status;
       const msg =
         (err as { response?: { data?: { message?: string } } })?.response?.data?.message ??
         "Invalid email or password";
+      if (status === 403 && msg.toLowerCase().includes("verify")) {
+        if (typeof window !== "undefined") {
+          sessionStorage.setItem("rdg_pending_email", String(data.email).trim().toLowerCase());
+        }
+        toast({
+          title: "Email not verified",
+          description: "Redirecting to verification…",
+        });
+        setTimeout(() => router.push("/otp-verification"), 1500);
+        return;
+      }
       setApiError(msg);
     } finally {
       setLoading(false);

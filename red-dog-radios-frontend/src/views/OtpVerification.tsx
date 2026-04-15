@@ -2,7 +2,7 @@
 
 import type { ClipboardEvent, KeyboardEvent } from "react";
 import { useState, useRef, useEffect } from "react";
-import { useRouter, useSearchParams } from "next/navigation";
+import { useRouter } from "next/navigation";
 import { ShieldCheck } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { RedDogLogo } from "@/components/RedDogLogo";
@@ -12,16 +12,16 @@ import { otpSchema } from "@/lib/validation-schemas";
 import api from "@/lib/api";
 import { useToast } from "@/hooks/use-toast";
 import { useAuthGateRedirects } from "@/lib/useAuthGateRedirects";
+import { useAuth } from "@/lib/AuthContext";
 
 export const OtpVerification = () => {
   useAuthGateRedirects();
   const router = useRouter();
-  const searchParams = useSearchParams();
-  const flow = searchParams.get("flow");
   const { toast } = useToast();
+  const { login } = useAuth();
 
   const [otp, setOtp] = useState<string[]>(["", "", "", "", "", ""]);
-  const [countdown, setCountdown] = useState(60);
+  const [resendCooldown, setResendCooldown] = useState(0);
   const [otpError, setOtpError] = useState<string | null>(null);
   const [verifying, setVerifying] = useState(false);
   const inputRefs = useRef<(HTMLInputElement | null)[]>([]);
@@ -31,29 +31,17 @@ export const OtpVerification = () => {
   }, []);
 
   useEffect(() => {
-    if (countdown <= 0) return;
-    const timer = setTimeout(() => setCountdown((c) => c - 1), 1000);
+    if (resendCooldown <= 0) return;
+    const timer = setTimeout(() => setResendCooldown((c) => c - 1), 1000);
     return () => clearTimeout(timer);
-  }, [countdown]);
+  }, [resendCooldown]);
 
-  const resetEmail = () =>
+  const pendingEmail =
+    typeof window !== "undefined" ? sessionStorage.getItem("rdg_pending_email")?.trim() || "" : "";
+  const resetEmail =
     typeof window !== "undefined" ? sessionStorage.getItem("rdg_reset_email")?.trim() || "" : "";
-
-  const resendResetOtp = async () => {
-    const email = resetEmail();
-    if (!email) {
-      toast({ title: "Session expired", description: "Start again from forgot password.", variant: "destructive" });
-      router.push("/forgot-password");
-      return;
-    }
-    try {
-      await api.post("/auth/forgot-password", { email });
-      setCountdown(60);
-      toast({ title: "Code sent", description: "Check your email for a new code." });
-    } catch {
-      toast({ title: "Could not resend", variant: "destructive" });
-    }
-  };
+  const mode: "signup" | "reset" = pendingEmail ? "signup" : "reset";
+  const email = pendingEmail || resetEmail || "";
 
   const confirmOtp = async () => {
     const code = otp.join("");
@@ -64,31 +52,56 @@ export const OtpVerification = () => {
     }
     setOtpError(null);
 
-    if (flow === "signup") {
-      router.push("/onboarding");
-      return;
-    }
-
-    const email = resetEmail();
     if (!email) {
-      setOtpError("Session expired. Go back to forgot password.");
+      setOtpError("Session expired. Please restart the flow.");
       return;
     }
 
     setVerifying(true);
     try {
-      const res = await api.post("/auth/verify-otp", { email, otp: code });
-      const token = res.data?.data?.resetToken as string | undefined;
-      if (!token) throw new Error("missing token");
-      if (typeof window !== "undefined") {
-        sessionStorage.setItem("rdg_reset_token", token);
+      if (mode === "signup") {
+        const res = await api.post("/auth/verify-email", { email, otp: code });
+        const { user, token } = res.data?.data as { user: unknown; token: unknown };
+        if (!user || !token) throw new Error("missing auth");
+        login(user as never, String(token));
+        if (typeof window !== "undefined") {
+          sessionStorage.removeItem("rdg_pending_email");
+        }
+        router.push("/onboarding");
+      } else {
+        const res = await api.post("/auth/verify-otp", { email, otp: code });
+        const token = res.data?.data?.resetToken as string | undefined;
+        if (!token) throw new Error("missing token");
+        if (typeof window !== "undefined") {
+          sessionStorage.setItem("rdg_reset_token", token);
+          // keep rdg_reset_email until password set
+        }
+        router.push("/create-password");
       }
-      router.push("/create-password");
     } catch {
       setOtpError("Invalid or expired code.");
       toast({ title: "Verification failed", description: "Check the code and try again.", variant: "destructive" });
     } finally {
       setVerifying(false);
+    }
+  };
+
+  const handleResend = async () => {
+    if (!email) {
+      toast({ title: "Session expired", description: "Please restart the flow.", variant: "destructive" });
+      router.push(mode === "signup" ? "/signup" : "/forgot-password");
+      return;
+    }
+
+    try {
+      const endpoint = mode === "signup" ? "/auth/resend-verification" : "/auth/forgot-password";
+      await api.post(endpoint, { email });
+      toast({ title: "New code sent!", description: "Check your email." });
+      setResendCooldown(60);
+    } catch (err: unknown) {
+      const msg =
+        (err as { response?: { data?: { message?: string } } })?.response?.data?.message ?? "Could not resend code.";
+      toast({ title: "Could not resend", description: msg, variant: "destructive" });
     }
   };
 
@@ -132,10 +145,10 @@ export const OtpVerification = () => {
         </div>
 
         <h2 className="mt-5 [font-family:'Oswald',Helvetica] text-2xl font-bold tracking-[-0.5px] text-black">
-          OTP Verification
+          {mode === "signup" ? "Verify your email" : "Enter reset code"}
         </h2>
         <p className="mt-2 text-center [font-family:'Montserrat',Helvetica] text-sm font-normal text-[#6b7280]">
-          Enter the 6-digit verification code sent to your email address
+          Enter the 6-digit code sent to {email ? <span className="font-semibold">{email}</span> : "your email"}
         </p>
 
         <div className="mt-8 flex max-w-full flex-wrap justify-center gap-2 sm:gap-3" onPaste={handlePaste}>
@@ -164,33 +177,14 @@ export const OtpVerification = () => {
         )}
 
         <div className="mt-4">
-          {flow === "reset" ? (
-            countdown > 0 ? (
-              <p className="[font-family:'Montserrat',Helvetica] text-sm text-[#9ca3af]">
-                Resend code in: <span className="font-semibold text-[#ef3e34]">{countdown}</span>
-              </p>
-            ) : (
-              <button
-                type="button"
-                onClick={() => void resendResetOtp()}
-                className="[font-family:'Montserrat',Helvetica] text-sm font-semibold text-[#ef3e34] hover:underline"
-              >
-                Resend code
-              </button>
-            )
-          ) : countdown > 0 ? (
-            <p className="[font-family:'Montserrat',Helvetica] text-sm text-[#9ca3af]">
-              Resend Code In: <span className="font-semibold text-[#ef3e34]">{countdown}</span>
-            </p>
-          ) : (
-            <button
-              type="button"
-              onClick={() => setCountdown(60)}
-              className="[font-family:'Montserrat',Helvetica] text-sm font-semibold text-[#ef3e34] hover:underline"
-            >
-              Resend Code
-            </button>
-          )}
+          <button
+            type="button"
+            onClick={() => void handleResend()}
+            disabled={resendCooldown > 0}
+            className="[font-family:'Montserrat',Helvetica] text-sm font-semibold text-[#ef3e34] hover:underline disabled:text-gray-400 disabled:no-underline"
+          >
+            {resendCooldown > 0 ? `Resend code in ${resendCooldown}s` : "Resend code"}
+          </button>
         </div>
 
         <div className="mt-6 w-full">

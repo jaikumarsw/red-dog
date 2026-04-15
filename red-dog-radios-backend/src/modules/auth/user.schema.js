@@ -11,12 +11,15 @@ const userSchema = new mongoose.Schema(
     password: { type: String, required: true, minlength: 8, select: false },
     role: { type: String, enum: ['agency', 'admin'], default: 'agency' },
     isActive: { type: Boolean, default: true },
+    isVerified: { type: Boolean, default: false },
     organizationId: { type: mongoose.Schema.Types.ObjectId, ref: 'Organization' },
     onboardingCompleted: { type: Boolean, default: false },
     resetOtp: { type: String, select: false },
     resetOtpExpiry: { type: Date },
     resetToken: { type: String, select: false },
     resetTokenExpiry: { type: Date },
+    verificationOtp: { type: String, select: false },
+    verificationOtpExpiry: { type: Date, select: false },
     settings: {
       notifications: {
         highFitAlerts: { type: Boolean, default: true },

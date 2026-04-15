@@ -4,37 +4,71 @@ const jwt = require('jsonwebtoken');
 const User = require('./user.schema');
 const { AppError } = require('../../middlewares/error.middleware');
 
-const { sendPasswordResetEmail } = require('../../config/email.config');
+const { sendOtpEmail } = require('../../config/email.config');
 
 const signToken = (id) =>
   jwt.sign({ id }, process.env.JWT_SECRET, { expiresIn: process.env.JWT_EXPIRES_IN || '7d' });
 
 const register = async (body) => {
   const { fullName, firstName, lastName, email, password } = body;
-  const existing = await User.findOne({ email });
+  const normalizedEmail = String(email || '').trim().toLowerCase();
+  const existing = await User.findOne({ email: normalizedEmail });
   if (existing) throw new AppError('Email already registered', 409);
 
   const resolvedFullName = fullName || [firstName, lastName].filter(Boolean).join(' ');
   const resolvedFirst = firstName || (fullName ? fullName.split(' ')[0] : '');
   const resolvedLast = lastName || (fullName ? fullName.split(' ').slice(1).join(' ') : '');
 
+  if (!password || String(password).length < 8) {
+    throw new AppError('Password must be at least 8 characters', 400);
+  }
+
+  const otp = Math.floor(100000 + Math.random() * 900000).toString();
+  const hashedOtp = await bcrypt.hash(otp, 10);
+
   const user = await User.create({
     fullName: resolvedFullName,
     firstName: resolvedFirst,
     lastName: resolvedLast,
-    email,
+    email: normalizedEmail,
     password,
     role: 'agency',
+    isVerified: false,
+    verificationOtp: hashedOtp,
+    verificationOtpExpiry: new Date(Date.now() + 15 * 60 * 1000),
   });
-  const token = signToken(user._id);
 
-  const safeUser = user.toObject();
-  delete safeUser.password;
-  return { user: safeUser, token };
+  try {
+    if (process.env.NODE_ENV !== 'production') {
+      console.log('[DEBUG] Sending OTP email to:', normalizedEmail, 'OTP:', otp);
+    } else {
+      console.log('[auth] Sending verification OTP to:', normalizedEmail);
+    }
+
+    const result = await sendOtpEmail({
+      to: normalizedEmail,
+      otp,
+      name: resolvedFullName || resolvedFirst || '',
+      type: 'signup',
+    });
+
+    if (!result?.success) {
+      console.error('[auth] Verification email send failed:', result?.error || '(stub/no error provided)');
+    }
+  } catch (e) {
+    // Do not leak OTP; allow account creation but require resend from client.
+  }
+
+  return {
+    success: true,
+    message: 'Account created. Please check your email for verification code.',
+    email: normalizedEmail,
+  };
 };
 
 const login = async ({ email, password }) => {
-  const user = await User.findOne({ email }).select('+password');
+  const normalized = String(email || '').trim().toLowerCase();
+  const user = await User.findOne({ email: normalized }).select('+password');
   if (!user || !(await user.comparePassword(password))) {
     throw new AppError('Invalid email or password', 401);
   }
@@ -44,10 +78,93 @@ const login = async ({ email, password }) => {
       403
     );
   }
+  if (!user.isVerified) {
+    throw new AppError(
+      'Please verify your email before logging in. Check your inbox for the verification code.',
+      403
+    );
+  }
   const token = signToken(user._id);
   const safeUser = user.toObject();
   delete safeUser.password;
   return { user: safeUser, token };
+};
+
+const verifySignupOtp = async ({ email, otp }) => {
+  if (!email || !otp) throw new AppError('Email and OTP are required', 400);
+
+  const normalized = String(email || '').trim().toLowerCase();
+  const user = await User.findOne({ email: normalized }).select('+verificationOtp +verificationOtpExpiry');
+
+  if (!user) throw new AppError('Account not found', 404);
+  if (user.isVerified) throw new AppError('Account already verified', 400);
+
+  if (!user.verificationOtp || !user.verificationOtpExpiry) {
+    throw new AppError('No verification code found. Request a new one.', 400);
+  }
+
+  if (new Date() > user.verificationOtpExpiry) {
+    throw new AppError('Verification code has expired. Request a new one.', 400);
+  }
+
+  const isMatch = await bcrypt.compare(String(otp).trim(), user.verificationOtp);
+  if (!isMatch) throw new AppError('Invalid verification code', 400);
+
+  user.isVerified = true;
+  user.verificationOtp = undefined;
+  user.verificationOtpExpiry = undefined;
+  await user.save();
+
+  const token = signToken(user._id);
+
+  return {
+    user: {
+      _id: user._id,
+      fullName: user.fullName,
+      firstName: user.firstName,
+      lastName: user.lastName,
+      email: user.email,
+      role: user.role,
+      onboardingCompleted: user.onboardingCompleted,
+      isVerified: user.isVerified,
+    },
+    token,
+  };
+};
+
+const resendVerificationOtp = async ({ email }) => {
+  const normalized = String(email || '').trim().toLowerCase();
+  if (!normalized) throw new AppError('Email is required', 400);
+
+  const user = await User.findOne({ email: normalized });
+  if (!user) throw new AppError('Account not found', 404);
+  if (user.isVerified) throw new AppError('Account already verified', 400);
+
+  const otp = Math.floor(100000 + Math.random() * 900000).toString();
+  const hashedOtp = await bcrypt.hash(otp, 10);
+
+  user.verificationOtp = hashedOtp;
+  user.verificationOtpExpiry = new Date(Date.now() + 15 * 60 * 1000);
+  await user.save();
+
+  if (process.env.NODE_ENV !== 'production') {
+    console.log('[DEBUG] Sending OTP email to:', normalized, 'OTP:', otp);
+  } else {
+    console.log('[auth] Resending verification OTP to:', normalized);
+  }
+
+  const result = await sendOtpEmail({
+    to: normalized,
+    otp,
+    name: user.fullName || user.firstName || '',
+    type: 'signup',
+  });
+
+  if (!result?.success) {
+    console.error('[auth] Resend verification email failed:', result?.error || '(stub/no error provided)');
+  }
+
+  return { success: true, message: 'New verification code sent to your email.' };
 };
 
 const getMe = async (userId) => {
@@ -91,10 +208,15 @@ const forgotPassword = async ({ email }) => {
   await user.save();
 
   try {
-    await sendPasswordResetEmail({
+    if (process.env.NODE_ENV !== 'production') {
+      console.log('[DEBUG] Sending RESET OTP email to:', user.email, 'OTP:', otp);
+    }
+
+    await sendOtpEmail({
       to: user.email,
       otp,
-      name: user.firstName || user.fullName || 'there',
+      name: user.fullName || user.firstName || 'there',
+      type: 'reset',
     });
   } catch (e) {
     console.error('[auth] Forgot password email failed:', e.message);
@@ -151,4 +273,6 @@ module.exports = {
   forgotPassword,
   verifyOtp,
   resetPassword,
+  verifySignupOtp,
+  resendVerificationOtp,
 };
