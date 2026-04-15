@@ -12,6 +12,15 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 
+const parseMoney = (raw: string | undefined): number | undefined => {
+  const s = String(raw ?? "").trim();
+  if (!s) return undefined;
+  const cleaned = s.replace(/[^0-9.\-]/g, "");
+  if (!cleaned) return undefined;
+  const n = Number(cleaned);
+  return Number.isFinite(n) ? n : undefined;
+};
+
 export default function EditOpportunityPage() {
   const { id } = useParams();
   const router = useRouter();
@@ -51,8 +60,8 @@ export default function EditOpportunityPage() {
         title: form.title,
         funder: form.funder,
         deadline: form.deadline || undefined,
-        minAmount: form.minAmount ? Number(form.minAmount) : undefined,
-        maxAmount: form.maxAmount ? Number(form.maxAmount) : undefined,
+        minAmount: parseMoney(form.minAmount),
+        maxAmount: parseMoney(form.maxAmount),
         sourceUrl: form.sourceUrl,
         keywords: form.keywords.split(",").map((s) => s.trim()).filter(Boolean),
         equipmentTags: selectedEquipmentTags,

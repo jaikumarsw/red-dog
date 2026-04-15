@@ -50,6 +50,16 @@ const emptyCreateForm = {
   localMatchRequired: false,
 };
 
+const parseMoney = (raw: string | undefined): number | undefined => {
+  const s = String(raw ?? "").trim();
+  if (!s) return undefined;
+  // Accept values like "$50,000" / "50,000" / "50000"
+  const cleaned = s.replace(/[^0-9.\-]/g, "");
+  if (!cleaned) return undefined;
+  const n = Number(cleaned);
+  return Number.isFinite(n) ? n : undefined;
+};
+
 export default function AdminOpportunitiesPage() {
   const { toast } = useToast();
   const [open, setOpen] = useState(false);
@@ -90,8 +100,8 @@ export default function AdminOpportunitiesPage() {
         title: form.title,
         funder: selected.name,
         deadline: form.deadline || undefined,
-        minAmount: form.minAmount ? Number(form.minAmount) : undefined,
-        maxAmount: form.maxAmount ? Number(form.maxAmount) : undefined,
+        minAmount: parseMoney(form.minAmount),
+        maxAmount: parseMoney(form.maxAmount),
         sourceUrl: form.sourceUrl,
         keywords: form.keywords
           .split(",")

@@ -37,6 +37,15 @@ const EMPTY_FUNDER_FORM = {
   maxApplicationsAllowed: "5",
 };
 
+const parseMoney = (raw: string | undefined): number | undefined => {
+  const s = String(raw ?? "").trim();
+  if (!s) return undefined;
+  const cleaned = s.replace(/[^0-9.\-]/g, "");
+  if (!cleaned) return undefined;
+  const n = Number(cleaned);
+  return Number.isFinite(n) ? n : undefined;
+};
+
 export default function AdminFundersPage() {
   const queryClient = useQueryClient();
   const { toast } = useToast();
@@ -69,8 +78,8 @@ export default function AdminFundersPage() {
         agencyTypesFunded: selectedAgencyTypesFunded,
         equipmentTags: selectedEquipmentTags,
         localMatchRequired: form.localMatchRequired,
-        avgGrantMin: form.avgGrantMin ? Number(form.avgGrantMin) : undefined,
-        avgGrantMax: form.avgGrantMax ? Number(form.avgGrantMax) : undefined,
+        avgGrantMin: parseMoney(form.avgGrantMin),
+        avgGrantMax: parseMoney(form.avgGrantMax),
         deadline: form.deadline || undefined,
         cyclesPerYear: form.cyclesPerYear ? Number(form.cyclesPerYear) : 1,
         pastGrantsAwarded: form.pastGrantsAwarded,

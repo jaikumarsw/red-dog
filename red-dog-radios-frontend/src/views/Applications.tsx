@@ -10,7 +10,7 @@ import { useToast } from "@/hooks/use-toast";
 import api from "@/lib/api";
 import { qk } from "@/lib/queryKeys";
 
-type Status = "drafting" | "submitted" | "under-review" | "awarded" | "declined" | "in_review";
+type Status = "drafting" | "submitted" | "under-review" | "awarded" | "declined" | "in_review" | "rejected";
 
 type AppItem = {
   id: string;
@@ -58,6 +58,8 @@ const ashleenMsgFor = (status: string): string => {
       return "I've started drafting this application based on your organization profile. Review and let me know if you'd like any changes.";
     case "declined":
       return "This one didn't go through, but don't worry — I've analyzed the feedback and found similar grants opening next quarter that are a stronger fit.";
+    case "rejected":
+      return "This application was rejected. I’ve captured the staff notes so we can adjust and improve for the next submission.";
     default:
       return "I'm monitoring this application and will alert you to any developments.";
   }
@@ -151,6 +153,14 @@ const statusConfig: Record<string, {
     iconCls: "text-[#ef4444]",
     msgBg: "bg-[#fff1f0] border-[#fecaca]",
   },
+  "rejected": {
+    label: "Rejected",
+    badgeCls: "bg-[#fee2e2] text-[#dc2626]",
+    iconBg: "bg-[#fff1f0]",
+    Icon: CalendarClock,
+    iconCls: "text-[#ef4444]",
+    msgBg: "bg-[#fff1f0] border-[#fecaca]",
+  },
 };
 
 const defaultCfg = {
@@ -169,6 +179,7 @@ const filterTabs: { label: string; value: string }[] = [
   { label: "Under Review", value: "under-review" },
   { label: "Awarded", value: "awarded" },
   { label: "Declined", value: "declined" },
+  { label: "Rejected", value: "rejected" },
 ];
 
 // Statuses an agency user may SET themselves
