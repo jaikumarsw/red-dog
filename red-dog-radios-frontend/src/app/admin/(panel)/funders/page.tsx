@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import type { AxiosError } from "axios";
 import adminApi from "@/lib/adminApi";
 import { AdminTableViewLink } from "@/components/admin/AdminTableViewLink";
 import { TagSelect } from "@/components/admin/TagSelect";
@@ -46,6 +47,56 @@ const parseMoney = (raw: string | undefined): number | undefined => {
   return Number.isFinite(n) ? n : undefined;
 };
 
+const isMoneyLike = (raw: string | undefined): boolean => {
+  const s = String(raw ?? "").trim();
+  if (!s) return false;
+  // Allow: digits, spaces, commas, $, and a single decimal point.
+  // Disallow letters/other symbols so "12abc" doesn't pass.
+  if (/[^0-9,\s.$\-]/.test(s)) return false;
+  // Must include at least one digit.
+  return /\d/.test(s);
+};
+
+const parsePositiveIntStrict = (raw: string | undefined): number | undefined => {
+  const s = String(raw ?? "").trim();
+  if (!s) return undefined;
+  if (!/^\d+$/.test(s)) return undefined;
+  const n = Number(s);
+  return Number.isFinite(n) ? n : undefined;
+};
+
+const parseDateInput = (raw: string | undefined): string | undefined => {
+  const s = String(raw ?? "").trim();
+  if (!s) return undefined;
+
+  // Accept ISO-like yyyy-mm-dd (native date input) or mm/dd/yyyy.
+  const isoLike = /^\d{4}-\d{2}-\d{2}$/.test(s);
+  const usLike = /^(\d{1,2})\/(\d{1,2})\/(\d{4})$/.exec(s);
+
+  let d: Date | null = null;
+  if (isoLike) {
+    const dt = new Date(`${s}T00:00:00.000Z`);
+    d = Number.isNaN(dt.getTime()) ? null : dt;
+  } else if (usLike) {
+    const mm = Number(usLike[1]);
+    const dd = Number(usLike[2]);
+    const yyyy = Number(usLike[3]);
+    const dt = new Date(Date.UTC(yyyy, mm - 1, dd, 0, 0, 0, 0));
+    // Basic range sanity check (Date will overflow silently otherwise).
+    if (dt.getUTCFullYear() === yyyy && dt.getUTCMonth() === mm - 1 && dt.getUTCDate() === dd) {
+      d = dt;
+    }
+  } else {
+    const dt = new Date(s);
+    d = Number.isNaN(dt.getTime()) ? null : dt;
+  }
+
+  return d ? d.toISOString() : undefined;
+};
+
+type FunderFormKey = keyof typeof EMPTY_FUNDER_FORM;
+type FunderFormErrors = Partial<Record<FunderFormKey | "fundingCategories" | "agencyTypesFunded", string>>;
+
 export default function AdminFundersPage() {
   const queryClient = useQueryClient();
   const { toast } = useToast();
@@ -55,14 +106,71 @@ export default function AdminFundersPage() {
   const [selectedFundingCategories, setSelectedFundingCategories] = useState<string[]>([]);
   const [selectedAgencyTypesFunded, setSelectedAgencyTypesFunded] = useState<string[]>([]);
   const [selectedEquipmentTags, setSelectedEquipmentTags] = useState<string[]>([]);
+  const [attemptedSubmit, setAttemptedSubmit] = useState(false);
 
-  const { data, refetch } = useQuery({
+  const { data } = useQuery({
     queryKey: ["admin", "funders", search],
     queryFn: async () => {
       const res = await adminApi.get("admin/funders", { params: { search, limit: 100 } });
       return res.data;
     },
   });
+
+  const validate = (): FunderFormErrors => {
+    const errors: FunderFormErrors = {};
+
+    const name = form.name.trim();
+    if (!name) errors.name = "Name is required";
+
+    const website = form.website.trim();
+    if (!website) errors.website = "Website is required";
+    else if (!/^https?:\/\/.+/i.test(website)) errors.website = "Enter a valid URL (include https://)";
+
+    const contactName = form.contactName.trim();
+    if (!contactName) errors.contactName = "Contact name is required";
+
+    const contactEmail = form.contactEmail.trim();
+    if (!contactEmail) errors.contactEmail = "Contact email is required";
+    else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(contactEmail)) errors.contactEmail = "Enter a valid email address";
+
+    const mission = form.missionStatement.trim();
+    if (!mission) errors.missionStatement = "Mission statement is required";
+    else if (mission.length < 20) errors.missionStatement = "Please write at least 20 characters";
+
+    const locList = form.locationFocus
+      .split(",")
+      .map((s) => s.trim())
+      .filter(Boolean);
+    if (locList.length === 0) errors.locationFocus = "Add at least one location (comma-separated)";
+
+    if (selectedFundingCategories.length === 0) errors.fundingCategories = "Select at least one funding category";
+    if (selectedAgencyTypesFunded.length === 0) errors.agencyTypesFunded = "Select at least one agency type";
+
+    const min = parseMoney(form.avgGrantMin);
+    const max = parseMoney(form.avgGrantMax);
+    if (!isMoneyLike(form.avgGrantMin)) errors.avgGrantMin = "Enter a valid minimum amount (e.g. $25,000)";
+    else if (min === undefined) errors.avgGrantMin = "Enter a valid minimum amount";
+    else if (min < 0) errors.avgGrantMin = "Minimum must be 0 or greater";
+    if (!isMoneyLike(form.avgGrantMax)) errors.avgGrantMax = "Enter a valid maximum amount (e.g. $150,000)";
+    else if (max === undefined) errors.avgGrantMax = "Enter a valid maximum amount";
+    else if (max < 0) errors.avgGrantMax = "Maximum must be 0 or greater";
+    if (min !== undefined && max !== undefined && min > max) errors.avgGrantMax = "Maximum must be greater than or equal to minimum";
+
+    const cycles = parsePositiveIntStrict(form.cyclesPerYear);
+    if (cycles === undefined || cycles < 1) errors.cyclesPerYear = "Cycles per year must be at least 1";
+
+    const maxApps = parsePositiveIntStrict(form.maxApplicationsAllowed);
+    if (maxApps === undefined || maxApps < 1) errors.maxApplicationsAllowed = "Max applications must be at least 1";
+
+    if (form.deadline.trim() !== "" && !parseDateInput(form.deadline)) {
+      errors.deadline = "Enter a valid date (mm/dd/yyyy)";
+    }
+
+    return errors;
+  };
+
+  const errors = validate();
+  const isValid = Object.keys(errors).length === 0;
 
   const create = useMutation({
     mutationFn: async () => {
@@ -80,7 +188,7 @@ export default function AdminFundersPage() {
         localMatchRequired: form.localMatchRequired,
         avgGrantMin: parseMoney(form.avgGrantMin),
         avgGrantMax: parseMoney(form.avgGrantMax),
-        deadline: form.deadline || undefined,
+        deadline: parseDateInput(form.deadline),
         cyclesPerYear: form.cyclesPerYear ? Number(form.cyclesPerYear) : 1,
         pastGrantsAwarded: form.pastGrantsAwarded,
         notes: form.notes,
@@ -92,9 +200,15 @@ export default function AdminFundersPage() {
       setSelectedFundingCategories([]);
       setSelectedAgencyTypesFunded([]);
       setSelectedEquipmentTags([]);
+      setAttemptedSubmit(false);
       setOpen(false);
       queryClient.invalidateQueries({ queryKey: ["admin", "funders"] });
       toast({ title: "Funder created successfully" });
+    },
+    onError: (err: unknown) => {
+      const ax = err as AxiosError<{ message?: string; error?: string }>;
+      const msg = ax.response?.data?.message || ax.response?.data?.error || ax.message || "Failed to create funder";
+      toast({ title: "Could not create funder", description: String(msg), variant: "destructive" });
     },
   });
 
@@ -160,6 +274,7 @@ export default function AdminFundersPage() {
             setSelectedFundingCategories([]);
             setSelectedAgencyTypesFunded([]);
             setSelectedEquipmentTags([]);
+            setAttemptedSubmit(false);
           }
           setOpen(v);
         }}
@@ -202,10 +317,25 @@ export default function AdminFundersPage() {
                 ) : (
                   <Input
                     className="border-[#e5e7eb] text-sm"
+                    placeholder={
+                      key === "avgGrantMin" || key === "avgGrantMax"
+                        ? "$25,000"
+                        : key === "deadline"
+                          ? "mm/dd/yyyy"
+                          : undefined
+                    }
+                    inputMode={
+                      key === "cyclesPerYear" || key === "maxApplicationsAllowed"
+                        ? "numeric"
+                        : undefined
+                    }
                     value={form[key]}
                     onChange={(e) => setForm({ ...form, [key]: e.target.value })}
                   />
                 )}
+                {attemptedSubmit && errors[key] ? (
+                  <p className="mt-1 text-xs text-red-600">{errors[key]}</p>
+                ) : null}
               </div>
             ))}
             <TagSelect
@@ -215,6 +345,9 @@ export default function AdminFundersPage() {
               onChange={setSelectedFundingCategories}
               allowCustom
             />
+            {attemptedSubmit && errors.fundingCategories ? (
+              <p className="-mt-1 text-xs text-red-600">{errors.fundingCategories}</p>
+            ) : null}
             <TagSelect
               label="Agency types funded"
               options={FUNDER_AGENCY_TYPES}
@@ -222,6 +355,9 @@ export default function AdminFundersPage() {
               onChange={setSelectedAgencyTypesFunded}
               allowCustom
             />
+            {attemptedSubmit && errors.agencyTypesFunded ? (
+              <p className="-mt-1 text-xs text-red-600">{errors.agencyTypesFunded}</p>
+            ) : null}
             <TagSelect
               label="Equipment tags"
               options={EQUIPMENT_TAGS}
@@ -243,7 +379,15 @@ export default function AdminFundersPage() {
             <Button variant="ghost" onClick={() => setOpen(false)}>
               Cancel
             </Button>
-            <Button className="bg-[#ef3e34] hover:bg-[#d63530]" onClick={() => create.mutate()} disabled={create.isPending}>
+            <Button
+              className="bg-[#ef3e34] hover:bg-[#d63530]"
+              onClick={() => {
+                setAttemptedSubmit(true);
+                if (!isValid) return;
+                create.mutate();
+              }}
+              disabled={create.isPending || !isValid}
+            >
               Create
             </Button>
           </DialogFooter>

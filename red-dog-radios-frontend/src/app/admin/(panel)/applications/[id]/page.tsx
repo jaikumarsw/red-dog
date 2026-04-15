@@ -110,6 +110,7 @@ export default function AdminApplicationDetailPage() {
       qc.invalidateQueries({ queryKey: ["admin", "applications"] });
       toast({ title: "Status updated" });
       setApproveOpen(false);
+      setAwardOpen(false);
       setRejectOpen(false);
       setRejectReason("");
     },
@@ -139,20 +140,29 @@ export default function AdminApplicationDetailPage() {
   const breakdown = data.matchBreakdown;
   const matchReasons = data.matchReasons ?? [];
   const org = data.organization as Record<string, unknown> | undefined;
-  const orgId = (org as any)?._id ? String((org as any)._id) : typeof data.organization === "string" ? String(data.organization) : "";
-  const submittedBy = (data as any).submittedBy as
+  const orgId =
+    (org as { _id?: unknown })?._id != null
+      ? String((org as { _id?: unknown })._id)
+      : typeof data.organization === "string"
+        ? String(data.organization)
+        : "";
+  const submittedBy = (data as { submittedBy?: unknown }).submittedBy as
     | { firstName?: string; lastName?: string; email?: string; role?: string; createdAt?: string }
     | undefined;
 
   const onConfirmApprove = () => {
+    // Close immediately so the dialog doesn't bounce open on fast clicks/rerenders.
+    setApproveOpen(false);
     statusMutation.mutate({ status: "approved" });
   };
 
   const onConfirmAwarded = () => {
+    setAwardOpen(false);
     statusMutation.mutate({ status: "awarded" });
   };
 
   const onConfirmReject = () => {
+    setRejectOpen(false);
     const base = String(data.notes || "").trim();
     const reason = rejectReason.trim();
     const merged = reason ? (base ? `${base}\nRejection reason: ${reason}` : `Rejection reason: ${reason}`) : base;
@@ -530,6 +540,7 @@ export default function AdminApplicationDetailPage() {
             <AlertDialogAction
               className="bg-emerald-600 text-white hover:bg-emerald-700"
               onClick={onConfirmApprove}
+              disabled={statusMutation.isPending}
             >
               Approve
             </AlertDialogAction>
@@ -550,6 +561,7 @@ export default function AdminApplicationDetailPage() {
             <AlertDialogAction
               className="bg-amber-500 text-white hover:bg-amber-600"
               onClick={onConfirmAwarded}
+              disabled={statusMutation.isPending}
             >
               Mark as Awarded
             </AlertDialogAction>
@@ -573,7 +585,11 @@ export default function AdminApplicationDetailPage() {
           />
           <AlertDialogFooter>
             <AlertDialogCancel>Cancel</AlertDialogCancel>
-            <AlertDialogAction className="bg-red-600 hover:bg-red-700" onClick={onConfirmReject}>
+            <AlertDialogAction
+              className="bg-red-600 hover:bg-red-700"
+              onClick={onConfirmReject}
+              disabled={statusMutation.isPending}
+            >
               Reject
             </AlertDialogAction>
           </AlertDialogFooter>
