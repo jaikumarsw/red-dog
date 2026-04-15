@@ -105,6 +105,18 @@ app.use('/api/tracker', trackerRoutes);
 app.use('/api/ashleen', ashleenRoutes);
 app.use('/api/admin', adminRoutes);
 
+if (process.env.NODE_ENV !== 'production') {
+  app.get('/api/test-email', async (req, res) => {
+    const { sendEmail } = require('./config/email.config');
+    const result = await sendEmail({
+      to: process.env.ADMIN_EMAIL,
+      subject: 'Red Dog Email Test',
+      html: '<h1>Email is working!</h1><p>Resend integration successful.</p>',
+    });
+    res.json(result);
+  });
+}
+
 app.use(notFoundHandler);
 app.use(errorHandler);
 

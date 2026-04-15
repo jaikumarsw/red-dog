@@ -2,6 +2,7 @@ const User = require('../auth/user.schema');
 const Organization = require('../organizations/organization.schema');
 const { AppError } = require('../../middlewares/error.middleware');
 const logger = require('../../utils/logger');
+const { sendWelcomeEmail } = require('../../config/email.config');
 
 const complete = async (userId, data) => {
   const {
@@ -144,6 +145,16 @@ const complete = async (userId, data) => {
   user.onboardingCompleted = true;
   user.organizationId = org._id;
   await user.save();
+
+  try {
+    await sendWelcomeEmail({
+      to: user.email,
+      name: user.firstName || user.fullName,
+      agencyName: orgName,
+    });
+  } catch (emailErr) {
+    logger.warn('[Onboarding] Welcome email failed:', emailErr.message);
+  }
 
   return { user, organization: org };
 };

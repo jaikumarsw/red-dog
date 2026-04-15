@@ -38,6 +38,22 @@ import { cn } from "@/lib/utils";
 type OppOpt = { _id: string; title: string; funder: string };
 type FunderOpt = { _id: string; name: string };
 
+const BUDGET_LABELS: Record<string, string> = {
+  under_25k: "Under $25K",
+  "25k_150k": "$25K – $150K",
+  "150k_500k": "$150K – $500K",
+  "500k_plus": "$500K+",
+};
+
+const TIMELINE_LABELS: Record<string, string> = {
+  urgent: "Urgent",
+  planned: "Planned / Long-term",
+};
+
+const formatType = (t: string) => t.replace(/_/g, " ").replace(/\b\w/g, (c) => c.toUpperCase());
+
+const fmt = (val: unknown) => (val != null && val !== "" ? String(val) : "—");
+
 export default function AdminAgencyDetailPage() {
   const params = useParams();
   const id = params.id as string;
@@ -154,40 +170,273 @@ export default function AdminAgencyDetailPage() {
       <AdminBackLink href="/admin/agencies">Back to agencies</AdminBackLink>
       <h1 className="[font-family:'Montserrat',Helvetica] text-2xl font-bold text-[#111827]">{profile.name}</h1>
 
-      <div className="space-y-3 rounded-lg border border-[#e5e7eb] bg-white p-6 text-sm shadow-sm">
-        <p className="text-[#374151]">
-          <span className="text-[#9ca3af]">Type:</span>{" "}
-          {(profile.agencyTypes || []).join(", ") || "—"}
-        </p>
-        <p className="text-[#374151]">
-          <span className="text-[#9ca3af]">Location:</span> {profile.location}
-        </p>
-        <p className="text-[#374151]">
-          <span className="text-[#9ca3af]">Population served:</span> {profile.populationServed}
-        </p>
-        <p className="text-[#374151]">
-          <span className="text-[#9ca3af]">Coverage:</span> {profile.coverageArea}
-        </p>
-        <p className="text-[#374151]">
-          <span className="text-[#9ca3af]">Staff:</span> {profile.numberOfStaff}
-        </p>
-        <div>
-          <p className="mb-1 text-xs uppercase text-[#9ca3af]">Equipment</p>
-          <p className="whitespace-pre-wrap text-[#111827]">{profile.currentEquipment}</p>
-        </div>
-        <div className="flex flex-wrap gap-2">
-          {(profile.mainProblems || []).map((t: string) => (
-            <span key={t} className="rounded bg-[#f3f4f6] px-2 py-0.5 text-xs text-[#374151]">
-              {t}
+      <div className="rounded-xl border border-gray-200 bg-white p-6 mb-6">
+        <div className="flex items-center justify-between mb-6">
+          <div>
+            <h2 className="text-lg font-bold text-gray-900">Agency Profile</h2>
+            <p className="text-sm text-gray-500">
+              Member since{" "}
+              {profile.createdAt
+                ? new Date(String(profile.createdAt)).toLocaleDateString("en-US", {
+                    month: "long",
+                    year: "numeric",
+                  })
+                : "—"}
+            </p>
+          </div>
+          <div className="flex items-center gap-2">
+            <span
+              className={`px-2.5 py-0.5 rounded-full text-xs font-semibold ${
+                profile.status === "active"
+                  ? "bg-green-100 text-green-700"
+                  : "bg-gray-100 text-gray-600"
+              }`}
+            >
+              {profile.status ?? "active"}
             </span>
-          ))}
-        </div>
-        <div className="flex flex-wrap gap-2">
-          {(profile.fundingPriorities || []).map((t: string) => (
-            <span key={t} className="rounded bg-[#fff1f0] px-2 py-0.5 text-xs font-medium text-[#ef3e34]">
-              {t}
+            <span className="px-2.5 py-0.5 rounded-full text-xs font-semibold bg-blue-50 text-blue-700">
+              {profile.matchCount ?? 0} matches
             </span>
-          ))}
+          </div>
+        </div>
+
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+          <div className="space-y-4">
+            <div className="space-y-2">
+              <div>
+                <span className="text-xs font-semibold uppercase tracking-wide text-gray-400">
+                  Location
+                </span>
+                <p className="text-sm text-gray-800 mt-0.5">{fmt(profile.location)}</p>
+              </div>
+
+              <div>
+                <span className="text-xs font-semibold uppercase tracking-wide text-gray-400">
+                  Website
+                </span>
+                <p className="text-sm mt-0.5 break-all">
+                  {profile.websiteUrl || profile.website ? (
+                    <a
+                      href={String(profile.websiteUrl || profile.website)}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="text-blue-600 underline hover:text-blue-800"
+                    >
+                      {String(profile.websiteUrl || profile.website)}
+                    </a>
+                  ) : (
+                    "—"
+                  )}
+                </p>
+              </div>
+
+              <div>
+                <span className="text-xs font-semibold uppercase tracking-wide text-gray-400">
+                  Owner Email
+                </span>
+                <p className="text-sm mt-0.5 break-all">
+                  {profile.owner?.email ? (
+                    <a
+                      href={`mailto:${String(profile.owner.email)}`}
+                      className="text-blue-600 underline hover:text-blue-800"
+                    >
+                      {String(profile.owner.email)}
+                    </a>
+                  ) : (
+                    "—"
+                  )}
+                </p>
+              </div>
+            </div>
+
+            <div>
+              <span className="text-xs font-semibold uppercase tracking-wide text-gray-400">
+                Agency Types
+              </span>
+              <div className="flex flex-wrap gap-1.5 mt-1.5">
+                {Array.isArray(profile.agencyTypes) && profile.agencyTypes.length > 0 ? (
+                  (profile.agencyTypes as string[]).map((t) => (
+                    <span
+                      key={t}
+                      className="px-2.5 py-0.5 rounded-full border border-red-200 bg-red-50 text-red-700 text-xs font-semibold"
+                    >
+                      {formatType(t)}
+                    </span>
+                  ))
+                ) : (
+                  <span className="text-sm text-gray-400">—</span>
+                )}
+              </div>
+            </div>
+
+            <div>
+              <span className="text-xs font-semibold uppercase tracking-wide text-gray-400">
+                Program Areas
+              </span>
+              <div className="flex flex-wrap gap-1.5 mt-1.5">
+                {Array.isArray(profile.programAreas) && profile.programAreas.length > 0 ? (
+                  (profile.programAreas as string[]).map((a) => (
+                    <span
+                      key={a}
+                      className="px-2.5 py-0.5 rounded-full border border-gray-200 bg-gray-50 text-gray-600 text-xs font-semibold"
+                    >
+                      {formatType(a)}
+                    </span>
+                  ))
+                ) : (
+                  <span className="text-sm text-gray-400">—</span>
+                )}
+              </div>
+            </div>
+
+            <div>
+              <span className="text-xs font-semibold uppercase tracking-wide text-gray-400">
+                Mission Statement
+              </span>
+              <p className="text-sm text-gray-700 mt-1 leading-relaxed whitespace-pre-wrap">
+                {fmt(profile.missionStatement)}
+              </p>
+            </div>
+
+            <div>
+              <span className="text-xs font-semibold uppercase tracking-wide text-gray-400">
+                Goals
+              </span>
+              <div className="flex flex-wrap gap-1.5 mt-1.5">
+                {Array.isArray(profile.goals) && profile.goals.length > 0 ? (
+                  (profile.goals as string[]).map((g) => (
+                    <span
+                      key={g}
+                      className="px-2.5 py-0.5 rounded-full border border-purple-200 bg-purple-50 text-purple-700 text-xs font-semibold"
+                    >
+                      {formatType(String(g).replace(/-/g, " "))}
+                    </span>
+                  ))
+                ) : (
+                  <span className="text-sm text-gray-400">—</span>
+                )}
+              </div>
+            </div>
+          </div>
+
+          <div className="space-y-4">
+            <div className="grid grid-cols-2 gap-3">
+              <div className="rounded-lg bg-gray-50 p-3">
+                <p className="text-xs text-gray-500 font-medium">Population Served</p>
+                <p className="text-lg font-bold text-gray-900 mt-0.5">
+                  {profile.populationServed != null
+                    ? Number(profile.populationServed).toLocaleString()
+                    : "—"}
+                </p>
+              </div>
+              <div className="rounded-lg bg-gray-50 p-3">
+                <p className="text-xs text-gray-500 font-medium">Staff Count</p>
+                <p className="text-lg font-bold text-gray-900 mt-0.5">
+                  {profile.numberOfStaff != null
+                    ? Number(profile.numberOfStaff).toLocaleString()
+                    : "—"}
+                </p>
+              </div>
+              <div className="rounded-lg bg-gray-50 p-3">
+                <p className="text-xs text-gray-500 font-medium">Coverage Area</p>
+                <p className="text-sm font-semibold text-gray-900 mt-0.5">
+                  {fmt(profile.coverageArea)}
+                </p>
+              </div>
+              <div className="rounded-lg bg-gray-50 p-3">
+                <p className="text-xs text-gray-500 font-medium">Local Match</p>
+                <p className="text-sm font-semibold mt-0.5">
+                  {profile.canMeetLocalMatch === true ? (
+                    <span className="text-green-600">Yes ✓</span>
+                  ) : profile.canMeetLocalMatch === false ? (
+                    <span className="text-gray-500">No</span>
+                  ) : (
+                    <span className="text-gray-400">—</span>
+                  )}
+                </p>
+              </div>
+            </div>
+
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <span className="text-xs font-semibold uppercase tracking-wide text-gray-400">
+                  Budget Range
+                </span>
+                <p className="text-sm text-gray-800 mt-0.5">
+                  {BUDGET_LABELS[String(profile.budgetRange)] ?? fmt(profile.budgetRange)}
+                </p>
+              </div>
+              <div>
+                <span className="text-xs font-semibold uppercase tracking-wide text-gray-400">
+                  Timeline
+                </span>
+                <p className="text-sm text-gray-800 mt-0.5">
+                  {TIMELINE_LABELS[String(profile.timeline)] ?? fmt(profile.timeline)}
+                </p>
+              </div>
+              <div>
+                <span className="text-xs font-semibold uppercase tracking-wide text-gray-400">
+                  Last Match Recomputed
+                </span>
+                <p className="text-sm text-gray-800 mt-0.5">
+                  {profile.lastMatchRecomputedAt
+                    ? new Date(String(profile.lastMatchRecomputedAt)).toLocaleString()
+                    : "—"}
+                </p>
+              </div>
+              <div>
+                <span className="text-xs font-semibold uppercase tracking-wide text-gray-400">
+                  Total Matches
+                </span>
+                <p className="text-sm text-gray-800 mt-0.5">{profile.matchCount ?? 0}</p>
+              </div>
+            </div>
+
+            <div>
+              <span className="text-xs font-semibold uppercase tracking-wide text-gray-400">
+                Current Equipment
+              </span>
+              <p className="text-sm text-gray-700 mt-1 leading-relaxed whitespace-pre-wrap">
+                {fmt(profile.currentEquipment)}
+              </p>
+            </div>
+
+            <div>
+              <span className="text-xs font-semibold uppercase tracking-wide text-gray-400">
+                Main Problems
+              </span>
+              {Array.isArray(profile.mainProblems) && profile.mainProblems.length > 0 ? (
+                <ul className="mt-1 space-y-1">
+                  {(profile.mainProblems as string[]).map((p: string, i: number) => (
+                    <li key={i} className="flex items-start gap-1.5 text-sm text-gray-700">
+                      <span className="text-red-400 mt-0.5">•</span>
+                      {p}
+                    </li>
+                  ))}
+                </ul>
+              ) : (
+                <p className="text-sm text-gray-400 mt-1">—</p>
+              )}
+            </div>
+
+            <div>
+              <span className="text-xs font-semibold uppercase tracking-wide text-gray-400">
+                Funding Priorities
+              </span>
+              {Array.isArray(profile.fundingPriorities) && profile.fundingPriorities.length > 0 ? (
+                <ul className="mt-1 space-y-1">
+                  {(profile.fundingPriorities as string[]).map((p: string, i: number) => (
+                    <li key={i} className="flex items-start gap-1.5 text-sm text-gray-700">
+                      <span className="text-blue-400 mt-0.5">•</span>
+                      {p}
+                    </li>
+                  ))}
+                </ul>
+              ) : (
+                <p className="text-sm text-gray-400 mt-1">—</p>
+              )}
+            </div>
+          </div>
         </div>
       </div>
 
@@ -236,8 +485,8 @@ export default function AdminAgencyDetailPage() {
                   )}
                 </div>
                 <ul className="mt-2 list-disc pl-4 text-xs text-[#9ca3af]">
-                  {((m.reasons as string[]) || []).slice(0, 6).map((x) => (
-                    <li key={x}>{x}</li>
+                  {((m.reasons as string[]) || []).slice(0, 6).map((x, i) => (
+                    <li key={`${i}-${x}`}>{x}</li>
                   ))}
                 </ul>
                 <div className="mt-3">

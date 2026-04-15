@@ -5,6 +5,7 @@ const Opportunity = require('../opportunities/opportunity.schema');
 const openai = require('../../config/openai.config');
 const logger = require('../../utils/logger');
 const { AppError } = require('../../middlewares/error.middleware');
+const { sendEmail } = require('../../config/email.config');
 
 const AI_FALLBACK = {
   subject: 'Partnership Opportunity: Communications Infrastructure for Public Safety',
@@ -142,8 +143,6 @@ const markSent = async (id) => {
 };
 
 const send = async (id) => {
-  const OutboxService = require('../outbox/outbox.service');
-
   const record = await Outreach.findById(id)
     .populate('funder', 'contactEmail contactName name')
     .populate('organization', 'name');
@@ -163,37 +162,19 @@ const send = async (id) => {
     <p>Best regards,<br/>${record.organization?.name || 'Red Dog Radios'}</p>
   `;
 
-  let outboxItem;
-  try {
-    outboxItem = await OutboxService.queueEmail({
-      recipient,
-      recipientName: record.funder?.contactName || 'Program Officer',
-      subject: record.subject || 'Grant Outreach',
-      htmlBody,
-      emailType: 'outreach',
-      relatedOrganization: record.organization?._id,
-      relatedUser: record.user,
-      emailKey: `outreach:${String(record._id)}`,
-    });
-  } catch (queueErr) {
-    throw new AppError('Failed to queue email: ' + queueErr.message, 500);
-  }
+  const result = await sendEmail({
+    to: recipient,
+    subject: record.subject || 'Grant Outreach',
+    html: htmlBody,
+  });
 
-  let sendResult = { success: false, stub: false };
-  try {
-    sendResult = await OutboxService.sendEmail(outboxItem._id);
-  } catch (sendErr) {
-    // Non-fatal — email queued but not sent yet
-  }
-
-  if (sendResult.success || sendResult.stub) {
+  if (result.success || result.stub) {
     await Outreach.findByIdAndUpdate(id, { status: 'sent', sentAt: new Date() });
   }
 
   return {
-    queued: true,
-    sent: sendResult.success || sendResult.stub || false,
-    outboxId: outboxItem._id,
+    sent: result.success || false,
+    id: result.id,
   };
 };
 

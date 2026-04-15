@@ -45,12 +45,13 @@ const createDeadlineAlerts = async (daysAhead = 30, minFitScore = 75) => {
 
   const validMatches = matches.filter((m) => m.opportunity && m.organization);
   let count = 0;
+  const created = [];
 
   for (const match of validMatches) {
     const daysLeft = Math.ceil((new Date(match.opportunity.deadline) - new Date()) / (1000 * 60 * 60 * 24));
     const alertKey = `deadline-${match._id}-${daysLeft}`;
     try {
-      await Alert.create({
+      const alert = await Alert.create({
         organization: match.organization._id,
         opportunity: match.opportunity._id,
         orgName: match.organization.name,
@@ -61,12 +62,19 @@ const createDeadlineAlerts = async (daysAhead = 30, minFitScore = 75) => {
         alertKey,
       });
       count++;
+      created.push({
+        alertId: alert._id,
+        organizationId: match.organization._id,
+        opportunityTitle: match.opportunity.title,
+        deadline: match.opportunity.deadline,
+        daysLeft,
+      });
     } catch (e) {
       // Ignore duplicate alertKey
     }
   }
 
-  return count;
+  return { count, created };
 };
 
 const createHighFitAlerts = async (minFitScore = 75) => {

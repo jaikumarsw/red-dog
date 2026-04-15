@@ -4,12 +4,7 @@ const jwt = require('jsonwebtoken');
 const User = require('./user.schema');
 const { AppError } = require('../../middlewares/error.middleware');
 
-let transporter;
-try {
-  transporter = require('../../config/email.config');
-} catch {
-  transporter = null;
-}
+const { sendPasswordResetEmail } = require('../../config/email.config');
 
 const signToken = (id) =>
   jwt.sign({ id }, process.env.JWT_SECRET, { expiresIn: process.env.JWT_EXPIRES_IN || '7d' });
@@ -96,17 +91,11 @@ const forgotPassword = async ({ email }) => {
   await user.save();
 
   try {
-    if (transporter && process.env.SMTP_USER && process.env.SMTP_PASS) {
-      await transporter.sendMail({
-        from: process.env.SMTP_FROM || process.env.SMTP_USER,
-        to: user.email,
-        subject: 'Your Red Dog password reset code',
-        text: `Your verification code is: ${otp}. It expires in 15 minutes.`,
-        html: `<p>Your verification code is: <strong>${otp}</strong></p><p>It expires in 15 minutes.</p>`,
-      });
-    } else {
-      console.info(`[auth] Password reset OTP for ${user.email}: ${otp} (SMTP not configured)`);
-    }
+    await sendPasswordResetEmail({
+      to: user.email,
+      otp,
+      name: user.firstName || user.fullName || 'there',
+    });
   } catch (e) {
     console.error('[auth] Forgot password email failed:', e.message);
   }

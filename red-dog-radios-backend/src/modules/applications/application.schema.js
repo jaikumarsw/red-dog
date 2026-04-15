@@ -74,6 +74,9 @@ const applicationSchema = new mongoose.Schema(
 
     // Reference to the funder (new Funder model)
     funder: { type: mongoose.Schema.Types.ObjectId, ref: 'Funder' },
+
+    // User who created/submitted this application (best-effort; may be null for legacy records)
+    submittedBy: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
   },
   { timestamps: true }
 );

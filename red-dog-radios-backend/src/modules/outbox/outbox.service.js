@@ -1,5 +1,5 @@
 const Outbox = require('./outbox.schema');
-const transporter = require('../../config/email.config');
+const { sendEmail: sendEmailProvider } = require('../../config/email.config');
 const { AppError } = require('../../middlewares/error.middleware');
 const logger = require('../../utils/logger');
 
@@ -56,30 +56,22 @@ const sendEmail = async (outboxId) => {
   const record = await Outbox.findById(outboxId);
   if (!record) throw new AppError('Outbox record not found', 404);
 
-  const smtpConfigured = !!(process.env.SMTP_USER && process.env.SMTP_PASS);
-
-  if (!smtpConfigured) {
-    // Stub: Mark as sent without actually sending
-    logger.info(`[STUB] Email to ${record.recipient}: "${record.subject}" — SMTP not configured, marking as sent`);
-    record.status = 'sent';
-    record.sentAt = new Date();
-    record.providerMessageId = `stub-${Date.now()}`;
-    await record.save();
-    return { success: true, stubbed: true, messageId: record.providerMessageId };
-  }
-
   try {
-    const info = await transporter.sendMail({
-      from: process.env.SMTP_FROM || process.env.SMTP_USER,
+    const result = await sendEmailProvider({
       to: record.recipient,
       subject: record.subject,
       html: record.htmlBody,
     });
+
+    if (!result.success && !result.stub) {
+      throw new Error(result.error || 'Email send failed');
+    }
+
     record.status = 'sent';
     record.sentAt = new Date();
-    record.providerMessageId = info.messageId;
+    record.providerMessageId = result.id || `resend-${Date.now()}`;
     await record.save();
-    return { success: true, messageId: info.messageId };
+    return { success: true, stubbed: !!result.stub, messageId: record.providerMessageId };
   } catch (err) {
     record.status = 'failed';
     record.retryCount += 1;

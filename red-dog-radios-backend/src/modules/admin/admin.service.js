@@ -162,6 +162,9 @@ const listAgencies = async (query) => {
 const getAgencyDetail = async (id) => {
   const org = await Organization.findById(id);
   if (!org) throw new AppError('Agency not found', 404);
+  const owner = await User.findOne({ organizationId: id })
+    .sort({ createdAt: 1 })
+    .select('email firstName lastName');
   const matches = await Match.find({ organization: id })
     .sort({ fitScore: -1 })
     .populate('opportunity', '_id title funder deadline category status minAmount maxAmount');
@@ -179,7 +182,7 @@ const getAgencyDetail = async (id) => {
     .sort((x, y) => new Date(y.changedAt) - new Date(x.changedAt));
 
   return {
-    profile: org,
+    profile: { ...(org.toObject ? org.toObject() : org), owner },
     matches: matches.map((m) => ({
       ...m.toObject(),
       tier: matchTier(m.fitScore),

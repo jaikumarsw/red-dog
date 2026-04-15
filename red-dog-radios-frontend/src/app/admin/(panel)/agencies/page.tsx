@@ -7,6 +7,15 @@ import { AdminTableViewLink } from "@/components/admin/AdminTableViewLink";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 
+const BUDGET_LABELS: Record<string, string> = {
+  under_25k: "Under $25K",
+  "25k_150k": "$25K – $150K",
+  "150k_500k": "$150K – $500K",
+  "500k_plus": "$500K+",
+};
+
+const formatType = (t: string) => t.replace(/_/g, " ").replace(/\b\w/g, (c) => c.toUpperCase());
+
 export default function AdminAgenciesPage() {
   const [search, setSearch] = useState("");
   const [page, setPage] = useState(1);
@@ -43,8 +52,10 @@ export default function AdminAgenciesPage() {
             <thead className="bg-[#f9fafb] text-[#6b7280]">
               <tr>
                 <th className="p-3">Name</th>
-                <th className="p-3">Type</th>
+                <th className="p-3">Agency Types</th>
                 <th className="p-3">Location</th>
+                <th className="p-3">Budget Range</th>
+                <th className="p-3">Status</th>
                 <th className="w-14 p-3 text-center" aria-label="View details" />
               </tr>
             </thead>
@@ -53,9 +64,45 @@ export default function AdminAgenciesPage() {
                 <tr key={String(r._id)} className="border-t border-[#f0f0f0]">
                   <td className="p-3 font-medium text-[#111827]">{String(r.name)}</td>
                   <td className="p-3 text-[#6b7280]">
-                    {Array.isArray(r.agencyTypes) ? (r.agencyTypes as string[]).join(", ") : "—"}
+                    {Array.isArray(r.agencyTypes) && (r.agencyTypes as string[]).length > 0 ? (
+                      <div className="flex flex-wrap gap-1.5">
+                        {(r.agencyTypes as string[]).slice(0, 2).map((t) => (
+                          <span
+                            key={t}
+                            className="rounded-full border border-red-200 bg-red-50 px-2 py-0.5 text-xs font-semibold text-red-700"
+                          >
+                            {formatType(t)}
+                          </span>
+                        ))}
+                        {(r.agencyTypes as string[]).length > 2 && (
+                          <span className="rounded-full bg-gray-100 px-2 py-0.5 text-xs font-semibold text-gray-700">
+                            +{(r.agencyTypes as string[]).length - 2} more
+                          </span>
+                        )}
+                      </div>
+                    ) : (
+                      "—"
+                    )}
                   </td>
                   <td className="p-3 text-[#6b7280]">{String(r.location || "—")}</td>
+                  <td className="p-3 text-[#6b7280]">
+                    {r.budgetRange ? (BUDGET_LABELS[String(r.budgetRange)] || String(r.budgetRange)) : "—"}
+                  </td>
+                  <td className="p-3">
+                    {String(r.status || "").toLowerCase() === "active" ? (
+                      <span className="rounded-full bg-green-100 px-2.5 py-0.5 text-xs font-semibold text-green-700">
+                        Active
+                      </span>
+                    ) : String(r.status || "").trim() ? (
+                      <span className="rounded-full bg-gray-100 px-2.5 py-0.5 text-xs font-semibold text-gray-700">
+                        {String(r.status)}
+                      </span>
+                    ) : (
+                      <span className="rounded-full bg-gray-100 px-2.5 py-0.5 text-xs font-semibold text-gray-700">
+                        —
+                      </span>
+                    )}
+                  </td>
                   <td className="p-3 text-center">
                     <AdminTableViewLink href={`/admin/agencies/${r._id}`} label="View agency details" />
                   </td>

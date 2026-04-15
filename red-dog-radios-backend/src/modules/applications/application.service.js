@@ -9,6 +9,7 @@ const followupService = require('../followups/followup.service');
 const openai = require('../../config/openai.config');
 const logger = require('../../utils/logger');
 const { AppError } = require('../../middlewares/error.middleware');
+const { sendApplicationStatusEmail } = require('../../config/email.config');
 
 const AI_FALLBACK_CONTENT = {
   problemStatement: "Our agency faces critical communications infrastructure challenges that directly impact emergency response capabilities. Outdated radio equipment creates dangerous dead zones throughout our coverage area, delaying response times and putting both officers and the public at risk. Without reliable communications, our ability to coordinate effectively during major incidents is severely compromised.",
@@ -301,6 +302,7 @@ const createWithAI = async ({ opportunityId, funderId, organizationId, userId, a
     organization: organizationId,
     opportunity: resolvedOppId,
     funder: funderId || undefined,
+    submittedBy: userId || undefined,
     status: 'drafting',
     projectTitle: funder
       ? `${org.name} — ${funder.name} Grant Application`
@@ -318,14 +320,21 @@ const createWithAI = async ({ opportunityId, funderId, organizationId, userId, a
 };
 
 const getOne = async (id) => {
-  const app = await Application.findById(id).populate('organization').populate('opportunity').populate('funder');
+  const app = await Application.findById(id)
+    .populate('organization')
+    .populate('opportunity')
+    .populate('funder')
+    .populate('submittedBy', 'firstName lastName email role createdAt');
   if (!app) throw new AppError('Application not found', 404);
   return app;
 };
 
 const update = async (id, data) => {
   const app = await Application.findByIdAndUpdate(id, data, { new: true, runValidators: true })
-    .populate('organization').populate('opportunity').populate('funder');
+    .populate('organization')
+    .populate('opportunity')
+    .populate('funder')
+    .populate('submittedBy', 'firstName lastName email role createdAt');
   if (!app) throw new AppError('Application not found', 404);
   return app;
 };
@@ -338,6 +347,7 @@ const updateStatus = async (id, { status, dateSubmitted, followUpDate, notes }, 
   if (['submitted','in_review'].includes(status)) {
     updateData.dateSubmitted = dateSubmitted || new Date();
     updateData.submittedAt = dateSubmitted || new Date();
+    if (!before.submittedBy && actorId) updateData.submittedBy = actorId;
   }
   if (followUpDate) updateData.followUpDate = followUpDate;
   if (notes !== undefined) updateData.notes = notes;
@@ -354,7 +364,10 @@ const updateStatus = async (id, { status, dateSubmitted, followUpDate, notes }, 
     { $set: updateData, $push: { statusHistory: historyEntry } },
     { new: true }
   )
-    .populate('organization').populate('opportunity').populate('funder');
+    .populate('organization')
+    .populate('opportunity')
+    .populate('funder')
+    .populate('submittedBy', 'firstName lastName email role createdAt');
   if (!app) throw new AppError('Application not found', 404);
 
   const afterLean = await Application.findById(id).lean();
@@ -380,6 +393,30 @@ const updateStatus = async (id, { status, dateSubmitted, followUpDate, notes }, 
       });
     } catch (e) { logger.warn('[Application] Failed to create win record:', e.message); }
   }
+
+  if (['approved', 'awarded', 'rejected'].includes(status)) {
+    try {
+      const orgId = app?.organization?._id;
+      const users = orgId
+        ? await User.find({ organizationId: orgId }).select('email firstName fullName')
+        : [];
+
+      for (const u of users) {
+        if (!u?.email) continue;
+        await sendApplicationStatusEmail({
+          to: u.email,
+          name: u.firstName || u.fullName,
+          agencyName: app?.organization?.name,
+          opportunityTitle: app?.opportunity?.title,
+          status,
+          note: notes || '',
+        });
+      }
+    } catch (emailErr) {
+      logger.warn('[Application] Status email failed:', emailErr.message);
+    }
+  }
+
   return app;
 };
 
@@ -445,6 +482,7 @@ const submit = async (id, userId) => {
     status: 'submitted',
     submittedAt: new Date(),
     dateSubmitted: new Date(),
+    ...(userId ? { submittedBy: userId } : {}),
   });
   const afterLean = await Application.findById(id).lean();
   await ensureFollowUpsScheduled(before, afterLean, userId);
