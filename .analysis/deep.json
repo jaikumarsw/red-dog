@@ -1,0 +1,2643 @@
+{
+  "mountMap": [
+    {
+      "base": "/api",
+      "varName": "limiter"
+    },
+    {
+      "base": "/api-docs",
+      "varName": "swaggerUi"
+    },
+    {
+      "base": "/api/auth",
+      "varName": "authRoutes"
+    },
+    {
+      "base": "/api/organizations",
+      "varName": "organizationRoutes"
+    },
+    {
+      "base": "/api/opportunities",
+      "varName": "opportunityRoutes"
+    },
+    {
+      "base": "/api/matches",
+      "varName": "matchRoutes"
+    },
+    {
+      "base": "/api/applications",
+      "varName": "applicationRoutes"
+    },
+    {
+      "base": "/api/agencies",
+      "varName": "agencyRoutes"
+    },
+    {
+      "base": "/api/alerts",
+      "varName": "alertRoutes"
+    },
+    {
+      "base": "/api/outbox",
+      "varName": "outboxRoutes"
+    },
+    {
+      "base": "/api/digests",
+      "varName": "digestRoutes"
+    },
+    {
+      "base": "/api/ai",
+      "varName": "aiRoutes"
+    },
+    {
+      "base": "/api/dashboard",
+      "varName": "dashboardRoutes"
+    },
+    {
+      "base": "/api/onboarding",
+      "varName": "onboardingRoutes"
+    },
+    {
+      "base": "/api/settings",
+      "varName": "settingsRoutes"
+    },
+    {
+      "base": "/api/funders",
+      "varName": "funderRoutes"
+    },
+    {
+      "base": "/api/wins",
+      "varName": "winRoutes"
+    },
+    {
+      "base": "/api/outreach",
+      "varName": "outreachRoutes"
+    },
+    {
+      "base": "/api/followups",
+      "varName": "followupRoutes"
+    },
+    {
+      "base": "/api/tracker",
+      "varName": "trackerRoutes"
+    },
+    {
+      "base": "/api/ashleen",
+      "varName": "ashleenRoutes"
+    },
+    {
+      "base": "/api/admin",
+      "varName": "adminRoutes"
+    }
+  ],
+  "modules": [
+    {
+      "name": "activityLogs",
+      "files": [
+        "red-dog-radios-backend/src/modules/activityLogs/activityLog.schema.js",
+        "red-dog-radios-backend/src/modules/activityLogs/activityLog.service.js"
+      ],
+      "routeFile": null,
+      "controllerFile": null,
+      "serviceFile": "red-dog-radios-backend/src/modules/activityLogs/activityLog.service.js",
+      "schema": {
+        "file": "red-dog-radios-backend/src/modules/activityLogs/activityLog.schema.js",
+        "model": "ActivityLog",
+        "indexes": [
+          "{ createdAt: -1 }"
+        ],
+        "fields": [
+          {
+            "name": "category",
+            "def": "{"
+          },
+          {
+            "name": "enum",
+            "def": "['opportunity'"
+          },
+          {
+            "name": "required",
+            "def": "true"
+          }
+        ]
+      },
+      "routes": [],
+      "controllerExports": [],
+      "serviceExports": [
+        "log",
+        "listAdmin",
+        "getByIdAdmin"
+      ]
+    },
+    {
+      "name": "admin",
+      "files": [
+        "red-dog-radios-backend/src/modules/admin/admin.controller.js",
+        "red-dog-radios-backend/src/modules/admin/admin.route.js",
+        "red-dog-radios-backend/src/modules/admin/admin.service.js"
+      ],
+      "routeFile": "red-dog-radios-backend/src/modules/admin/admin.route.js",
+      "controllerFile": "red-dog-radios-backend/src/modules/admin/admin.controller.js",
+      "serviceFile": "red-dog-radios-backend/src/modules/admin/admin.service.js",
+      "schema": null,
+      "routes": [
+        {
+          "method": "POST",
+          "path": "/auth/login",
+          "chain": [
+            "ctrl.adminLogin"
+          ],
+          "controller": "ctrl.adminLogin",
+          "middlewares": []
+        },
+        {
+          "method": "GET",
+          "path": "/auth/me",
+          "chain": [
+            "protectAdmin",
+            "ctrl.adminMe"
+          ],
+          "controller": "ctrl.adminMe",
+          "middlewares": [
+            "protectAdmin"
+          ]
+        },
+        {
+          "method": "GET",
+          "path": "/dashboard",
+          "chain": [
+            "protectAdmin",
+            "ctrl.dashboard"
+          ],
+          "controller": "ctrl.dashboard",
+          "middlewares": [
+            "protectAdmin"
+          ]
+        },
+        {
+          "method": "GET",
+          "path": "/activity-logs",
+          "chain": [
+            "protectAdmin",
+            "ctrl.listActivityLogs"
+          ],
+          "controller": "ctrl.listActivityLogs",
+          "middlewares": [
+            "protectAdmin"
+          ]
+        },
+        {
+          "method": "GET",
+          "path": "/activity-logs/:id",
+          "chain": [
+            "protectAdmin",
+            "ctrl.getActivityLog"
+          ],
+          "controller": "ctrl.getActivityLog",
+          "middlewares": [
+            "protectAdmin"
+          ]
+        },
+        {
+          "method": "GET",
+          "path": "/agencies",
+          "chain": [
+            "protectAdmin",
+            "ctrl.listAgencies"
+          ],
+          "controller": "ctrl.listAgencies",
+          "middlewares": [
+            "protectAdmin"
+          ]
+        },
+        {
+          "method": "GET",
+          "path": "/agencies/:id",
+          "chain": [
+            "protectAdmin",
+            "ctrl.getAgency"
+          ],
+          "controller": "ctrl.getAgency",
+          "middlewares": [
+            "protectAdmin"
+          ]
+        },
+        {
+          "method": "GET",
+          "path": "/opportunities",
+          "chain": [
+            "protectAdmin",
+            "ctrl.listOpportunities"
+          ],
+          "controller": "ctrl.listOpportunities",
+          "middlewares": [
+            "protectAdmin"
+          ]
+        },
+        {
+          "method": "POST",
+          "path": "/opportunities",
+          "chain": [
+            "protectAdmin",
+            "ctrl.createOpportunity"
+          ],
+          "controller": "ctrl.createOpportunity",
+          "middlewares": [
+            "protectAdmin"
+          ]
+        },
+        {
+          "method": "GET",
+          "path": "/opportunities/:id",
+          "chain": [
+            "protectAdmin",
+            "ctrl.getOpportunity"
+          ],
+          "controller": "ctrl.getOpportunity",
+          "middlewares": [
+            "protectAdmin"
+          ]
+        },
+        {
+          "method": "PUT",
+          "path": "/opportunities/:id",
+          "chain": [
+            "protectAdmin",
+            "ctrl.updateOpportunity"
+          ],
+          "controller": "ctrl.updateOpportunity",
+          "middlewares": [
+            "protectAdmin"
+          ]
+        },
+        {
+          "method": "DELETE",
+          "path": "/opportunities/:id",
+          "chain": [
+            "protectAdmin",
+            "ctrl.deleteOpportunity"
+          ],
+          "controller": "ctrl.deleteOpportunity",
+          "middlewares": [
+            "protectAdmin"
+          ]
+        },
+        {
+          "method": "GET",
+          "path": "/funders",
+          "chain": [
+            "protectAdmin",
+            "ctrl.listFunders"
+          ],
+          "controller": "ctrl.listFunders",
+          "middlewares": [
+            "protectAdmin"
+          ]
+        },
+        {
+          "method": "POST",
+          "path": "/funders",
+          "chain": [
+            "protectAdmin",
+            "ctrl.createFunder"
+          ],
+          "controller": "ctrl.createFunder",
+          "middlewares": [
+            "protectAdmin"
+          ]
+        },
+        {
+          "method": "PUT",
+          "path": "/funders/:id/unlock",
+          "chain": [
+            "protectAdmin",
+            "ctrl.unlockFunder"
+          ],
+          "controller": "ctrl.unlockFunder",
+          "middlewares": [
+            "protectAdmin"
+          ]
+        },
+        {
+          "method": "PUT",
+          "path": "/funders/:id/set-limit",
+          "chain": [
+            "protectAdmin",
+            "ctrl.setFunderLimit"
+          ],
+          "controller": "ctrl.setFunderLimit",
+          "middlewares": [
+            "protectAdmin"
+          ]
+        },
+        {
+          "method": "GET",
+          "path": "/funders/:id",
+          "chain": [
+            "protectAdmin",
+            "ctrl.getFunder"
+          ],
+          "controller": "ctrl.getFunder",
+          "middlewares": [
+            "protectAdmin"
+          ]
+        },
+        {
+          "method": "PUT",
+          "path": "/funders/:id",
+          "chain": [
+            "protectAdmin",
+            "ctrl.updateFunder"
+          ],
+          "controller": "ctrl.updateFunder",
+          "middlewares": [
+            "protectAdmin"
+          ]
+        },
+        {
+          "method": "DELETE",
+          "path": "/funders/:id",
+          "chain": [
+            "protectAdmin",
+            "ctrl.deleteFunder"
+          ],
+          "controller": "ctrl.deleteFunder",
+          "middlewares": [
+            "protectAdmin"
+          ]
+        },
+        {
+          "method": "GET",
+          "path": "/applications",
+          "chain": [
+            "protectAdmin",
+            "ctrl.listApplications"
+          ],
+          "controller": "ctrl.listApplications",
+          "middlewares": [
+            "protectAdmin"
+          ]
+        },
+        {
+          "method": "POST",
+          "path": "/applications/create-for-agency",
+          "chain": [
+            "protectAdmin",
+            "ctrl.createApplicationForAgency"
+          ],
+          "controller": "ctrl.createApplicationForAgency",
+          "middlewares": [
+            "protectAdmin"
+          ]
+        },
+        {
+          "method": "GET",
+          "path": "/applications/:id",
+          "chain": [
+            "protectAdmin",
+            "ctrl.getApplication"
+          ],
+          "controller": "ctrl.getApplication",
+          "middlewares": [
+            "protectAdmin"
+          ]
+        },
+        {
+          "method": "PUT",
+          "path": "/applications/:id",
+          "chain": [
+            "protectAdmin",
+            "ctrl.updateApplication"
+          ],
+          "controller": "ctrl.updateApplication",
+          "middlewares": [
+            "protectAdmin"
+          ]
+        },
+        {
+          "method": "PUT",
+          "path": "/applications/:id/status",
+          "chain": [
+            "protectAdmin",
+            "ctrl.updateApplicationStatus"
+          ],
+          "controller": "ctrl.updateApplicationStatus",
+          "middlewares": [
+            "protectAdmin"
+          ]
+        },
+        {
+          "method": "POST",
+          "path": "/applications/:id/generate-ai",
+          "chain": [
+            "protectAdmin",
+            "ctrl.generateApplicationAI"
+          ],
+          "controller": "ctrl.generateApplicationAI",
+          "middlewares": [
+            "protectAdmin"
+          ]
+        },
+        {
+          "method": "DELETE",
+          "path": "/applications/:id",
+          "chain": [
+            "protectAdmin",
+            "ctrl.deleteApplication"
+          ],
+          "controller": "ctrl.deleteApplication",
+          "middlewares": [
+            "protectAdmin"
+          ]
+        },
+        {
+          "method": "GET",
+          "path": "/matches",
+          "chain": [
+            "protectAdmin",
+            "ctrl.listMatches"
+          ],
+          "controller": "ctrl.listMatches",
+          "middlewares": [
+            "protectAdmin"
+          ]
+        },
+        {
+          "method": "GET",
+          "path": "/matches/:id",
+          "chain": [
+            "protectAdmin",
+            "ctrl.getMatch"
+          ],
+          "controller": "ctrl.getMatch",
+          "middlewares": [
+            "protectAdmin"
+          ]
+        },
+        {
+          "method": "POST",
+          "path": "/matches/recompute-all",
+          "chain": [
+            "protectAdmin",
+            "ctrl.recomputeMatches"
+          ],
+          "controller": "ctrl.recomputeMatches",
+          "middlewares": [
+            "protectAdmin"
+          ]
+        },
+        {
+          "method": "PUT",
+          "path": "/matches/:id/approve",
+          "chain": [
+            "protectAdmin",
+            "ctrl.approveMatch"
+          ],
+          "controller": "ctrl.approveMatch",
+          "middlewares": [
+            "protectAdmin"
+          ]
+        },
+        {
+          "method": "PUT",
+          "path": "/matches/:id/reject",
+          "chain": [
+            "protectAdmin",
+            "ctrl.rejectMatch"
+          ],
+          "controller": "ctrl.rejectMatch",
+          "middlewares": [
+            "protectAdmin"
+          ]
+        },
+        {
+          "method": "GET",
+          "path": "/users",
+          "chain": [
+            "protectAdmin",
+            "ctrl.listUsers"
+          ],
+          "controller": "ctrl.listUsers",
+          "middlewares": [
+            "protectAdmin"
+          ]
+        },
+        {
+          "method": "GET",
+          "path": "/users/:id",
+          "chain": [
+            "protectAdmin",
+            "ctrl.getUser"
+          ],
+          "controller": "ctrl.getUser",
+          "middlewares": [
+            "protectAdmin"
+          ]
+        },
+        {
+          "method": "PUT",
+          "path": "/users/:id/role",
+          "chain": [
+            "protectAdmin",
+            "ctrl.updateUserRole"
+          ],
+          "controller": "ctrl.updateUserRole",
+          "middlewares": [
+            "protectAdmin"
+          ]
+        }
+      ],
+      "controllerExports": [
+        "adminLogin",
+        "adminMe",
+        "dashboard",
+        "listAgencies",
+        "getAgency",
+        "listOpportunities",
+        "createOpportunity",
+        "getOpportunity",
+        "updateOpportunity",
+        "deleteOpportunity",
+        "listFunders",
+        "createFunder",
+        "updateFunder",
+        "deleteFunder",
+        "listApplications",
+        "getApplication",
+        "deleteApplication",
+        "updateApplication",
+        "updateApplicationStatus",
+        "generateApplicationAI",
+        "createApplicationForAgency",
+        "listMatches",
+        "getMatch",
+        "recomputeMatches",
+        "approveMatch",
+        "rejectMatch",
+        "listUsers",
+        "getUser",
+        "getFunder",
+        "unlockFunder",
+        "setFunderLimit",
+        "getActivityLog",
+        "updateUserRole",
+        "listActivityLogs"
+      ],
+      "serviceExports": [
+        "dashboard",
+        "listAgencies",
+        "getAgencyDetail",
+        "listOpportunitiesAdmin",
+        "createOpportunityAdmin",
+        "getOpportunityAdmin",
+        "updateOpportunityAdmin",
+        "deleteOpportunityAdmin",
+        "listFundersAdmin",
+        "createFunderAdmin",
+        "updateFunderAdmin",
+        "deleteFunderAdmin",
+        "listApplicationsAdmin",
+        "getApplicationAdmin",
+        "deleteApplicationAdmin",
+        "updateApplicationAdmin",
+        "updateApplicationStatusAdmin",
+        "generateApplicationAIAdmin",
+        "createApplicationForAgency",
+        "listMatchesAdmin",
+        "getMatchAdmin",
+        "recomputeAllMatches",
+        "getUserAdmin",
+        "getFunderAdmin",
+        "unlockFunderAdmin",
+        "setFunderLimitAdmin",
+        "getActivityLogAdmin",
+        "listUsersAdmin",
+        "updateUserRole",
+        "listActivityLogsAdmin",
+        "approveMatchAdmin",
+        "rejectMatchAdmin"
+      ]
+    },
+    {
+      "name": "agencies",
+      "files": [
+        "red-dog-radios-backend/src/modules/agencies/agency.controller.js",
+        "red-dog-radios-backend/src/modules/agencies/agency.route.js",
+        "red-dog-radios-backend/src/modules/agencies/agency.schema.js",
+        "red-dog-radios-backend/src/modules/agencies/agency.service.js"
+      ],
+      "routeFile": "red-dog-radios-backend/src/modules/agencies/agency.route.js",
+      "controllerFile": "red-dog-radios-backend/src/modules/agencies/agency.controller.js",
+      "serviceFile": "red-dog-radios-backend/src/modules/agencies/agency.service.js",
+      "schema": {
+        "file": "red-dog-radios-backend/src/modules/agencies/agency.schema.js",
+        "model": "Agency",
+        "indexes": [],
+        "fields": [
+          {
+            "name": "name",
+            "def": "{ type: String"
+          }
+        ]
+      },
+      "routes": [],
+      "controllerExports": [
+        "getAll",
+        "getOne",
+        "create",
+        "update"
+      ],
+      "serviceExports": [
+        "getAll",
+        "create",
+        "getOne",
+        "update",
+        "remove"
+      ]
+    },
+    {
+      "name": "ai",
+      "files": [
+        "red-dog-radios-backend/src/modules/ai/ai.controller.js",
+        "red-dog-radios-backend/src/modules/ai/ai.route.js",
+        "red-dog-radios-backend/src/modules/ai/ai.service.js"
+      ],
+      "routeFile": "red-dog-radios-backend/src/modules/ai/ai.route.js",
+      "controllerFile": "red-dog-radios-backend/src/modules/ai/ai.controller.js",
+      "serviceFile": "red-dog-radios-backend/src/modules/ai/ai.service.js",
+      "schema": null,
+      "routes": [
+        {
+          "method": "POST",
+          "path": "/generate-summary",
+          "chain": [
+            "protect",
+            "aiLimiter",
+            "generateSummary"
+          ],
+          "controller": "generateSummary",
+          "middlewares": [
+            "protect",
+            "aiLimiter"
+          ]
+        },
+        {
+          "method": "POST",
+          "path": "/generate-email",
+          "chain": [
+            "protect",
+            "aiLimiter",
+            "generateEmail"
+          ],
+          "controller": "generateEmail",
+          "middlewares": [
+            "protect",
+            "aiLimiter"
+          ]
+        },
+        {
+          "method": "POST",
+          "path": "/generate-application",
+          "chain": [
+            "protect",
+            "aiLimiter",
+            "generateApplication"
+          ],
+          "controller": "generateApplication",
+          "middlewares": [
+            "protect",
+            "aiLimiter"
+          ]
+        },
+        {
+          "method": "POST",
+          "path": "/compute-match",
+          "chain": [
+            "protect",
+            "aiLimiter",
+            "computeMatch"
+          ],
+          "controller": "computeMatch",
+          "middlewares": [
+            "protect",
+            "aiLimiter"
+          ]
+        }
+      ],
+      "controllerExports": [
+        "generateSummary",
+        "generateEmail",
+        "generateApplication",
+        "computeMatch"
+      ],
+      "serviceExports": [
+        "generateGrantSummary",
+        "generateOutreachEmail",
+        "generateApplication",
+        "computeMatchWithAI"
+      ]
+    },
+    {
+      "name": "alerts",
+      "files": [
+        "red-dog-radios-backend/src/modules/alerts/alert.controller.js",
+        "red-dog-radios-backend/src/modules/alerts/alert.route.js",
+        "red-dog-radios-backend/src/modules/alerts/alert.schema.js",
+        "red-dog-radios-backend/src/modules/alerts/alert.service.js"
+      ],
+      "routeFile": "red-dog-radios-backend/src/modules/alerts/alert.route.js",
+      "controllerFile": "red-dog-radios-backend/src/modules/alerts/alert.controller.js",
+      "serviceFile": "red-dog-radios-backend/src/modules/alerts/alert.service.js",
+      "schema": {
+        "file": "red-dog-radios-backend/src/modules/alerts/alert.schema.js",
+        "model": "Alert",
+        "indexes": [
+          "{ alertKey: 1 }, { unique: true, sparse: true }"
+        ],
+        "fields": [
+          {
+            "name": "organization",
+            "def": "{ type: mongoose.Schema.Types.ObjectId"
+          }
+        ]
+      },
+      "routes": [
+        {
+          "method": "GET",
+          "path": "/",
+          "chain": [
+            "protect",
+            "getAll"
+          ],
+          "controller": "getAll",
+          "middlewares": [
+            "protect"
+          ]
+        },
+        {
+          "method": "PUT",
+          "path": "/read-all",
+          "chain": [
+            "protect",
+            "markAllRead"
+          ],
+          "controller": "markAllRead",
+          "middlewares": [
+            "protect"
+          ]
+        },
+        {
+          "method": "PUT",
+          "path": "/:id/read",
+          "chain": [
+            "protect",
+            "markRead"
+          ],
+          "controller": "markRead",
+          "middlewares": [
+            "protect"
+          ]
+        },
+        {
+          "method": "DELETE",
+          "path": "/:id",
+          "chain": [
+            "protect",
+            "remove"
+          ],
+          "controller": "remove",
+          "middlewares": [
+            "protect"
+          ]
+        }
+      ],
+      "controllerExports": [
+        "getAll",
+        "markRead",
+        "markAllRead",
+        "remove"
+      ],
+      "serviceExports": [
+        "getAll",
+        "markRead",
+        "markAllRead",
+        "remove",
+        "createDeadlineAlerts",
+        "createHighFitAlerts"
+      ]
+    },
+    {
+      "name": "applications",
+      "files": [
+        "red-dog-radios-backend/src/modules/applications/application.controller.js",
+        "red-dog-radios-backend/src/modules/applications/application.route.js",
+        "red-dog-radios-backend/src/modules/applications/application.schema.js",
+        "red-dog-radios-backend/src/modules/applications/application.service.js"
+      ],
+      "routeFile": "red-dog-radios-backend/src/modules/applications/application.route.js",
+      "controllerFile": "red-dog-radios-backend/src/modules/applications/application.controller.js",
+      "serviceFile": "red-dog-radios-backend/src/modules/applications/application.service.js",
+      "schema": {
+        "file": "red-dog-radios-backend/src/modules/applications/application.schema.js",
+        "model": "Application",
+        "indexes": [
+          "{ organization: 1, status: 1 }",
+          "{ organization: 1, createdAt: -1 }",
+          "{ funder: 1 }"
+        ],
+        "fields": [
+          {
+            "name": "organization",
+            "def": "{ type: mongoose.Schema.Types.ObjectId"
+          }
+        ]
+      },
+      "routes": [
+        {
+          "method": "POST",
+          "path": "/generate",
+          "chain": [
+            "protect",
+            "aiLimiter",
+            "generate"
+          ],
+          "controller": "generate",
+          "middlewares": [
+            "protect",
+            "aiLimiter"
+          ]
+        },
+        {
+          "method": "PUT",
+          "path": "/:id/submit",
+          "chain": [
+            "protect",
+            "submit"
+          ],
+          "controller": "submit",
+          "middlewares": [
+            "protect"
+          ]
+        },
+        {
+          "method": "PUT",
+          "path": "/:id/status",
+          "chain": [
+            "protect",
+            "updateStatus"
+          ],
+          "controller": "updateStatus",
+          "middlewares": [
+            "protect"
+          ]
+        },
+        {
+          "method": "POST",
+          "path": "/:id/regenerate",
+          "chain": [
+            "protect",
+            "aiLimiter",
+            "regenerate"
+          ],
+          "controller": "regenerate",
+          "middlewares": [
+            "protect",
+            "aiLimiter"
+          ]
+        },
+        {
+          "method": "POST",
+          "path": "/:id/align",
+          "chain": [
+            "protect",
+            "aiLimiter",
+            "alignToFunder"
+          ],
+          "controller": "alignToFunder",
+          "middlewares": [
+            "protect",
+            "aiLimiter"
+          ]
+        },
+        {
+          "method": "GET",
+          "path": "/:id/export",
+          "chain": [
+            "protect",
+            "exportApplication"
+          ],
+          "controller": "exportApplication",
+          "middlewares": [
+            "protect"
+          ]
+        }
+      ],
+      "controllerExports": [
+        "getAll",
+        "getOne",
+        "create",
+        "generate",
+        "update",
+        "updateStatus",
+        "submit",
+        "remove",
+        "regenerate",
+        "alignToFunder",
+        "exportApplication"
+      ],
+      "serviceExports": [
+        "getAll",
+        "create",
+        "createWithAI",
+        "getOne",
+        "update",
+        "updateStatus",
+        "regenerate",
+        "adminRegenerateAI",
+        "alignToFunder",
+        "exportApplication",
+        "submit",
+        "remove"
+      ]
+    },
+    {
+      "name": "ashleen",
+      "files": [
+        "red-dog-radios-backend/src/modules/ashleen/ashleen.controller.js",
+        "red-dog-radios-backend/src/modules/ashleen/ashleen.route.js"
+      ],
+      "routeFile": "red-dog-radios-backend/src/modules/ashleen/ashleen.route.js",
+      "controllerFile": "red-dog-radios-backend/src/modules/ashleen/ashleen.controller.js",
+      "serviceFile": null,
+      "schema": null,
+      "routes": [
+        {
+          "method": "POST",
+          "path": "/chat",
+          "chain": [
+            "protect",
+            "chat"
+          ],
+          "controller": "chat",
+          "middlewares": [
+            "protect"
+          ]
+        }
+      ],
+      "controllerExports": [
+        "chat"
+      ],
+      "serviceExports": []
+    },
+    {
+      "name": "auth",
+      "files": [
+        "red-dog-radios-backend/src/modules/auth/auth.controller.js",
+        "red-dog-radios-backend/src/modules/auth/auth.route.js",
+        "red-dog-radios-backend/src/modules/auth/auth.service.js",
+        "red-dog-radios-backend/src/modules/auth/user.schema.js"
+      ],
+      "routeFile": "red-dog-radios-backend/src/modules/auth/auth.route.js",
+      "controllerFile": "red-dog-radios-backend/src/modules/auth/auth.controller.js",
+      "serviceFile": "red-dog-radios-backend/src/modules/auth/auth.service.js",
+      "schema": {
+        "file": "red-dog-radios-backend/src/modules/auth/user.schema.js",
+        "model": "User",
+        "indexes": [
+          "{ organizationId: 1 }"
+        ],
+        "fields": [
+          {
+            "name": "fullName",
+            "def": "{ type: String"
+          }
+        ]
+      },
+      "routes": [
+        {
+          "method": "POST",
+          "path": "/register",
+          "chain": [
+            "register"
+          ],
+          "controller": "register",
+          "middlewares": []
+        },
+        {
+          "method": "POST",
+          "path": "/login",
+          "chain": [
+            "loginLimiter",
+            "login"
+          ],
+          "controller": "login",
+          "middlewares": [
+            "loginLimiter"
+          ]
+        },
+        {
+          "method": "POST",
+          "path": "/forgot-password",
+          "chain": [
+            "forgotPasswordLimiter",
+            "forgotPassword"
+          ],
+          "controller": "forgotPassword",
+          "middlewares": [
+            "forgotPasswordLimiter"
+          ]
+        },
+        {
+          "method": "POST",
+          "path": "/verify-otp",
+          "chain": [
+            "otpLimiter",
+            "verifyOtp"
+          ],
+          "controller": "verifyOtp",
+          "middlewares": [
+            "otpLimiter"
+          ]
+        },
+        {
+          "method": "POST",
+          "path": "/reset-password",
+          "chain": [
+            "resetPasswordLimiter",
+            "resetPassword"
+          ],
+          "controller": "resetPassword",
+          "middlewares": [
+            "resetPasswordLimiter"
+          ]
+        },
+        {
+          "method": "POST",
+          "path": "/verify-email",
+          "chain": [
+            "otpLimiter",
+            "verifySignupOtp"
+          ],
+          "controller": "verifySignupOtp",
+          "middlewares": [
+            "otpLimiter"
+          ]
+        },
+        {
+          "method": "POST",
+          "path": "/resend-verification",
+          "chain": [
+            "resendLimiter",
+            "resendVerificationOtp"
+          ],
+          "controller": "resendVerificationOtp",
+          "middlewares": [
+            "resendLimiter"
+          ]
+        },
+        {
+          "method": "GET",
+          "path": "/me",
+          "chain": [
+            "protect",
+            "getMe"
+          ],
+          "controller": "getMe",
+          "middlewares": [
+            "protect"
+          ]
+        }
+      ],
+      "controllerExports": [
+        "register",
+        "login",
+        "getMe",
+        "forgotPassword",
+        "verifyOtp",
+        "resetPassword",
+        "verifySignupOtp",
+        "resendVerificationOtp"
+      ],
+      "serviceExports": [
+        "register",
+        "login",
+        "getMe",
+        "loginAdmin",
+        "forgotPassword",
+        "verifyOtp",
+        "resetPassword",
+        "verifySignupOtp",
+        "resendVerificationOtp"
+      ]
+    },
+    {
+      "name": "dashboard",
+      "files": [
+        "red-dog-radios-backend/src/modules/dashboard/dashboard.controller.js",
+        "red-dog-radios-backend/src/modules/dashboard/dashboard.route.js",
+        "red-dog-radios-backend/src/modules/dashboard/dashboard.service.js"
+      ],
+      "routeFile": "red-dog-radios-backend/src/modules/dashboard/dashboard.route.js",
+      "controllerFile": "red-dog-radios-backend/src/modules/dashboard/dashboard.controller.js",
+      "serviceFile": "red-dog-radios-backend/src/modules/dashboard/dashboard.service.js",
+      "schema": null,
+      "routes": [
+        {
+          "method": "GET",
+          "path": "/stats",
+          "chain": [
+            "protect",
+            "getStats"
+          ],
+          "controller": "getStats",
+          "middlewares": [
+            "protect"
+          ]
+        }
+      ],
+      "controllerExports": [
+        "getStats"
+      ],
+      "serviceExports": [
+        "getStats"
+      ]
+    },
+    {
+      "name": "digests",
+      "files": [
+        "red-dog-radios-backend/src/modules/digests/digest.controller.js",
+        "red-dog-radios-backend/src/modules/digests/digest.route.js",
+        "red-dog-radios-backend/src/modules/digests/digest.schema.js",
+        "red-dog-radios-backend/src/modules/digests/digest.service.js"
+      ],
+      "routeFile": "red-dog-radios-backend/src/modules/digests/digest.route.js",
+      "controllerFile": "red-dog-radios-backend/src/modules/digests/digest.controller.js",
+      "serviceFile": "red-dog-radios-backend/src/modules/digests/digest.service.js",
+      "schema": {
+        "file": "red-dog-radios-backend/src/modules/digests/digest.schema.js",
+        "model": "Digest",
+        "indexes": [],
+        "fields": [
+          {
+            "name": "organization",
+            "def": "{ type: mongoose.Schema.Types.ObjectId"
+          }
+        ]
+      },
+      "routes": [
+        {
+          "method": "GET",
+          "path": "/",
+          "chain": [
+            "protect",
+            "getAll"
+          ],
+          "controller": "getAll",
+          "middlewares": [
+            "protect"
+          ]
+        },
+        {
+          "method": "POST",
+          "path": "/generate",
+          "chain": [
+            "protect",
+            "generate"
+          ],
+          "controller": "generate",
+          "middlewares": [
+            "protect"
+          ]
+        },
+        {
+          "method": "POST",
+          "path": "/preview",
+          "chain": [
+            "protect",
+            "preview"
+          ],
+          "controller": "preview",
+          "middlewares": [
+            "protect"
+          ]
+        },
+        {
+          "method": "GET",
+          "path": "/:id",
+          "chain": [
+            "protect",
+            "getOne"
+          ],
+          "controller": "getOne",
+          "middlewares": [
+            "protect"
+          ]
+        },
+        {
+          "method": "POST",
+          "path": "/:id/send",
+          "chain": [
+            "protect",
+            "send"
+          ],
+          "controller": "send",
+          "middlewares": [
+            "protect"
+          ]
+        }
+      ],
+      "controllerExports": [
+        "getAll",
+        "getOne",
+        "generate",
+        "preview",
+        "send"
+      ],
+      "serviceExports": [
+        "getAll",
+        "getOne",
+        "generateDigest",
+        "sendDigest"
+      ]
+    },
+    {
+      "name": "followups",
+      "files": [
+        "red-dog-radios-backend/src/modules/followups/followup.controller.js",
+        "red-dog-radios-backend/src/modules/followups/followup.route.js",
+        "red-dog-radios-backend/src/modules/followups/followup.schema.js",
+        "red-dog-radios-backend/src/modules/followups/followup.service.js"
+      ],
+      "routeFile": "red-dog-radios-backend/src/modules/followups/followup.route.js",
+      "controllerFile": "red-dog-radios-backend/src/modules/followups/followup.controller.js",
+      "serviceFile": "red-dog-radios-backend/src/modules/followups/followup.service.js",
+      "schema": {
+        "file": "red-dog-radios-backend/src/modules/followups/followup.schema.js",
+        "model": "FollowUp",
+        "indexes": [
+          "{ application: 1 }",
+          "{ scheduledFor: 1, status: 1 }"
+        ],
+        "fields": [
+          {
+            "name": "application",
+            "def": "{ type: mongoose.Schema.Types.ObjectId"
+          }
+        ]
+      },
+      "routes": [
+        {
+          "method": "GET",
+          "path": "/",
+          "chain": [
+            "protect",
+            "getAll"
+          ],
+          "controller": "getAll",
+          "middlewares": [
+            "protect"
+          ]
+        },
+        {
+          "method": "PUT",
+          "path": "/:id/send",
+          "chain": [
+            "protect",
+            "markSent"
+          ],
+          "controller": "markSent",
+          "middlewares": [
+            "protect"
+          ]
+        },
+        {
+          "method": "PUT",
+          "path": "/:id/skip",
+          "chain": [
+            "protect",
+            "skip"
+          ],
+          "controller": "skip",
+          "middlewares": [
+            "protect"
+          ]
+        }
+      ],
+      "controllerExports": [
+        "getAll",
+        "markSent",
+        "skip"
+      ],
+      "serviceExports": [
+        "getAll",
+        "markSent",
+        "skip",
+        "scheduleForApplication",
+        "backfillMissingFollowUps"
+      ]
+    },
+    {
+      "name": "funders",
+      "files": [
+        "red-dog-radios-backend/src/modules/funders/funder.controller.js",
+        "red-dog-radios-backend/src/modules/funders/funder.route.js",
+        "red-dog-radios-backend/src/modules/funders/funder.schema.js",
+        "red-dog-radios-backend/src/modules/funders/funder.service.js"
+      ],
+      "routeFile": "red-dog-radios-backend/src/modules/funders/funder.route.js",
+      "controllerFile": "red-dog-radios-backend/src/modules/funders/funder.controller.js",
+      "serviceFile": "red-dog-radios-backend/src/modules/funders/funder.service.js",
+      "schema": {
+        "file": "red-dog-radios-backend/src/modules/funders/funder.schema.js",
+        "model": "Funder",
+        "indexes": [
+          "{ status: 1, isLocked: 1 }"
+        ],
+        "fields": [
+          {
+            "name": "name",
+            "def": "{ type: String"
+          }
+        ]
+      },
+      "routes": [
+        {
+          "method": "GET",
+          "path": "/",
+          "chain": [
+            "protect",
+            "getAll"
+          ],
+          "controller": "getAll",
+          "middlewares": [
+            "protect"
+          ]
+        },
+        {
+          "method": "GET",
+          "path": "/:id/queue",
+          "chain": [
+            "protect",
+            "getQueue"
+          ],
+          "controller": "getQueue",
+          "middlewares": [
+            "protect"
+          ]
+        },
+        {
+          "method": "PUT",
+          "path": "/:id",
+          "chain": [
+            "protect",
+            "updateAgencyNotes"
+          ],
+          "controller": "updateAgencyNotes",
+          "middlewares": [
+            "protect"
+          ]
+        },
+        {
+          "method": "POST",
+          "path": "/:id/save",
+          "chain": [
+            "protect",
+            "saveFunder"
+          ],
+          "controller": "saveFunder",
+          "middlewares": [
+            "protect"
+          ]
+        },
+        {
+          "method": "GET",
+          "path": "/:id",
+          "chain": [
+            "protect",
+            "getOne"
+          ],
+          "controller": "getOne",
+          "middlewares": [
+            "protect"
+          ]
+        }
+      ],
+      "controllerExports": [
+        "getAll",
+        "getQueue",
+        "updateAgencyNotes",
+        "getOne",
+        "saveFunder"
+      ],
+      "serviceExports": [
+        "getAll",
+        "getOne",
+        "create",
+        "update",
+        "deactivate",
+        "reactivate",
+        "saveFunder",
+        "computeFunderScore",
+        "updateAgencyNotesOnly",
+        "getQueueForAgency"
+      ]
+    },
+    {
+      "name": "matches",
+      "files": [
+        "red-dog-radios-backend/src/modules/matches/match.controller.js",
+        "red-dog-radios-backend/src/modules/matches/match.route.js",
+        "red-dog-radios-backend/src/modules/matches/match.schema.js",
+        "red-dog-radios-backend/src/modules/matches/match.service.js"
+      ],
+      "routeFile": "red-dog-radios-backend/src/modules/matches/match.route.js",
+      "controllerFile": "red-dog-radios-backend/src/modules/matches/match.controller.js",
+      "serviceFile": "red-dog-radios-backend/src/modules/matches/match.service.js",
+      "schema": {
+        "file": "red-dog-radios-backend/src/modules/matches/match.schema.js",
+        "model": "Match",
+        "indexes": [
+          "{ organization: 1, opportunity: 1 }, { unique: true }"
+        ],
+        "fields": [
+          {
+            "name": "organization",
+            "def": "{ type: mongoose.Schema.Types.ObjectId"
+          }
+        ]
+      },
+      "routes": [
+        {
+          "method": "POST",
+          "path": "/compute",
+          "chain": [
+            "protect",
+            "computeAndSave"
+          ],
+          "controller": "computeAndSave",
+          "middlewares": [
+            "protect"
+          ]
+        },
+        {
+          "method": "POST",
+          "path": "/compute-all",
+          "chain": [
+            "protect",
+            "computeLimiter",
+            "computeAll"
+          ],
+          "controller": "computeAll",
+          "middlewares": [
+            "protect",
+            "computeLimiter"
+          ]
+        },
+        {
+          "method": "GET",
+          "path": "/:id",
+          "chain": [
+            "protect",
+            "getOne"
+          ],
+          "controller": "getOne",
+          "middlewares": [
+            "protect"
+          ]
+        },
+        {
+          "method": "PUT",
+          "path": "/:id/approve",
+          "chain": [
+            "protect",
+            "protectAdmin",
+            "approve"
+          ],
+          "controller": "approve",
+          "middlewares": [
+            "protect",
+            "protectAdmin"
+          ]
+        },
+        {
+          "method": "PUT",
+          "path": "/:id/reject",
+          "chain": [
+            "protect",
+            "protectAdmin",
+            "reject"
+          ],
+          "controller": "reject",
+          "middlewares": [
+            "protect",
+            "protectAdmin"
+          ]
+        }
+      ],
+      "controllerExports": [
+        "getAll",
+        "getOne",
+        "create",
+        "computeAndSave",
+        "computeAll",
+        "approve",
+        "reject"
+      ],
+      "serviceExports": [
+        "computeMatchScore",
+        "getAll",
+        "getOne",
+        "create",
+        "computeAndSave",
+        "approveMatch",
+        "rejectMatch",
+        "computeAllForOrganization"
+      ]
+    },
+    {
+      "name": "onboarding",
+      "files": [
+        "red-dog-radios-backend/src/modules/onboarding/onboarding.controller.js",
+        "red-dog-radios-backend/src/modules/onboarding/onboarding.route.js",
+        "red-dog-radios-backend/src/modules/onboarding/onboarding.service.js"
+      ],
+      "routeFile": "red-dog-radios-backend/src/modules/onboarding/onboarding.route.js",
+      "controllerFile": "red-dog-radios-backend/src/modules/onboarding/onboarding.controller.js",
+      "serviceFile": "red-dog-radios-backend/src/modules/onboarding/onboarding.service.js",
+      "schema": null,
+      "routes": [
+        {
+          "method": "POST",
+          "path": "/complete",
+          "chain": [
+            "protect",
+            "complete"
+          ],
+          "controller": "complete",
+          "middlewares": [
+            "protect"
+          ]
+        }
+      ],
+      "controllerExports": [
+        "complete"
+      ],
+      "serviceExports": [
+        "complete"
+      ]
+    },
+    {
+      "name": "opportunities",
+      "files": [
+        "red-dog-radios-backend/src/modules/opportunities/opportunity.controller.js",
+        "red-dog-radios-backend/src/modules/opportunities/opportunity.route.js",
+        "red-dog-radios-backend/src/modules/opportunities/opportunity.schema.js",
+        "red-dog-radios-backend/src/modules/opportunities/opportunity.service.js"
+      ],
+      "routeFile": "red-dog-radios-backend/src/modules/opportunities/opportunity.route.js",
+      "controllerFile": "red-dog-radios-backend/src/modules/opportunities/opportunity.controller.js",
+      "serviceFile": "red-dog-radios-backend/src/modules/opportunities/opportunity.service.js",
+      "schema": {
+        "file": "red-dog-radios-backend/src/modules/opportunities/opportunity.schema.js",
+        "model": "Opportunity",
+        "indexes": [
+          "{ status: 1, deadline: 1 }"
+        ],
+        "fields": [
+          {
+            "name": "title",
+            "def": "{ type: String"
+          }
+        ]
+      },
+      "routes": [],
+      "controllerExports": [
+        "getAll",
+        "getOne",
+        "create",
+        "update",
+        "remove"
+      ],
+      "serviceExports": [
+        "getAll",
+        "create",
+        "getOne",
+        "update",
+        "remove"
+      ]
+    },
+    {
+      "name": "organizations",
+      "files": [
+        "red-dog-radios-backend/src/modules/organizations/organization.controller.js",
+        "red-dog-radios-backend/src/modules/organizations/organization.route.js",
+        "red-dog-radios-backend/src/modules/organizations/organization.schema.js",
+        "red-dog-radios-backend/src/modules/organizations/organization.service.js"
+      ],
+      "routeFile": "red-dog-radios-backend/src/modules/organizations/organization.route.js",
+      "controllerFile": "red-dog-radios-backend/src/modules/organizations/organization.controller.js",
+      "serviceFile": "red-dog-radios-backend/src/modules/organizations/organization.service.js",
+      "schema": {
+        "file": "red-dog-radios-backend/src/modules/organizations/organization.schema.js",
+        "model": "Organization",
+        "indexes": [],
+        "fields": [
+          {
+            "name": "name",
+            "def": "{ type: String"
+          }
+        ]
+      },
+      "routes": [],
+      "controllerExports": [
+        "getAll",
+        "getOne",
+        "create",
+        "update"
+      ],
+      "serviceExports": [
+        "getAll",
+        "create",
+        "getOne",
+        "update",
+        "remove"
+      ]
+    },
+    {
+      "name": "outbox",
+      "files": [
+        "red-dog-radios-backend/src/modules/outbox/outbox.controller.js",
+        "red-dog-radios-backend/src/modules/outbox/outbox.route.js",
+        "red-dog-radios-backend/src/modules/outbox/outbox.schema.js",
+        "red-dog-radios-backend/src/modules/outbox/outbox.service.js"
+      ],
+      "routeFile": "red-dog-radios-backend/src/modules/outbox/outbox.route.js",
+      "controllerFile": "red-dog-radios-backend/src/modules/outbox/outbox.controller.js",
+      "serviceFile": "red-dog-radios-backend/src/modules/outbox/outbox.service.js",
+      "schema": {
+        "file": "red-dog-radios-backend/src/modules/outbox/outbox.schema.js",
+        "model": "Outbox",
+        "indexes": [
+          "{ emailKey: 1 }, { unique: true, sparse: true }",
+          "{ status: 1, scheduledFor: 1 }"
+        ],
+        "fields": [
+          {
+            "name": "recipient",
+            "def": "{ type: String"
+          }
+        ]
+      },
+      "routes": [
+        {
+          "method": "GET",
+          "path": "/",
+          "chain": [
+            "protect",
+            "getAll"
+          ],
+          "controller": "getAll",
+          "middlewares": [
+            "protect"
+          ]
+        },
+        {
+          "method": "POST",
+          "path": "/queue",
+          "chain": [
+            "protect",
+            "queueEmail"
+          ],
+          "controller": "queueEmail",
+          "middlewares": [
+            "protect"
+          ]
+        },
+        {
+          "method": "GET",
+          "path": "/:id",
+          "chain": [
+            "protect",
+            "getOne"
+          ],
+          "controller": "getOne",
+          "middlewares": [
+            "protect"
+          ]
+        },
+        {
+          "method": "POST",
+          "path": "/:id/send",
+          "chain": [
+            "protect",
+            "sendEmail"
+          ],
+          "controller": "sendEmail",
+          "middlewares": [
+            "protect"
+          ]
+        },
+        {
+          "method": "POST",
+          "path": "/:id/retry",
+          "chain": [
+            "protect",
+            "retryFailed"
+          ],
+          "controller": "retryFailed",
+          "middlewares": [
+            "protect"
+          ]
+        }
+      ],
+      "controllerExports": [
+        "getAll",
+        "getOne",
+        "queueEmail",
+        "sendEmail",
+        "retryFailed"
+      ],
+      "serviceExports": [
+        "getAll",
+        "getOne",
+        "create",
+        "queueEmail",
+        "sendEmail",
+        "processQueue",
+        "retryFailed"
+      ]
+    },
+    {
+      "name": "outreach",
+      "files": [
+        "red-dog-radios-backend/src/modules/outreach/outreach.controller.js",
+        "red-dog-radios-backend/src/modules/outreach/outreach.route.js",
+        "red-dog-radios-backend/src/modules/outreach/outreach.schema.js",
+        "red-dog-radios-backend/src/modules/outreach/outreach.service.js"
+      ],
+      "routeFile": "red-dog-radios-backend/src/modules/outreach/outreach.route.js",
+      "controllerFile": "red-dog-radios-backend/src/modules/outreach/outreach.controller.js",
+      "serviceFile": "red-dog-radios-backend/src/modules/outreach/outreach.service.js",
+      "schema": {
+        "file": "red-dog-radios-backend/src/modules/outreach/outreach.schema.js",
+        "model": "Outreach",
+        "indexes": [],
+        "fields": [
+          {
+            "name": "organization",
+            "def": "{ type: mongoose.Schema.Types.ObjectId"
+          }
+        ]
+      },
+      "routes": [
+        {
+          "method": "GET",
+          "path": "/",
+          "chain": [
+            "protect",
+            "getAll"
+          ],
+          "controller": "getAll",
+          "middlewares": [
+            "protect"
+          ]
+        },
+        {
+          "method": "POST",
+          "path": "/generate",
+          "chain": [
+            "protect",
+            "generate"
+          ],
+          "controller": "generate",
+          "middlewares": [
+            "protect"
+          ]
+        },
+        {
+          "method": "POST",
+          "path": "/:id/send",
+          "chain": [
+            "protect",
+            "sendOutreach"
+          ],
+          "controller": "sendOutreach",
+          "middlewares": [
+            "protect"
+          ]
+        },
+        {
+          "method": "GET",
+          "path": "/:id",
+          "chain": [
+            "protect",
+            "getOne"
+          ],
+          "controller": "getOne",
+          "middlewares": [
+            "protect"
+          ]
+        },
+        {
+          "method": "PUT",
+          "path": "/:id",
+          "chain": [
+            "protect",
+            "update"
+          ],
+          "controller": "update",
+          "middlewares": [
+            "protect"
+          ]
+        },
+        {
+          "method": "PUT",
+          "path": "/:id/sent",
+          "chain": [
+            "protect",
+            "markSent"
+          ],
+          "controller": "markSent",
+          "middlewares": [
+            "protect"
+          ]
+        }
+      ],
+      "controllerExports": [
+        "getAll",
+        "getOne",
+        "generate",
+        "update",
+        "markSent",
+        "sendOutreach"
+      ],
+      "serviceExports": [
+        "generateFromFunder",
+        "generateFromOpportunity",
+        "getAll",
+        "getOne",
+        "update",
+        "markSent",
+        "send"
+      ]
+    },
+    {
+      "name": "settings",
+      "files": [
+        "red-dog-radios-backend/src/modules/settings/settings.controller.js",
+        "red-dog-radios-backend/src/modules/settings/settings.route.js",
+        "red-dog-radios-backend/src/modules/settings/settings.service.js"
+      ],
+      "routeFile": "red-dog-radios-backend/src/modules/settings/settings.route.js",
+      "controllerFile": "red-dog-radios-backend/src/modules/settings/settings.controller.js",
+      "serviceFile": "red-dog-radios-backend/src/modules/settings/settings.service.js",
+      "schema": null,
+      "routes": [
+        {
+          "method": "GET",
+          "path": "/",
+          "chain": [
+            "protect",
+            "getSettings"
+          ],
+          "controller": "getSettings",
+          "middlewares": [
+            "protect"
+          ]
+        },
+        {
+          "method": "PUT",
+          "path": "/",
+          "chain": [
+            "protect",
+            "updateSettings"
+          ],
+          "controller": "updateSettings",
+          "middlewares": [
+            "protect"
+          ]
+        },
+        {
+          "method": "DELETE",
+          "path": "/account",
+          "chain": [
+            "protect",
+            "deleteAccount"
+          ],
+          "controller": "deleteAccount",
+          "middlewares": [
+            "protect"
+          ]
+        }
+      ],
+      "controllerExports": [
+        "getSettings",
+        "updateSettings",
+        "deleteAccount"
+      ],
+      "serviceExports": [
+        "getSettings",
+        "updateSettings",
+        "deleteAccount"
+      ]
+    },
+    {
+      "name": "tracker",
+      "files": [
+        "red-dog-radios-backend/src/modules/tracker/tracker.controller.js",
+        "red-dog-radios-backend/src/modules/tracker/tracker.route.js",
+        "red-dog-radios-backend/src/modules/tracker/tracker.service.js"
+      ],
+      "routeFile": "red-dog-radios-backend/src/modules/tracker/tracker.route.js",
+      "controllerFile": "red-dog-radios-backend/src/modules/tracker/tracker.controller.js",
+      "serviceFile": "red-dog-radios-backend/src/modules/tracker/tracker.service.js",
+      "schema": null,
+      "routes": [
+        {
+          "method": "GET",
+          "path": "/stats",
+          "chain": [
+            "protect",
+            "getTrackerStats"
+          ],
+          "controller": "getTrackerStats",
+          "middlewares": [
+            "protect"
+          ]
+        },
+        {
+          "method": "GET",
+          "path": "/",
+          "chain": [
+            "protect",
+            "getTracker"
+          ],
+          "controller": "getTracker",
+          "middlewares": [
+            "protect"
+          ]
+        }
+      ],
+      "controllerExports": [
+        "getTracker",
+        "getTrackerStats"
+      ],
+      "serviceExports": [
+        "getTracker",
+        "getTrackerStats"
+      ]
+    },
+    {
+      "name": "wins",
+      "files": [
+        "red-dog-radios-backend/src/modules/wins/win.controller.js",
+        "red-dog-radios-backend/src/modules/wins/win.route.js",
+        "red-dog-radios-backend/src/modules/wins/win.schema.js",
+        "red-dog-radios-backend/src/modules/wins/win.service.js"
+      ],
+      "routeFile": "red-dog-radios-backend/src/modules/wins/win.route.js",
+      "controllerFile": "red-dog-radios-backend/src/modules/wins/win.controller.js",
+      "serviceFile": "red-dog-radios-backend/src/modules/wins/win.service.js",
+      "schema": {
+        "file": "red-dog-radios-backend/src/modules/wins/win.schema.js",
+        "model": "Win",
+        "indexes": [
+          "{ agencyType: 1, funderName: 1 }"
+        ],
+        "fields": [
+          {
+            "name": "applicationId",
+            "def": "{ type: mongoose.Schema.Types.ObjectId"
+          }
+        ]
+      },
+      "routes": [
+        {
+          "method": "GET",
+          "path": "/insights",
+          "chain": [
+            "protect",
+            "getInsights"
+          ],
+          "controller": "getInsights",
+          "middlewares": [
+            "protect"
+          ]
+        },
+        {
+          "method": "GET",
+          "path": "/patterns",
+          "chain": [
+            "protect",
+            "getPatterns"
+          ],
+          "controller": "getPatterns",
+          "middlewares": [
+            "protect"
+          ]
+        },
+        {
+          "method": "GET",
+          "path": "/",
+          "chain": [
+            "protect",
+            "getAll"
+          ],
+          "controller": "getAll",
+          "middlewares": [
+            "protect"
+          ]
+        }
+      ],
+      "controllerExports": [
+        "getAll",
+        "getInsights",
+        "getPatterns"
+      ],
+      "serviceExports": [
+        "getAll",
+        "getInsights",
+        "create",
+        "getPatterns"
+      ]
+    }
+  ],
+  "frontendPages": [
+    {
+      "file": "red-dog-radios-frontend/src/app/admin/(panel)/activity/[id]/page.tsx",
+      "apiCalls": [
+        {
+          "client": "adminApi",
+          "method": "GET",
+          "target": "`admin/activity-logs/${id}`"
+        }
+      ],
+      "redirects": []
+    },
+    {
+      "file": "red-dog-radios-frontend/src/app/admin/(panel)/activity/page.tsx",
+      "apiCalls": [
+        {
+          "client": "adminApi",
+          "method": "GET",
+          "target": "\"admin/activity-logs\""
+        }
+      ],
+      "redirects": []
+    },
+    {
+      "file": "red-dog-radios-frontend/src/app/admin/(panel)/agencies/[id]/page.tsx",
+      "apiCalls": [
+        {
+          "client": "adminApi",
+          "method": "GET",
+          "target": "`admin/agencies/${id}`"
+        },
+        {
+          "client": "adminApi",
+          "method": "GET",
+          "target": "\"admin/funders\""
+        },
+        {
+          "client": "adminApi",
+          "method": "GET",
+          "target": "\"admin/opportunities\""
+        },
+        {
+          "client": "adminApi",
+          "method": "POST",
+          "target": "\"admin/applications/create-for-agency\""
+        },
+        {
+          "client": "adminApi",
+          "method": "DELETE",
+          "target": "`admin/applications/${appId}`"
+        }
+      ],
+      "redirects": []
+    },
+    {
+      "file": "red-dog-radios-frontend/src/app/admin/(panel)/agencies/page.tsx",
+      "apiCalls": [
+        {
+          "client": "adminApi",
+          "method": "GET",
+          "target": "\"admin/agencies\""
+        }
+      ],
+      "redirects": []
+    },
+    {
+      "file": "red-dog-radios-frontend/src/app/admin/(panel)/applications/[id]/page.tsx",
+      "apiCalls": [
+        {
+          "client": "adminApi",
+          "method": "GET",
+          "target": "`admin/applications/${appId}`"
+        },
+        {
+          "client": "adminApi",
+          "method": "PUT",
+          "target": "`admin/applications/${appId}`"
+        },
+        {
+          "client": "adminApi",
+          "method": "PUT",
+          "target": "`admin/applications/${appId}/status`"
+        },
+        {
+          "client": "adminApi",
+          "method": "POST",
+          "target": "`admin/applications/${appId}/generate-ai`"
+        }
+      ],
+      "redirects": []
+    },
+    {
+      "file": "red-dog-radios-frontend/src/app/admin/(panel)/applications/page.tsx",
+      "apiCalls": [
+        {
+          "client": "adminApi",
+          "method": "GET",
+          "target": "\"admin/applications\""
+        }
+      ],
+      "redirects": []
+    },
+    {
+      "file": "red-dog-radios-frontend/src/app/admin/(panel)/dashboard/page.tsx",
+      "apiCalls": [
+        {
+          "client": "adminApi",
+          "method": "GET",
+          "target": "\"admin/dashboard\""
+        }
+      ],
+      "redirects": []
+    },
+    {
+      "file": "red-dog-radios-frontend/src/app/admin/(panel)/funders/[id]/edit/page.tsx",
+      "apiCalls": [
+        {
+          "client": "adminApi",
+          "method": "GET",
+          "target": "`admin/funders/${id}`"
+        },
+        {
+          "client": "adminApi",
+          "method": "PUT",
+          "target": "`admin/funders/${id}`"
+        }
+      ],
+      "redirects": []
+    },
+    {
+      "file": "red-dog-radios-frontend/src/app/admin/(panel)/funders/[id]/page.tsx",
+      "apiCalls": [
+        {
+          "client": "adminApi",
+          "method": "GET",
+          "target": "`admin/funders/${id}`"
+        },
+        {
+          "client": "adminApi",
+          "method": "DELETE",
+          "target": "`admin/funders/${id}`"
+        }
+      ],
+      "redirects": []
+    },
+    {
+      "file": "red-dog-radios-frontend/src/app/admin/(panel)/funders/new/page.tsx",
+      "apiCalls": [],
+      "redirects": [
+        "\"/admin/funders\""
+      ]
+    },
+    {
+      "file": "red-dog-radios-frontend/src/app/admin/(panel)/funders/page.tsx",
+      "apiCalls": [
+        {
+          "client": "adminApi",
+          "method": "GET",
+          "target": "\"admin/funders\""
+        },
+        {
+          "client": "adminApi",
+          "method": "POST",
+          "target": "\"admin/funders\""
+        }
+      ],
+      "redirects": []
+    },
+    {
+      "file": "red-dog-radios-frontend/src/app/admin/(panel)/matches/[id]/page.tsx",
+      "apiCalls": [
+        {
+          "client": "adminApi",
+          "method": "GET",
+          "target": "`admin/matches/${id}`"
+        }
+      ],
+      "redirects": []
+    },
+    {
+      "file": "red-dog-radios-frontend/src/app/admin/(panel)/matches/page.tsx",
+      "apiCalls": [
+        {
+          "client": "adminApi",
+          "method": "GET",
+          "target": "\"admin/matches\""
+        },
+        {
+          "client": "adminApi",
+          "method": "POST",
+          "target": "\"admin/matches/recompute-all\""
+        }
+      ],
+      "redirects": []
+    },
+    {
+      "file": "red-dog-radios-frontend/src/app/admin/(panel)/opportunities/[id]/edit/page.tsx",
+      "apiCalls": [
+        {
+          "client": "adminApi",
+          "method": "GET",
+          "target": "`admin/opportunities/${id}`"
+        },
+        {
+          "client": "adminApi",
+          "method": "PUT",
+          "target": "`admin/opportunities/${id}`"
+        }
+      ],
+      "redirects": []
+    },
+    {
+      "file": "red-dog-radios-frontend/src/app/admin/(panel)/opportunities/[id]/page.tsx",
+      "apiCalls": [
+        {
+          "client": "adminApi",
+          "method": "GET",
+          "target": "`admin/opportunities/${id}`"
+        },
+        {
+          "client": "adminApi",
+          "method": "DELETE",
+          "target": "`admin/opportunities/${id}`"
+        },
+        {
+          "client": "adminApi",
+          "method": "PUT",
+          "target": "`admin/opportunities/${id}`"
+        }
+      ],
+      "redirects": []
+    },
+    {
+      "file": "red-dog-radios-frontend/src/app/admin/(panel)/opportunities/new/page.tsx",
+      "apiCalls": [],
+      "redirects": [
+        "\"/admin/opportunities\""
+      ]
+    },
+    {
+      "file": "red-dog-radios-frontend/src/app/admin/(panel)/opportunities/page.tsx",
+      "apiCalls": [
+        {
+          "client": "adminApi",
+          "method": "GET",
+          "target": "\"admin/opportunities\""
+        },
+        {
+          "client": "adminApi",
+          "method": "GET",
+          "target": "\"admin/funders\""
+        },
+        {
+          "client": "adminApi",
+          "method": "POST",
+          "target": "\"admin/opportunities\""
+        }
+      ],
+      "redirects": []
+    },
+    {
+      "file": "red-dog-radios-frontend/src/app/admin/(panel)/settings/page.tsx",
+      "apiCalls": [],
+      "redirects": []
+    },
+    {
+      "file": "red-dog-radios-frontend/src/app/admin/(panel)/users/[id]/page.tsx",
+      "apiCalls": [
+        {
+          "client": "adminApi",
+          "method": "GET",
+          "target": "`admin/users/${id}`"
+        },
+        {
+          "client": "adminApi",
+          "method": "PUT",
+          "target": "`admin/users/${id}/role`"
+        }
+      ],
+      "redirects": []
+    },
+    {
+      "file": "red-dog-radios-frontend/src/app/admin/(panel)/users/page.tsx",
+      "apiCalls": [
+        {
+          "client": "adminApi",
+          "method": "GET",
+          "target": "\"admin/users\""
+        }
+      ],
+      "redirects": []
+    },
+    {
+      "file": "red-dog-radios-frontend/src/app/admin/login/page.tsx",
+      "apiCalls": [
+        {
+          "client": "adminApi",
+          "method": "POST",
+          "target": "\"admin/auth/login\""
+        }
+      ],
+      "redirects": []
+    },
+    {
+      "file": "red-dog-radios-frontend/src/app/admin/page.tsx",
+      "apiCalls": [],
+      "redirects": [
+        "\"/admin/dashboard\""
+      ]
+    },
+    {
+      "file": "red-dog-radios-frontend/src/app/alerts/page.tsx",
+      "apiCalls": [],
+      "redirects": []
+    },
+    {
+      "file": "red-dog-radios-frontend/src/app/applications/[id]/page.tsx",
+      "apiCalls": [],
+      "redirects": []
+    },
+    {
+      "file": "red-dog-radios-frontend/src/app/applications/page.tsx",
+      "apiCalls": [],
+      "redirects": []
+    },
+    {
+      "file": "red-dog-radios-frontend/src/app/create-password/page.tsx",
+      "apiCalls": [],
+      "redirects": []
+    },
+    {
+      "file": "red-dog-radios-frontend/src/app/dashboard/page.tsx",
+      "apiCalls": [],
+      "redirects": []
+    },
+    {
+      "file": "red-dog-radios-frontend/src/app/followups/page.tsx",
+      "apiCalls": [],
+      "redirects": []
+    },
+    {
+      "file": "red-dog-radios-frontend/src/app/forgot-password/page.tsx",
+      "apiCalls": [],
+      "redirects": []
+    },
+    {
+      "file": "red-dog-radios-frontend/src/app/funders/[id]/page.tsx",
+      "apiCalls": [],
+      "redirects": []
+    },
+    {
+      "file": "red-dog-radios-frontend/src/app/funders/page.tsx",
+      "apiCalls": [],
+      "redirects": []
+    },
+    {
+      "file": "red-dog-radios-frontend/src/app/login/page.tsx",
+      "apiCalls": [],
+      "redirects": []
+    },
+    {
+      "file": "red-dog-radios-frontend/src/app/matches/page.tsx",
+      "apiCalls": [],
+      "redirects": []
+    },
+    {
+      "file": "red-dog-radios-frontend/src/app/onboarding/page.tsx",
+      "apiCalls": [],
+      "redirects": []
+    },
+    {
+      "file": "red-dog-radios-frontend/src/app/onboarding/step1/page.tsx",
+      "apiCalls": [],
+      "redirects": []
+    },
+    {
+      "file": "red-dog-radios-frontend/src/app/onboarding/step2/page.tsx",
+      "apiCalls": [],
+      "redirects": []
+    },
+    {
+      "file": "red-dog-radios-frontend/src/app/onboarding/step3/page.tsx",
+      "apiCalls": [],
+      "redirects": []
+    },
+    {
+      "file": "red-dog-radios-frontend/src/app/onboarding/step4/page.tsx",
+      "apiCalls": [],
+      "redirects": []
+    },
+    {
+      "file": "red-dog-radios-frontend/src/app/onboarding/step5/page.tsx",
+      "apiCalls": [],
+      "redirects": []
+    },
+    {
+      "file": "red-dog-radios-frontend/src/app/opportunities/page.tsx",
+      "apiCalls": [],
+      "redirects": []
+    },
+    {
+      "file": "red-dog-radios-frontend/src/app/organizations/page.tsx",
+      "apiCalls": [],
+      "redirects": [
+        "\"/settings\""
+      ]
+    },
+    {
+      "file": "red-dog-radios-frontend/src/app/otp-verification/page.tsx",
+      "apiCalls": [],
+      "redirects": []
+    },
+    {
+      "file": "red-dog-radios-frontend/src/app/outbox/page.tsx",
+      "apiCalls": [],
+      "redirects": [
+        "\"/dashboard\""
+      ]
+    },
+    {
+      "file": "red-dog-radios-frontend/src/app/outreach/[id]/page.tsx",
+      "apiCalls": [],
+      "redirects": []
+    },
+    {
+      "file": "red-dog-radios-frontend/src/app/outreach/page.tsx",
+      "apiCalls": [],
+      "redirects": []
+    },
+    {
+      "file": "red-dog-radios-frontend/src/app/page.tsx",
+      "apiCalls": [],
+      "redirects": [
+        "\"/login\""
+      ]
+    },
+    {
+      "file": "red-dog-radios-frontend/src/app/settings/agency/page.tsx",
+      "apiCalls": [],
+      "redirects": []
+    },
+    {
+      "file": "red-dog-radios-frontend/src/app/settings/page.tsx",
+      "apiCalls": [],
+      "redirects": []
+    },
+    {
+      "file": "red-dog-radios-frontend/src/app/signup/page.tsx",
+      "apiCalls": [],
+      "redirects": []
+    },
+    {
+      "file": "red-dog-radios-frontend/src/app/tracker/page.tsx",
+      "apiCalls": [],
+      "redirects": []
+    },
+    {
+      "file": "red-dog-radios-frontend/src/app/weekly-summary/page.tsx",
+      "apiCalls": [],
+      "redirects": []
+    },
+    {
+      "file": "red-dog-radios-frontend/src/app/wins/page.tsx",
+      "apiCalls": [],
+      "redirects": []
+    }
+  ],
+  "uiComponents": [
+    "red-dog-radios-frontend/src/components/AppShell.tsx",
+    "red-dog-radios-frontend/src/components/AppShellLayout.tsx",
+    "red-dog-radios-frontend/src/components/AshleenChat.tsx",
+    "red-dog-radios-frontend/src/components/AuthFooter.tsx",
+    "red-dog-radios-frontend/src/components/AuthSplitLayout.tsx",
+    "red-dog-radios-frontend/src/components/CheckboxFilterDropdown.tsx",
+    "red-dog-radios-frontend/src/components/ConditionalAppShell.tsx",
+    "red-dog-radios-frontend/src/components/MobileFilterSelect.tsx",
+    "red-dog-radios-frontend/src/components/RedDogLogo.tsx",
+    "red-dog-radios-frontend/src/components/StatusBadge.tsx",
+    "red-dog-radios-frontend/src/components/admin/AdminBackLink.tsx",
+    "red-dog-radios-frontend/src/components/admin/AdminShell.tsx",
+    "red-dog-radios-frontend/src/components/admin/AdminTableViewLink.tsx",
+    "red-dog-radios-frontend/src/components/admin/TagSelect.tsx",
+    "red-dog-radios-frontend/src/components/settings/DeleteAccountModal.tsx",
+    "red-dog-radios-frontend/src/components/settings/SettingsPrimitives.tsx",
+    "red-dog-radios-frontend/src/components/ui/accordion.tsx",
+    "red-dog-radios-frontend/src/components/ui/alert-dialog.tsx",
+    "red-dog-radios-frontend/src/components/ui/alert.tsx",
+    "red-dog-radios-frontend/src/components/ui/aspect-ratio.tsx",
+    "red-dog-radios-frontend/src/components/ui/avatar.tsx",
+    "red-dog-radios-frontend/src/components/ui/badge.tsx",
+    "red-dog-radios-frontend/src/components/ui/breadcrumb.tsx",
+    "red-dog-radios-frontend/src/components/ui/button.tsx",
+    "red-dog-radios-frontend/src/components/ui/calendar.tsx",
+    "red-dog-radios-frontend/src/components/ui/card.tsx",
+    "red-dog-radios-frontend/src/components/ui/carousel.tsx",
+    "red-dog-radios-frontend/src/components/ui/chart.tsx",
+    "red-dog-radios-frontend/src/components/ui/checkbox.tsx",
+    "red-dog-radios-frontend/src/components/ui/collapsible.tsx",
+    "red-dog-radios-frontend/src/components/ui/command.tsx",
+    "red-dog-radios-frontend/src/components/ui/context-menu.tsx",
+    "red-dog-radios-frontend/src/components/ui/dialog.tsx",
+    "red-dog-radios-frontend/src/components/ui/drawer.tsx",
+    "red-dog-radios-frontend/src/components/ui/dropdown-menu.tsx",
+    "red-dog-radios-frontend/src/components/ui/form.tsx",
+    "red-dog-radios-frontend/src/components/ui/hover-card.tsx",
+    "red-dog-radios-frontend/src/components/ui/input-otp.tsx",
+    "red-dog-radios-frontend/src/components/ui/input.tsx",
+    "red-dog-radios-frontend/src/components/ui/label.tsx",
+    "red-dog-radios-frontend/src/components/ui/menubar.tsx",
+    "red-dog-radios-frontend/src/components/ui/navigation-menu.tsx",
+    "red-dog-radios-frontend/src/components/ui/pagination.tsx",
+    "red-dog-radios-frontend/src/components/ui/popover.tsx",
+    "red-dog-radios-frontend/src/components/ui/progress.tsx",
+    "red-dog-radios-frontend/src/components/ui/radio-group.tsx",
+    "red-dog-radios-frontend/src/components/ui/resizable.tsx",
+    "red-dog-radios-frontend/src/components/ui/scroll-area.tsx",
+    "red-dog-radios-frontend/src/components/ui/select.tsx",
+    "red-dog-radios-frontend/src/components/ui/separator.tsx",
+    "red-dog-radios-frontend/src/components/ui/sheet.tsx",
+    "red-dog-radios-frontend/src/components/ui/sidebar.tsx",
+    "red-dog-radios-frontend/src/components/ui/skeleton.tsx",
+    "red-dog-radios-frontend/src/components/ui/slider.tsx",
+    "red-dog-radios-frontend/src/components/ui/switch.tsx",
+    "red-dog-radios-frontend/src/components/ui/table.tsx",
+    "red-dog-radios-frontend/src/components/ui/tabs.tsx",
+    "red-dog-radios-frontend/src/components/ui/textarea.tsx",
+    "red-dog-radios-frontend/src/components/ui/toast.tsx",
+    "red-dog-radios-frontend/src/components/ui/toaster.tsx",
+    "red-dog-radios-frontend/src/components/ui/toggle-group.tsx",
+    "red-dog-radios-frontend/src/components/ui/toggle.tsx",
+    "red-dog-radios-frontend/src/components/ui/tooltip.tsx"
+  ],
+  "envFiles": [
+    {
+      "file": "red-dog-radios-backend/.env.example",
+      "content": "NODE_ENV=development\r\nPORT=4000\r\n\r\n# MongoDB\r\nMONGO_URI=mongodb://localhost:27017/reddog_db\r\n\r\n# JWT\r\nJWT_SECRET=your_super_secret_jwt_key_here\r\nJWT_EXPIRES_IN=7d\r\n\r\n# Cloudinary (for file uploads)\r\nCLOUDINARY_CLOUD_NAME=your_cloud_name\r\nCLOUDINARY_API_KEY=your_api_key\r\nCLOUDINARY_API_SECRET=your_api_secret\r\n\r\n# SMTP / Email (stubbed — fill in to enable real sending)\r\nSMTP_HOST=smtp.gmail.com\r\nSMTP_PORT=587\r\nSMTP_USER=your_email@gmail.com\r\nSMTP_PASS=your_app_password\r\nSMTP_FROM=noreply@reddogradios.com\r\n\r\n# OpenAI (stubbed — fill in to enable real AI generation)\r\nOPENAI_API_KEY=your_openai_key_here\r\n\r\n# CORS\r\nCORS_ORIGIN=http://localhost:5000\r\n"
+    },
+    {
+      "file": "red-dog-radios-backend/.env",
+      "content": "NODE_ENV=development\nPORT=4000\n\n# MongoDB\nMONGO_URI=mongodb://localhost:27017/reddog_db\n\n# JWT\nJWT_SECRET=your_super_secret_jwt_key_here\nJWT_EXPIRES_IN=7d\n\n# Cloudinary (for file uploads)\nCLOUDINARY_CLOUD_NAME=your_cloud_name\nCLOUDINARY_API_KEY=your_api_key\nCLOUDINARY_API_SECRET=your_api_secret\n\n# SMTP / Email (Gmail)\nSMTP_HOST=smtp.gmail.com\nSMTP_PORT=587\nSMTP_SECURE=false\nSMTP_USER=sootharjai@gmail.com\nSMTP_PASS=ypoxqmxchobgwwei\nSMTP_FROM=sootharjai@gmail.com\nADMIN_EMAIL=sootharjai@gmail.com\nFRONTEND_URL=http://localhost:3000\n\n# OpenAI (stubbed — fill in to enable real AI generation)\nOPENAI_API_KEY=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\n\n# Dev email redirect — all emails go here in development\n# DEV_REDIRECT_EMAIL=iamjaisuthar@gmail.com\n\n# CORS\nCORS_ORIGIN=http://localhost:3000"
+    },
+    {
+      "file": "red-dog-radios-frontend/.env.example",
+      "content": "# Red Dog Radios Frontend — Environment Variables\n# Copy this file to .env.local and fill in values\n\n# Node environment (development | production | test)\nNODE_ENV=development\n"
+    },
+    {
+      "file": "red-dog-radios-frontend/.env",
+      "content": "# Red Dog Radios Frontend — Local Environment Variables\r\n#\r\n# This file is for local dev only. Do NOT commit it.\r\n# Backend is accessed via Next.js rewrite: /api/* -> ${API_ORIGIN}/api/*\r\n#\r\n# Example:\r\n# API_ORIGIN=http://localhost:4000\r\n\r\n# Backend origin (no trailing slash)\r\nAPI_ORIGIN=http://localhost:4000\r\n\r\n# Optional: if you prefer using a public env var (not required with the rewrite)\r\n# NEXT_PUBLIC_API_ORIGIN=http://localhost:4000\r\n\r\n# Replit domain (optional, used in next.config.ts for allowed dev origins)\r\nREPLIT_DEV_DOMAIN=\r\n"
+    },
+    {
+      "file": "red-dog-radios-frontend/.env.local",
+      "content": "NEXT_PUBLIC_API_ORIGIN=http://localhost:4000\r\nAPI_ORIGIN=http://localhost:4000\r\nNODE_ENV=development\r\n"
+    }
+  ],
+  "envKeys": [
+    "ADMIN_EMAIL",
+    "API_ORIGIN",
+    "CLOUDINARY_API_KEY",
+    "CLOUDINARY_API_SECRET",
+    "CLOUDINARY_CLOUD_NAME",
+    "CORS_ORIGIN",
+    "DEV_REDIRECT_EMAIL",
+    "FRONTEND_URL",
+    "JWT_EXPIRES_IN",
+    "JWT_SECRET",
+    "MONGO_URI",
+    "NEXT_PUBLIC_API_ORIGIN",
+    "NODE_ENV",
+    "OPENAI_API_KEY",
+    "OPENAI_MODEL",
+    "PORT",
+    "REPLIT_DEV_DOMAIN",
+    "SMTP_FROM",
+    "SMTP_HOST",
+    "SMTP_PASS",
+    "SMTP_PORT",
+    "SMTP_SECURE",
+    "SMTP_USER"
+  ]
+}

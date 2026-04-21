@@ -1,0 +1,123 @@
+red-dog-radios-backend/
++-- .env
++-- .env.example
++-- .gitignore
++-- README.md
++-- package-lock.json
++-- package.json
++-- src/
+    +-- app.js
+    +-- config/
+    �   +-- cloudinary.config.js
+    �   +-- email.config.js
+    �   +-- openai.config.js
+    �   +-- resend.config.js
+    +-- middlewares/
+    �   +-- adminAuth.middleware.js
+    �   +-- auth.middleware.js
+    �   +-- error.middleware.js
+    +-- modules/
+    �   +-- activityLogs/
+    �   �   +-- activityLog.schema.js
+    �   �   +-- activityLog.service.js
+    �   +-- admin/
+    �   �   +-- admin.controller.js
+    �   �   +-- admin.route.js
+    �   �   +-- admin.service.js
+    �   +-- agencies/
+    �   �   +-- agency.controller.js
+    �   �   +-- agency.route.js
+    �   �   +-- agency.schema.js
+    �   �   +-- agency.service.js
+    �   +-- ai/
+    �   �   +-- ai.controller.js
+    �   �   +-- ai.route.js
+    �   �   +-- ai.service.js
+    �   +-- alerts/
+    �   �   +-- alert.controller.js
+    �   �   +-- alert.route.js
+    �   �   +-- alert.schema.js
+    �   �   +-- alert.service.js
+    �   +-- applications/
+    �   �   +-- application.controller.js
+    �   �   +-- application.route.js
+    �   �   +-- application.schema.js
+    �   �   +-- application.service.js
+    �   +-- ashleen/
+    �   �   +-- ashleen.controller.js
+    �   �   +-- ashleen.route.js
+    �   +-- auth/
+    �   �   +-- auth.controller.js
+    �   �   +-- auth.route.js
+    �   �   +-- auth.service.js
+    �   �   +-- user.schema.js
+    �   +-- dashboard/
+    �   �   +-- dashboard.controller.js
+    �   �   +-- dashboard.route.js
+    �   �   +-- dashboard.service.js
+    �   +-- digests/
+    �   �   +-- digest.controller.js
+    �   �   +-- digest.route.js
+    �   �   +-- digest.schema.js
+    �   �   +-- digest.service.js
+    �   +-- followups/
+    �   �   +-- followup.controller.js
+    �   �   +-- followup.route.js
+    �   �   +-- followup.schema.js
+    �   �   +-- followup.service.js
+    �   +-- funders/
+    �   �   +-- funder.controller.js
+    �   �   +-- funder.route.js
+    �   �   +-- funder.schema.js
+    �   �   +-- funder.service.js
+    �   +-- matches/
+    �   �   +-- match.controller.js
+    �   �   +-- match.route.js
+    �   �   +-- match.schema.js
+    �   �   +-- match.service.js
+    �   +-- onboarding/
+    �   �   +-- onboarding.controller.js
+    �   �   +-- onboarding.route.js
+    �   �   +-- onboarding.service.js
+    �   +-- opportunities/
+    �   �   +-- opportunity.controller.js
+    �   �   +-- opportunity.route.js
+    �   �   +-- opportunity.schema.js
+    �   �   +-- opportunity.service.js
+    �   +-- organizations/
+    �   �   +-- organization.controller.js
+    �   �   +-- organization.route.js
+    �   �   +-- organization.schema.js
+    �   �   +-- organization.service.js
+    �   +-- outbox/
+    �   �   +-- outbox.controller.js
+    �   �   +-- outbox.route.js
+    �   �   +-- outbox.schema.js
+    �   �   +-- outbox.service.js
+    �   +-- outreach/
+    �   �   +-- outreach.controller.js
+    �   �   +-- outreach.route.js
+    �   �   +-- outreach.schema.js
+    �   �   +-- outreach.service.js
+    �   +-- settings/
+    �   �   +-- settings.controller.js
+    �   �   +-- settings.route.js
+    �   �   +-- settings.service.js
+    �   +-- tracker/
+    �   �   +-- tracker.controller.js
+    �   �   +-- tracker.route.js
+    �   �   +-- tracker.service.js
+    �   +-- wins/
+    �       +-- win.controller.js
+    �       +-- win.route.js
+    �       +-- win.schema.js
+    �       +-- win.service.js
+    +-- server.js
+    +-- utils/
+        +-- apiResponse.js
+        +-- asyncHandler.js
+        +-- cron.jobs.js
+        +-- logger.js
+        +-- parsePagination.js
+        +-- resolveAgencyOrg.js
+        +-- seed.js

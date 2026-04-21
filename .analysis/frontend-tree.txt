@@ -1,0 +1,285 @@
+red-dog-radios-frontend/
++-- .env
++-- .env.example
++-- .env.local
++-- .gitignore
++-- README.md
++-- eslint.config.mjs
++-- next-env.d.ts
++-- next.config.ts
++-- package-lock.json
++-- package.json
++-- postcss.config.mjs
++-- public/
+�   +-- auth-background.png
+�   +-- favicon.png
+�   +-- figmaAssets/
+�   �   +-- overlay-1.svg
+�   �   +-- overlay-2.svg
+�   �   +-- overlay-3.svg
+�   �   +-- overlay-4.svg
+�   �   +-- overlay-5.svg
+�   �   +-- overlay.svg
+�   �   +-- svg-1.svg
+�   �   +-- svg-10.svg
+�   �   +-- svg-11.svg
+�   �   +-- svg-12.svg
+�   �   +-- svg-13.svg
+�   �   +-- svg-14.svg
+�   �   +-- svg-15.svg
+�   �   +-- svg-2.svg
+�   �   +-- svg-3.svg
+�   �   +-- svg-4.svg
+�   �   +-- svg-5.svg
+�   �   +-- svg-6.svg
+�   �   +-- svg-7.svg
+�   �   +-- svg-8.svg
+�   �   +-- svg-9.svg
+�   �   +-- svg.svg
+�   +-- file.svg
+�   +-- globe.svg
+�   +-- next.svg
+�   +-- vercel.svg
+�   +-- window.svg
++-- src/
+�   +-- app/
+�   �   +-- admin/
+�   �   �   +-- (panel)/
+�   �   �   �   +-- activity/
+�   �   �   �   �   +-- [id]/
+�   �   �   �   �   �   +-- page.tsx
+�   �   �   �   �   +-- page.tsx
+�   �   �   �   +-- agencies/
+�   �   �   �   �   +-- [id]/
+�   �   �   �   �   �   +-- page.tsx
+�   �   �   �   �   +-- page.tsx
+�   �   �   �   +-- applications/
+�   �   �   �   �   +-- [id]/
+�   �   �   �   �   �   +-- page.tsx
+�   �   �   �   �   +-- page.tsx
+�   �   �   �   +-- dashboard/
+�   �   �   �   �   +-- page.tsx
+�   �   �   �   +-- funders/
+�   �   �   �   �   +-- [id]/
+�   �   �   �   �   �   +-- edit/
+�   �   �   �   �   �   �   +-- page.tsx
+�   �   �   �   �   �   +-- page.tsx
+�   �   �   �   �   +-- new/
+�   �   �   �   �   �   +-- page.tsx
+�   �   �   �   �   +-- page.tsx
+�   �   �   �   +-- layout.tsx
+�   �   �   �   +-- matches/
+�   �   �   �   �   +-- [id]/
+�   �   �   �   �   �   +-- page.tsx
+�   �   �   �   �   +-- page.tsx
+�   �   �   �   +-- opportunities/
+�   �   �   �   �   +-- [id]/
+�   �   �   �   �   �   +-- edit/
+�   �   �   �   �   �   �   +-- page.tsx
+�   �   �   �   �   �   +-- page.tsx
+�   �   �   �   �   +-- new/
+�   �   �   �   �   �   +-- page.tsx
+�   �   �   �   �   +-- page.tsx
+�   �   �   �   +-- settings/
+�   �   �   �   �   +-- page.tsx
+�   �   �   �   +-- users/
+�   �   �   �       +-- [id]/
+�   �   �   �       �   +-- page.tsx
+�   �   �   �       +-- page.tsx
+�   �   �   +-- layout.tsx
+�   �   �   +-- login/
+�   �   �   �   +-- page.tsx
+�   �   �   +-- page.tsx
+�   �   +-- agencies/
+�   �   +-- alerts/
+�   �   �   +-- page.tsx
+�   �   +-- applications/
+�   �   �   +-- [id]/
+�   �   �   �   +-- page.tsx
+�   �   �   +-- page.tsx
+�   �   +-- create-password/
+�   �   �   +-- page.tsx
+�   �   +-- dashboard/
+�   �   �   +-- page.tsx
+�   �   +-- favicon.ico
+�   �   +-- followups/
+�   �   �   +-- page.tsx
+�   �   +-- forgot-password/
+�   �   �   +-- page.tsx
+�   �   +-- funders/
+�   �   �   +-- [id]/
+�   �   �   �   +-- page.tsx
+�   �   �   +-- page.tsx
+�   �   +-- globals.css
+�   �   +-- layout.tsx
+�   �   +-- login/
+�   �   �   +-- page.tsx
+�   �   +-- matches/
+�   �   �   +-- page.tsx
+�   �   +-- not-found.tsx
+�   �   +-- onboarding/
+�   �   �   +-- page.tsx
+�   �   �   +-- step1/
+�   �   �   �   +-- page.tsx
+�   �   �   +-- step2/
+�   �   �   �   +-- page.tsx
+�   �   �   +-- step3/
+�   �   �   �   +-- page.tsx
+�   �   �   +-- step4/
+�   �   �   �   +-- page.tsx
+�   �   �   +-- step5/
+�   �   �       +-- page.tsx
+�   �   +-- opportunities/
+�   �   �   +-- page.tsx
+�   �   +-- organizations/
+�   �   �   +-- page.tsx
+�   �   +-- otp-verification/
+�   �   �   +-- page.tsx
+�   �   +-- outbox/
+�   �   �   +-- page.tsx
+�   �   +-- outreach/
+�   �   �   +-- [id]/
+�   �   �   �   +-- page.tsx
+�   �   �   +-- page.tsx
+�   �   +-- page.tsx
+�   �   +-- providers.tsx
+�   �   +-- settings/
+�   �   �   +-- agency/
+�   �   �   �   +-- page.tsx
+�   �   �   +-- page.tsx
+�   �   +-- signup/
+�   �   �   +-- page.tsx
+�   �   +-- tracker/
+�   �   �   +-- page.tsx
+�   �   +-- weekly-summary/
+�   �   �   +-- page.tsx
+�   �   +-- wins/
+�   �       +-- page.tsx
+�   +-- components/
+�   �   +-- AppShell.tsx
+�   �   +-- AppShellLayout.tsx
+�   �   +-- AshleenChat.tsx
+�   �   +-- AuthFooter.tsx
+�   �   +-- AuthSplitLayout.tsx
+�   �   +-- CheckboxFilterDropdown.tsx
+�   �   +-- ConditionalAppShell.tsx
+�   �   +-- MobileFilterSelect.tsx
+�   �   +-- RedDogLogo.tsx
+�   �   +-- StatusBadge.tsx
+�   �   +-- admin/
+�   �   �   +-- AdminBackLink.tsx
+�   �   �   +-- AdminShell.tsx
+�   �   �   +-- AdminTableViewLink.tsx
+�   �   �   +-- TagSelect.tsx
+�   �   +-- settings/
+�   �   �   +-- DeleteAccountModal.tsx
+�   �   �   +-- SettingsPrimitives.tsx
+�   �   +-- ui/
+�   �       +-- accordion.tsx
+�   �       +-- alert-dialog.tsx
+�   �       +-- alert.tsx
+�   �       +-- aspect-ratio.tsx
+�   �       +-- avatar.tsx
+�   �       +-- badge.tsx
+�   �       +-- breadcrumb.tsx
+�   �       +-- button.tsx
+�   �       +-- calendar.tsx
+�   �       +-- card.tsx
+�   �       +-- carousel.tsx
+�   �       +-- chart.tsx
+�   �       +-- checkbox.tsx
+�   �       +-- collapsible.tsx
+�   �       +-- command.tsx
+�   �       +-- context-menu.tsx
+�   �       +-- dialog.tsx
+�   �       +-- drawer.tsx
+�   �       +-- dropdown-menu.tsx
+�   �       +-- form.tsx
+�   �       +-- hover-card.tsx
+�   �       +-- input-otp.tsx
+�   �       +-- input.tsx
+�   �       +-- label.tsx
+�   �       +-- menubar.tsx
+�   �       +-- navigation-menu.tsx
+�   �       +-- pagination.tsx
+�   �       +-- popover.tsx
+�   �       +-- progress.tsx
+�   �       +-- radio-group.tsx
+�   �       +-- resizable.tsx
+�   �       +-- scroll-area.tsx
+�   �       +-- select.tsx
+�   �       +-- separator.tsx
+�   �       +-- sheet.tsx
+�   �       +-- sidebar.tsx
+�   �       +-- skeleton.tsx
+�   �       +-- slider.tsx
+�   �       +-- switch.tsx
+�   �       +-- table.tsx
+�   �       +-- tabs.tsx
+�   �       +-- textarea.tsx
+�   �       +-- toast.tsx
+�   �       +-- toaster.tsx
+�   �       +-- toggle-group.tsx
+�   �       +-- toggle.tsx
+�   �       +-- tooltip.tsx
+�   +-- hooks/
+�   �   +-- use-mobile.tsx
+�   �   +-- use-toast.ts
+�   +-- lib/
+�   �   +-- AdminAuthContext.tsx
+�   �   +-- AgencyAuthContext.tsx
+�   �   +-- AuthContext.tsx
+�   �   +-- adminApi.ts
+�   �   +-- adminConstants.ts
+�   �   +-- api.ts
+�   �   +-- authErrors.ts
+�   �   +-- constants.ts
+�   �   +-- queryClient.ts
+�   �   +-- queryKeys.ts
+�   �   +-- useAuthGateRedirects.ts
+�   �   +-- utils.ts
+�   �   +-- validation-schemas.ts
+�   +-- middleware.ts
+�   +-- types/
+�   �   +-- jsx-globals.d.ts
+�   +-- views/
+�       +-- Agencies.tsx
+�       +-- AgencyProfile.tsx
+�       +-- Alerts.tsx
+�       +-- ApplicationBuilder.tsx
+�       +-- Applications.tsx
+�       +-- CreatePassword.tsx
+�       +-- Dashboard.tsx
+�       +-- FollowUps.tsx
+�       +-- ForgotPassword.tsx
+�       +-- FunderDetail.tsx
+�       +-- Funders.tsx
+�       +-- Login.tsx
+�       +-- Matches.tsx
+�       +-- Opportunities.tsx
+�       +-- Organizations.tsx
+�       +-- OtpVerification.tsx
+�       +-- Outbox.tsx
+�       +-- OutreachBuilder.tsx
+�       +-- OutreachList.tsx
+�       +-- Settings.tsx
+�       +-- SignUp.tsx
+�       +-- Tracker.tsx
+�       +-- WeeklySummary.tsx
+�       +-- Wins.tsx
+�       +-- admin/
+�       �   +-- AdminSettings.tsx
+�       +-- not-found.tsx
+�       +-- onboarding/
+�       �   +-- OnboardingWelcome.tsx
+�       �   +-- Step1.tsx
+�       �   +-- Step2.tsx
+�       �   +-- Step3.tsx
+�       �   +-- Step4.tsx
+�       �   +-- Step5.tsx
+�       +-- sections/
+�           +-- PlatformDashboardSection.tsx
+�           +-- PrimaryNavigationMenuSection.tsx
++-- tailwind.config.ts
++-- tsconfig.json
++-- tsconfig.tsbuildinfo

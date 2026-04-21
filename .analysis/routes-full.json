@@ -1,0 +1,1025 @@
+[
+  {
+    "module": "admin",
+    "method": "GET",
+    "path": "/api/admin/activity-logs",
+    "middlewares": [
+      "protectAdmin"
+    ],
+    "action": "ctrl.listActivityLogs"
+  },
+  {
+    "module": "admin",
+    "method": "GET",
+    "path": "/api/admin/activity-logs/:id",
+    "middlewares": [
+      "protectAdmin"
+    ],
+    "action": "ctrl.getActivityLog"
+  },
+  {
+    "module": "admin",
+    "method": "GET",
+    "path": "/api/admin/agencies",
+    "middlewares": [
+      "protectAdmin"
+    ],
+    "action": "ctrl.listAgencies"
+  },
+  {
+    "module": "admin",
+    "method": "GET",
+    "path": "/api/admin/agencies/:id",
+    "middlewares": [
+      "protectAdmin"
+    ],
+    "action": "ctrl.getAgency"
+  },
+  {
+    "module": "admin",
+    "method": "GET",
+    "path": "/api/admin/applications",
+    "middlewares": [
+      "protectAdmin"
+    ],
+    "action": "ctrl.listApplications"
+  },
+  {
+    "module": "admin",
+    "method": "DELETE",
+    "path": "/api/admin/applications/:id",
+    "middlewares": [
+      "protectAdmin"
+    ],
+    "action": "ctrl.deleteApplication"
+  },
+  {
+    "module": "admin",
+    "method": "GET",
+    "path": "/api/admin/applications/:id",
+    "middlewares": [
+      "protectAdmin"
+    ],
+    "action": "ctrl.getApplication"
+  },
+  {
+    "module": "admin",
+    "method": "PUT",
+    "path": "/api/admin/applications/:id",
+    "middlewares": [
+      "protectAdmin"
+    ],
+    "action": "ctrl.updateApplication"
+  },
+  {
+    "module": "admin",
+    "method": "POST",
+    "path": "/api/admin/applications/:id/generate-ai",
+    "middlewares": [
+      "protectAdmin"
+    ],
+    "action": "ctrl.generateApplicationAI"
+  },
+  {
+    "module": "admin",
+    "method": "PUT",
+    "path": "/api/admin/applications/:id/status",
+    "middlewares": [
+      "protectAdmin"
+    ],
+    "action": "ctrl.updateApplicationStatus"
+  },
+  {
+    "module": "admin",
+    "method": "POST",
+    "path": "/api/admin/applications/create-for-agency",
+    "middlewares": [
+      "protectAdmin"
+    ],
+    "action": "ctrl.createApplicationForAgency"
+  },
+  {
+    "module": "admin",
+    "method": "POST",
+    "path": "/api/admin/auth/login",
+    "middlewares": [],
+    "action": "ctrl.adminLogin"
+  },
+  {
+    "module": "admin",
+    "method": "GET",
+    "path": "/api/admin/auth/me",
+    "middlewares": [
+      "protectAdmin"
+    ],
+    "action": "ctrl.adminMe"
+  },
+  {
+    "module": "admin",
+    "method": "GET",
+    "path": "/api/admin/dashboard",
+    "middlewares": [
+      "protectAdmin"
+    ],
+    "action": "ctrl.dashboard"
+  },
+  {
+    "module": "admin",
+    "method": "GET",
+    "path": "/api/admin/funders",
+    "middlewares": [
+      "protectAdmin"
+    ],
+    "action": "ctrl.listFunders"
+  },
+  {
+    "module": "admin",
+    "method": "POST",
+    "path": "/api/admin/funders",
+    "middlewares": [
+      "protectAdmin"
+    ],
+    "action": "ctrl.createFunder"
+  },
+  {
+    "module": "admin",
+    "method": "DELETE",
+    "path": "/api/admin/funders/:id",
+    "middlewares": [
+      "protectAdmin"
+    ],
+    "action": "ctrl.deleteFunder"
+  },
+  {
+    "module": "admin",
+    "method": "GET",
+    "path": "/api/admin/funders/:id",
+    "middlewares": [
+      "protectAdmin"
+    ],
+    "action": "ctrl.getFunder"
+  },
+  {
+    "module": "admin",
+    "method": "PUT",
+    "path": "/api/admin/funders/:id",
+    "middlewares": [
+      "protectAdmin"
+    ],
+    "action": "ctrl.updateFunder"
+  },
+  {
+    "module": "admin",
+    "method": "PUT",
+    "path": "/api/admin/funders/:id/set-limit",
+    "middlewares": [
+      "protectAdmin"
+    ],
+    "action": "ctrl.setFunderLimit"
+  },
+  {
+    "module": "admin",
+    "method": "PUT",
+    "path": "/api/admin/funders/:id/unlock",
+    "middlewares": [
+      "protectAdmin"
+    ],
+    "action": "ctrl.unlockFunder"
+  },
+  {
+    "module": "admin",
+    "method": "GET",
+    "path": "/api/admin/matches",
+    "middlewares": [
+      "protectAdmin"
+    ],
+    "action": "ctrl.listMatches"
+  },
+  {
+    "module": "admin",
+    "method": "GET",
+    "path": "/api/admin/matches/:id",
+    "middlewares": [
+      "protectAdmin"
+    ],
+    "action": "ctrl.getMatch"
+  },
+  {
+    "module": "admin",
+    "method": "PUT",
+    "path": "/api/admin/matches/:id/approve",
+    "middlewares": [
+      "protectAdmin"
+    ],
+    "action": "ctrl.approveMatch"
+  },
+  {
+    "module": "admin",
+    "method": "PUT",
+    "path": "/api/admin/matches/:id/reject",
+    "middlewares": [
+      "protectAdmin"
+    ],
+    "action": "ctrl.rejectMatch"
+  },
+  {
+    "module": "admin",
+    "method": "POST",
+    "path": "/api/admin/matches/recompute-all",
+    "middlewares": [
+      "protectAdmin"
+    ],
+    "action": "ctrl.recomputeMatches"
+  },
+  {
+    "module": "admin",
+    "method": "GET",
+    "path": "/api/admin/opportunities",
+    "middlewares": [
+      "protectAdmin"
+    ],
+    "action": "ctrl.listOpportunities"
+  },
+  {
+    "module": "admin",
+    "method": "POST",
+    "path": "/api/admin/opportunities",
+    "middlewares": [
+      "protectAdmin"
+    ],
+    "action": "ctrl.createOpportunity"
+  },
+  {
+    "module": "admin",
+    "method": "DELETE",
+    "path": "/api/admin/opportunities/:id",
+    "middlewares": [
+      "protectAdmin"
+    ],
+    "action": "ctrl.deleteOpportunity"
+  },
+  {
+    "module": "admin",
+    "method": "GET",
+    "path": "/api/admin/opportunities/:id",
+    "middlewares": [
+      "protectAdmin"
+    ],
+    "action": "ctrl.getOpportunity"
+  },
+  {
+    "module": "admin",
+    "method": "PUT",
+    "path": "/api/admin/opportunities/:id",
+    "middlewares": [
+      "protectAdmin"
+    ],
+    "action": "ctrl.updateOpportunity"
+  },
+  {
+    "module": "admin",
+    "method": "GET",
+    "path": "/api/admin/users",
+    "middlewares": [
+      "protectAdmin"
+    ],
+    "action": "ctrl.listUsers"
+  },
+  {
+    "module": "admin",
+    "method": "GET",
+    "path": "/api/admin/users/:id",
+    "middlewares": [
+      "protectAdmin"
+    ],
+    "action": "ctrl.getUser"
+  },
+  {
+    "module": "admin",
+    "method": "PUT",
+    "path": "/api/admin/users/:id/role",
+    "middlewares": [
+      "protectAdmin"
+    ],
+    "action": "ctrl.updateUserRole"
+  },
+  {
+    "module": "agencies",
+    "method": "GET",
+    "path": "/api/agencies",
+    "middlewares": [
+      "protect"
+    ],
+    "action": "getAll"
+  },
+  {
+    "module": "agencies",
+    "method": "POST",
+    "path": "/api/agencies",
+    "middlewares": [
+      "protect"
+    ],
+    "action": "create"
+  },
+  {
+    "module": "agencies",
+    "method": "GET",
+    "path": "/api/agencies/:id",
+    "middlewares": [
+      "protect"
+    ],
+    "action": "getOne"
+  },
+  {
+    "module": "agencies",
+    "method": "PUT",
+    "path": "/api/agencies/:id",
+    "middlewares": [
+      "protect"
+    ],
+    "action": "update"
+  },
+  {
+    "module": "ai",
+    "method": "POST",
+    "path": "/api/ai/compute-match",
+    "middlewares": [
+      "protect",
+      "aiLimiter"
+    ],
+    "action": "computeMatch"
+  },
+  {
+    "module": "ai",
+    "method": "POST",
+    "path": "/api/ai/generate-application",
+    "middlewares": [
+      "protect",
+      "aiLimiter"
+    ],
+    "action": "generateApplication"
+  },
+  {
+    "module": "ai",
+    "method": "POST",
+    "path": "/api/ai/generate-email",
+    "middlewares": [
+      "protect",
+      "aiLimiter"
+    ],
+    "action": "generateEmail"
+  },
+  {
+    "module": "ai",
+    "method": "POST",
+    "path": "/api/ai/generate-summary",
+    "middlewares": [
+      "protect",
+      "aiLimiter"
+    ],
+    "action": "generateSummary"
+  },
+  {
+    "module": "alerts",
+    "method": "GET",
+    "path": "/api/alerts",
+    "middlewares": [
+      "protect"
+    ],
+    "action": "getAll"
+  },
+  {
+    "module": "alerts",
+    "method": "DELETE",
+    "path": "/api/alerts/:id",
+    "middlewares": [
+      "protect"
+    ],
+    "action": "remove"
+  },
+  {
+    "module": "alerts",
+    "method": "PUT",
+    "path": "/api/alerts/:id/read",
+    "middlewares": [
+      "protect"
+    ],
+    "action": "markRead"
+  },
+  {
+    "module": "alerts",
+    "method": "PUT",
+    "path": "/api/alerts/read-all",
+    "middlewares": [
+      "protect"
+    ],
+    "action": "markAllRead"
+  },
+  {
+    "module": "applications",
+    "method": "GET",
+    "path": "/api/applications",
+    "middlewares": [
+      "protect"
+    ],
+    "action": "getAll"
+  },
+  {
+    "module": "applications",
+    "method": "POST",
+    "path": "/api/applications",
+    "middlewares": [
+      "protect"
+    ],
+    "action": "create"
+  },
+  {
+    "module": "applications",
+    "method": "DELETE",
+    "path": "/api/applications/:id",
+    "middlewares": [
+      "protect"
+    ],
+    "action": "remove"
+  },
+  {
+    "module": "applications",
+    "method": "GET",
+    "path": "/api/applications/:id",
+    "middlewares": [
+      "protect"
+    ],
+    "action": "getOne"
+  },
+  {
+    "module": "applications",
+    "method": "PUT",
+    "path": "/api/applications/:id",
+    "middlewares": [
+      "protect"
+    ],
+    "action": "update"
+  },
+  {
+    "module": "applications",
+    "method": "POST",
+    "path": "/api/applications/:id/align",
+    "middlewares": [
+      "protect",
+      "aiLimiter"
+    ],
+    "action": "alignToFunder"
+  },
+  {
+    "module": "applications",
+    "method": "GET",
+    "path": "/api/applications/:id/export",
+    "middlewares": [
+      "protect"
+    ],
+    "action": "exportApplication"
+  },
+  {
+    "module": "applications",
+    "method": "POST",
+    "path": "/api/applications/:id/regenerate",
+    "middlewares": [
+      "protect",
+      "aiLimiter"
+    ],
+    "action": "regenerate"
+  },
+  {
+    "module": "applications",
+    "method": "PUT",
+    "path": "/api/applications/:id/status",
+    "middlewares": [
+      "protect"
+    ],
+    "action": "updateStatus"
+  },
+  {
+    "module": "applications",
+    "method": "PUT",
+    "path": "/api/applications/:id/submit",
+    "middlewares": [
+      "protect"
+    ],
+    "action": "submit"
+  },
+  {
+    "module": "applications",
+    "method": "POST",
+    "path": "/api/applications/generate",
+    "middlewares": [
+      "protect",
+      "aiLimiter"
+    ],
+    "action": "generate"
+  },
+  {
+    "module": "ashleen",
+    "method": "POST",
+    "path": "/api/ashleen/chat",
+    "middlewares": [
+      "protect"
+    ],
+    "action": "chat"
+  },
+  {
+    "module": "auth",
+    "method": "POST",
+    "path": "/api/auth/forgot-password",
+    "middlewares": [
+      "forgotPasswordLimiter"
+    ],
+    "action": "forgotPassword"
+  },
+  {
+    "module": "auth",
+    "method": "POST",
+    "path": "/api/auth/login",
+    "middlewares": [
+      "loginLimiter"
+    ],
+    "action": "login"
+  },
+  {
+    "module": "auth",
+    "method": "GET",
+    "path": "/api/auth/me",
+    "middlewares": [
+      "protect"
+    ],
+    "action": "getMe"
+  },
+  {
+    "module": "auth",
+    "method": "POST",
+    "path": "/api/auth/register",
+    "middlewares": [],
+    "action": "register"
+  },
+  {
+    "module": "auth",
+    "method": "POST",
+    "path": "/api/auth/resend-verification",
+    "middlewares": [
+      "resendLimiter"
+    ],
+    "action": "resendVerificationOtp"
+  },
+  {
+    "module": "auth",
+    "method": "POST",
+    "path": "/api/auth/reset-password",
+    "middlewares": [
+      "resetPasswordLimiter"
+    ],
+    "action": "resetPassword"
+  },
+  {
+    "module": "auth",
+    "method": "POST",
+    "path": "/api/auth/verify-email",
+    "middlewares": [
+      "otpLimiter"
+    ],
+    "action": "verifySignupOtp"
+  },
+  {
+    "module": "auth",
+    "method": "POST",
+    "path": "/api/auth/verify-otp",
+    "middlewares": [
+      "otpLimiter"
+    ],
+    "action": "verifyOtp"
+  },
+  {
+    "module": "dashboard",
+    "method": "GET",
+    "path": "/api/dashboard/stats",
+    "middlewares": [
+      "protect"
+    ],
+    "action": "getStats"
+  },
+  {
+    "module": "digests",
+    "method": "GET",
+    "path": "/api/digests",
+    "middlewares": [
+      "protect"
+    ],
+    "action": "getAll"
+  },
+  {
+    "module": "digests",
+    "method": "GET",
+    "path": "/api/digests/:id",
+    "middlewares": [
+      "protect"
+    ],
+    "action": "getOne"
+  },
+  {
+    "module": "digests",
+    "method": "POST",
+    "path": "/api/digests/:id/send",
+    "middlewares": [
+      "protect"
+    ],
+    "action": "send"
+  },
+  {
+    "module": "digests",
+    "method": "POST",
+    "path": "/api/digests/generate",
+    "middlewares": [
+      "protect"
+    ],
+    "action": "generate"
+  },
+  {
+    "module": "digests",
+    "method": "POST",
+    "path": "/api/digests/preview",
+    "middlewares": [
+      "protect"
+    ],
+    "action": "preview"
+  },
+  {
+    "module": "followups",
+    "method": "GET",
+    "path": "/api/followups",
+    "middlewares": [
+      "protect"
+    ],
+    "action": "getAll"
+  },
+  {
+    "module": "followups",
+    "method": "PUT",
+    "path": "/api/followups/:id/send",
+    "middlewares": [
+      "protect"
+    ],
+    "action": "markSent"
+  },
+  {
+    "module": "followups",
+    "method": "PUT",
+    "path": "/api/followups/:id/skip",
+    "middlewares": [
+      "protect"
+    ],
+    "action": "skip"
+  },
+  {
+    "module": "funders",
+    "method": "GET",
+    "path": "/api/funders",
+    "middlewares": [
+      "protect"
+    ],
+    "action": "getAll"
+  },
+  {
+    "module": "funders",
+    "method": "GET",
+    "path": "/api/funders/:id",
+    "middlewares": [
+      "protect"
+    ],
+    "action": "getOne"
+  },
+  {
+    "module": "funders",
+    "method": "PUT",
+    "path": "/api/funders/:id",
+    "middlewares": [
+      "protect"
+    ],
+    "action": "updateAgencyNotes"
+  },
+  {
+    "module": "funders",
+    "method": "GET",
+    "path": "/api/funders/:id/queue",
+    "middlewares": [
+      "protect"
+    ],
+    "action": "getQueue"
+  },
+  {
+    "module": "funders",
+    "method": "POST",
+    "path": "/api/funders/:id/save",
+    "middlewares": [
+      "protect"
+    ],
+    "action": "saveFunder"
+  },
+  {
+    "module": "matches",
+    "method": "GET",
+    "path": "/api/matches",
+    "middlewares": [
+      "protect"
+    ],
+    "action": "getAll"
+  },
+  {
+    "module": "matches",
+    "method": "POST",
+    "path": "/api/matches",
+    "middlewares": [
+      "protect"
+    ],
+    "action": "create"
+  },
+  {
+    "module": "matches",
+    "method": "GET",
+    "path": "/api/matches/:id",
+    "middlewares": [
+      "protect"
+    ],
+    "action": "getOne"
+  },
+  {
+    "module": "matches",
+    "method": "PUT",
+    "path": "/api/matches/:id/approve",
+    "middlewares": [
+      "protect",
+      "protectAdmin"
+    ],
+    "action": "approve"
+  },
+  {
+    "module": "matches",
+    "method": "PUT",
+    "path": "/api/matches/:id/reject",
+    "middlewares": [
+      "protect",
+      "protectAdmin"
+    ],
+    "action": "reject"
+  },
+  {
+    "module": "matches",
+    "method": "POST",
+    "path": "/api/matches/compute",
+    "middlewares": [
+      "protect"
+    ],
+    "action": "computeAndSave"
+  },
+  {
+    "module": "matches",
+    "method": "POST",
+    "path": "/api/matches/compute-all",
+    "middlewares": [
+      "protect",
+      "computeLimiter"
+    ],
+    "action": "computeAll"
+  },
+  {
+    "module": "onboarding",
+    "method": "POST",
+    "path": "/api/onboarding/complete",
+    "middlewares": [
+      "protect"
+    ],
+    "action": "complete"
+  },
+  {
+    "module": "opportunities",
+    "method": "GET",
+    "path": "/api/opportunities",
+    "middlewares": [
+      "protect"
+    ],
+    "action": "getAll"
+  },
+  {
+    "module": "opportunities",
+    "method": "GET",
+    "path": "/api/opportunities/:id",
+    "middlewares": [
+      "protect"
+    ],
+    "action": "getOne"
+  },
+  {
+    "module": "organizations",
+    "method": "GET",
+    "path": "/api/organizations",
+    "middlewares": [
+      "protect"
+    ],
+    "action": "getAll"
+  },
+  {
+    "module": "organizations",
+    "method": "POST",
+    "path": "/api/organizations",
+    "middlewares": [
+      "protect"
+    ],
+    "action": "create"
+  },
+  {
+    "module": "organizations",
+    "method": "GET",
+    "path": "/api/organizations/:id",
+    "middlewares": [
+      "protect"
+    ],
+    "action": "getOne"
+  },
+  {
+    "module": "organizations",
+    "method": "PUT",
+    "path": "/api/organizations/:id",
+    "middlewares": [
+      "protect"
+    ],
+    "action": "update"
+  },
+  {
+    "module": "outbox",
+    "method": "GET",
+    "path": "/api/outbox",
+    "middlewares": [
+      "protect"
+    ],
+    "action": "getAll"
+  },
+  {
+    "module": "outbox",
+    "method": "GET",
+    "path": "/api/outbox/:id",
+    "middlewares": [
+      "protect"
+    ],
+    "action": "getOne"
+  },
+  {
+    "module": "outbox",
+    "method": "POST",
+    "path": "/api/outbox/:id/retry",
+    "middlewares": [
+      "protect"
+    ],
+    "action": "retryFailed"
+  },
+  {
+    "module": "outbox",
+    "method": "POST",
+    "path": "/api/outbox/:id/send",
+    "middlewares": [
+      "protect"
+    ],
+    "action": "sendEmail"
+  },
+  {
+    "module": "outbox",
+    "method": "POST",
+    "path": "/api/outbox/queue",
+    "middlewares": [
+      "protect"
+    ],
+    "action": "queueEmail"
+  },
+  {
+    "module": "outreach",
+    "method": "GET",
+    "path": "/api/outreach",
+    "middlewares": [
+      "protect"
+    ],
+    "action": "getAll"
+  },
+  {
+    "module": "outreach",
+    "method": "GET",
+    "path": "/api/outreach/:id",
+    "middlewares": [
+      "protect"
+    ],
+    "action": "getOne"
+  },
+  {
+    "module": "outreach",
+    "method": "PUT",
+    "path": "/api/outreach/:id",
+    "middlewares": [
+      "protect"
+    ],
+    "action": "update"
+  },
+  {
+    "module": "outreach",
+    "method": "POST",
+    "path": "/api/outreach/:id/send",
+    "middlewares": [
+      "protect"
+    ],
+    "action": "sendOutreach"
+  },
+  {
+    "module": "outreach",
+    "method": "PUT",
+    "path": "/api/outreach/:id/sent",
+    "middlewares": [
+      "protect"
+    ],
+    "action": "markSent"
+  },
+  {
+    "module": "outreach",
+    "method": "POST",
+    "path": "/api/outreach/generate",
+    "middlewares": [
+      "protect"
+    ],
+    "action": "generate"
+  },
+  {
+    "module": "settings",
+    "method": "GET",
+    "path": "/api/settings",
+    "middlewares": [
+      "protect"
+    ],
+    "action": "getSettings"
+  },
+  {
+    "module": "settings",
+    "method": "PUT",
+    "path": "/api/settings",
+    "middlewares": [
+      "protect"
+    ],
+    "action": "updateSettings"
+  },
+  {
+    "module": "settings",
+    "method": "DELETE",
+    "path": "/api/settings/account",
+    "middlewares": [
+      "protect"
+    ],
+    "action": "deleteAccount"
+  },
+  {
+    "module": "tracker",
+    "method": "GET",
+    "path": "/api/tracker",
+    "middlewares": [
+      "protect"
+    ],
+    "action": "getTracker"
+  },
+  {
+    "module": "tracker",
+    "method": "GET",
+    "path": "/api/tracker/stats",
+    "middlewares": [
+      "protect"
+    ],
+    "action": "getTrackerStats"
+  },
+  {
+    "module": "wins",
+    "method": "GET",
+    "path": "/api/wins",
+    "middlewares": [
+      "protect"
+    ],
+    "action": "getAll"
+  },
+  {
+    "module": "wins",
+    "method": "GET",
+    "path": "/api/wins/insights",
+    "middlewares": [
+      "protect"
+    ],
+    "action": "getInsights"
+  },
+  {
+    "module": "wins",
+    "method": "GET",
+    "path": "/api/wins/patterns",
+    "middlewares": [
+      "protect"
+    ],
+    "action": "getPatterns"
+  }
+]

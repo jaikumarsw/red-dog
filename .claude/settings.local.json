@@ -2,7 +2,8 @@
   "permissions": {
     "allow": [
       "Bash(npx tsc:*)",
-      "Bash(node -e \"require\\('./src/app'\\)\")"
+      "Bash(node -e \"require\\('./src/app'\\)\")",
+      "Bash(node -e ' *)"
     ]
   }
 }

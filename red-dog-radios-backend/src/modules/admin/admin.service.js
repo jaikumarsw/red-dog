@@ -23,6 +23,20 @@ const matchTier = (score) => {
   return 'low';
 };
 
+const uniqStrings = (arr) => {
+  const seen = new Set();
+  const out = [];
+  for (const v of arr || []) {
+    if (typeof v !== 'string') continue;
+    const key = v.trim();
+    if (!key) continue;
+    if (seen.has(key)) continue;
+    seen.add(key);
+    out.push(v);
+  }
+  return out;
+};
+
 const dashboard = async () => {
   const [
     totalAgencies,
@@ -464,11 +478,37 @@ const listMatchesAdmin = async (query) => {
       funderName: o.opportunity?.funder,
       locationMatch: (o.breakdown?.geography || 0) > 0,
       categoryMatch: (o.breakdown?.programKeyword || 0) > 0,
-      matchReasons: [...(o.reasons || []), ...(o.fitReasons || [])],
+      matchReasons: uniqStrings([...(o.reasons || []), ...(o.fitReasons || [])]),
       linkedApplication: appRow ? { _id: appRow._id, status: appRow.status } : null,
     };
   });
   return { ...result, docs };
+};
+
+const getMatchAdmin = async (id) => {
+  const m = await Match.findById(id).populate('organization', 'name location agencyTypes').populate(
+    'opportunity',
+    'title funder category keywords'
+  );
+  if (!m) throw new AppError('Match not found', 404);
+  const o = m.toObject ? m.toObject() : m;
+  const orgId = o.organization?._id ?? o.organization;
+  const oppId = o.opportunity?._id ?? o.opportunity;
+  const app = orgId && oppId
+    ? await Application.findOne({ organization: orgId, opportunity: oppId })
+        .select('_id organization opportunity status updatedAt createdAt')
+        .lean()
+    : null;
+  return {
+    ...o,
+    tier: matchTier(o.fitScore),
+    agencyName: o.organization?.name,
+    funderName: o.opportunity?.funder,
+    locationMatch: (o.breakdown?.geography || 0) > 0,
+    categoryMatch: (o.breakdown?.programKeyword || 0) > 0,
+    matchReasons: uniqStrings([...(o.reasons || []), ...(o.fitReasons || [])]),
+    linkedApplication: app ? { _id: app._id, status: app.status } : null,
+  };
 };
 
 const recomputeAllMatches = async () => {
@@ -604,6 +644,7 @@ module.exports = {
   generateApplicationAIAdmin,
   createApplicationForAgency,
   listMatchesAdmin,
+  getMatchAdmin,
   recomputeAllMatches,
   getUserAdmin,
   getFunderAdmin,

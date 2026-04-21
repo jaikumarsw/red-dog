@@ -25,12 +25,12 @@ const forgotPassword = asyncHandler(async (req, res) => {
 
 const verifyOtp = asyncHandler(async (req, res) => {
   const result = await authService.verifyOtp(req.body);
-  return success(res, result, 'Code verified');
+  return success(res, result, result.message);
 });
 
 const resetPassword = asyncHandler(async (req, res) => {
   const result = await authService.resetPassword(req.body);
-  return success(res, result, 'Password updated');
+  return success(res, result, result.message);
 });
 
 const verifySignupOtp = asyncHandler(async (req, res) => {

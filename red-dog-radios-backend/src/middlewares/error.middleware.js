@@ -16,8 +16,18 @@ const errorHandler = (err, req, res, next) => {
 
   // Mongoose duplicate key
   if (err.code === 11000) {
-    const field = Object.keys(err.keyValue || {})[0] || 'field';
-    return res.status(409).json({ success: false, message: `A record with that ${field} already exists.` });
+    const keyValue = err.keyValue || {};
+    const field = Object.keys(keyValue)[0] || 'field';
+    let message;
+    if (field === 'email') {
+      message = 'This email is already registered. Please sign in.';
+    } else if (field === 'username') {
+      message =
+        'A database index conflict occurred on username. Contact support or run a one-time index sync on the users collection.';
+    } else {
+      message = `This ${field} is already in use. Please choose a different ${field}.`;
+    }
+    return res.status(409).json({ success: false, message });
   }
 
   // Mongoose CastError (invalid ObjectId)
@@ -39,7 +49,8 @@ const errorHandler = (err, req, res, next) => {
   }
 
   // Unhandled errors
-  console.error('Unhandled error:', err);
+  console.error('[ErrorMiddleware] Unhandled error:', err.message);
+  console.error('[ErrorMiddleware] Stack:', err.stack);
   return res.status(500).json({
     success: false,
     message: process.env.NODE_ENV === 'production' ? 'Internal server error' : err.message,

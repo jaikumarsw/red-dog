@@ -16,8 +16,16 @@ const MONGO_URI = process.env.MONGO_URI;
 
 mongoose
   .connect(MONGO_URI)
-  .then(() => {
+  .then(async () => {
     logger.info(`✅ MongoDB connected: ${MONGO_URI.replace(/\/\/.*@/, '//***@')}`);
+
+    try {
+      const User = require('./modules/auth/user.schema');
+      await User.syncIndexes();
+      logger.info('✅ User collection indexes synced with schema (drops stale indexes such as legacy username).');
+    } catch (e) {
+      logger.warn(`User.syncIndexes() skipped or failed: ${e.message}`);
+    }
 
     app.listen(PORT, () => {
       logger.info(`🚀 Red Dog Backend running on port ${PORT} (${process.env.NODE_ENV || 'development'})`);

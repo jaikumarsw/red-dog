@@ -1,9 +1,10 @@
+// Updated to support comprehensive settings expansion from gap analysis
 const User = require('../auth/user.schema');
 const Organization = require('../organizations/organization.schema');
 const { AppError } = require('../../middlewares/error.middleware');
 
 const getSettings = async (userId) => {
-  const user = await User.findById(userId).populate('organizationId', 'name location websiteUrl missionStatement canMeetLocalMatch');
+  const user = await User.findById(userId).populate('organizationId', 'name location websiteUrl missionStatement canMeetLocalMatch agencyTypes programAreas budgetRange timeline coverageArea numberOfStaff serviceArea staffSizeRange challenges goals');
   if (!user) throw new AppError('User not found', 404);
   return user;
 };
@@ -13,6 +14,9 @@ const updateSettings = async (userId, data) => {
     fullName, firstName, lastName, email,
     notifications, preferences, reportEmail, canMeetLocalMatch,
     currentPassword, newPassword,
+    // Expanded fields
+    agencyTypes, programAreas, budgetRange, timeline, coverageArea, 
+    numberOfStaff, serviceArea, staffSizeRange, challenges, goals
   } = data;
 
   if (currentPassword && newPassword) {
@@ -52,13 +56,26 @@ const updateSettings = async (userId, data) => {
     });
   }
 
-  if (canMeetLocalMatch !== undefined) {
-    const u = await User.findById(userId).select('organizationId');
-    if (u?.organizationId) {
+  const u = await User.findById(userId).select('organizationId');
+  if (u?.organizationId) {
+    const orgUpdate = {};
+    if (canMeetLocalMatch !== undefined) {
       const raw = canMeetLocalMatch;
-      const parsed =
-        raw === null || raw === 'null' || raw === '' ? null : raw === true || raw === 'true';
-      await Organization.findByIdAndUpdate(u.organizationId, { $set: { canMeetLocalMatch: parsed } });
+      orgUpdate.canMeetLocalMatch = raw === null || raw === 'null' || raw === '' ? null : raw === true || raw === 'true';
+    }
+    if (agencyTypes !== undefined) orgUpdate.agencyTypes = agencyTypes;
+    if (programAreas !== undefined) orgUpdate.programAreas = programAreas;
+    if (budgetRange !== undefined) orgUpdate.budgetRange = budgetRange;
+    if (timeline !== undefined) orgUpdate.timeline = timeline;
+    if (coverageArea !== undefined) orgUpdate.coverageArea = coverageArea;
+    if (numberOfStaff !== undefined) orgUpdate.numberOfStaff = numberOfStaff;
+    if (serviceArea !== undefined) orgUpdate.serviceArea = serviceArea;
+    if (staffSizeRange !== undefined) orgUpdate.staffSizeRange = staffSizeRange;
+    if (challenges !== undefined) orgUpdate.challenges = challenges;
+    if (goals !== undefined) orgUpdate.goals = goals;
+
+    if (Object.keys(orgUpdate).length > 0) {
+      await Organization.findByIdAndUpdate(u.organizationId, { $set: orgUpdate });
     }
   }
 
@@ -70,7 +87,7 @@ const updateSettings = async (userId, data) => {
     if (!exists) throw new AppError('User not found', 404);
   }
 
-  return User.findById(userId).populate('organizationId', 'name location websiteUrl missionStatement canMeetLocalMatch');
+  return User.findById(userId).populate('organizationId', 'name location websiteUrl missionStatement canMeetLocalMatch agencyTypes programAreas budgetRange timeline coverageArea numberOfStaff serviceArea staffSizeRange challenges goals');
 };
 
 const deleteAccount = async (userId) => {

@@ -15,9 +15,9 @@ const userSchema = new mongoose.Schema(
     organizationId: { type: mongoose.Schema.Types.ObjectId, ref: 'Organization' },
     onboardingCompleted: { type: Boolean, default: false },
     resetOtp: { type: String, select: false },
-    resetOtpExpiry: { type: Date },
+    resetOtpExpiry: { type: Date, select: false },
     resetToken: { type: String, select: false },
-    resetTokenExpiry: { type: Date },
+    resetTokenExpiry: { type: Date, select: false },
     verificationOtp: { type: String, select: false },
     verificationOtpExpiry: { type: Date, select: false },
     settings: {
@@ -40,10 +40,9 @@ const userSchema = new mongoose.Schema(
   { timestamps: true }
 );
 
-userSchema.pre('save', async function (next) {
-  if (!this.isModified('password')) return next();
+userSchema.pre('save', async function () {
+  if (!this.isModified('password')) return;
   this.password = await bcrypt.hash(this.password, 12);
-  next();
 });
 
 userSchema.methods.comparePassword = async function (candidatePassword) {

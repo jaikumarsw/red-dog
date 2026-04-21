@@ -163,6 +163,11 @@ const listMatches = asyncHandler(async (req, res) => {
   return paginate(res, result.docs, result, 'Matches retrieved');
 });
 
+const getMatch = asyncHandler(async (req, res) => {
+  const data = await adminService.getMatchAdmin(req.params.id);
+  return success(res, data, 'Match retrieved');
+});
+
 const recomputeMatches = asyncHandler(async (req, res) => {
   const result = await adminService.recomputeAllMatches();
   await activityLogService.log({
@@ -283,6 +288,7 @@ module.exports = {
   generateApplicationAI,
   createApplicationForAgency,
   listMatches,
+  getMatch,
   recomputeMatches,
   approveMatch,
   rejectMatch,

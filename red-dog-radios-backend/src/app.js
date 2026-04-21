@@ -32,6 +32,7 @@ const ashleenRoutes = require('./modules/ashleen/ashleen.route');
 const adminRoutes = require('./modules/admin/admin.route');
 
 const app = express();
+app.set('trust proxy', 1);
 
 app.use(helmet());
 app.use(cors({

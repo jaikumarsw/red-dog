@@ -9,6 +9,9 @@
  *
  * One document per user account (createdBy → User._id).
  */
+// Updated organization schema based on Requirements Audit gap analysis
+// Added: specificRequest, challenges, urgencyStatement, whobenefits, eligibilityType, annualVolume, serviceArea, staffSizeRange
+// Updated enums for budgetRange and timeline
 const mongoose = require('mongoose');
 const mongoosePaginateV2 = require('mongoose-paginate-v2');
 
@@ -23,19 +26,26 @@ const organizationSchema = new mongoose.Schema(
     agencyTypes: [
       {
         type: String,
-        enum: [
-          'law_enforcement', 'fire_services', 'ems', 'emergency_management',
-          '911_centers', 'hospitals', 'public_safety_comms', 'multi_agency', 'utilities',
-          'business',
-        ],
+        trim: true,
       },
     ],
     programAreas: [{ type: String }],
     budgetRange: {
       type: String,
-      enum: ['under_25k', '25k_150k', '150k_500k', '500k_plus'],
+      enum: [
+        'under_25k', 
+        '25k_50k', 
+        '50k_100k', 
+        '100k_plus', 
+        '25k_150k', 
+        '150k_500k', 
+        '500k_plus'
+      ],
     },
-    timeline: { type: String, enum: ['urgent', 'planned'] },
+    timeline: { 
+      type: String, 
+      enum: ['urgent', 'planned', 'asap', '3_6_months', '6_12_months'] 
+    },
     goals: [{ type: String }],
     // Extended agency profile fields
     populationServed: { type: Number },
@@ -44,6 +54,29 @@ const organizationSchema = new mongoose.Schema(
     currentEquipment: { type: String },
     mainProblems: [{ type: String }],
     fundingPriorities: [{ type: String }],
+    
+    // New fields from 4-step intake analysis
+    specificRequest: { type: String },
+    challenges: [{
+      type: String,
+      enum: ['outdated_equipment', 'safety_concerns', 'slow_response_times', 'coverage_gaps', 'communication_issues', 'staffing_shortages']
+    }],
+    urgencyStatement: { type: String },
+    whobenefits: { type: String },
+    eligibilityType: {
+      type: String,
+      enum: ['nonprofit_501c3', 'government_agency']
+    },
+    annualVolume: { type: String },
+    serviceArea: {
+      type: String,
+      enum: ['local', 'county', 'regional', 'statewide']
+    },
+    staffSizeRange: {
+      type: String,
+      enum: ['1-10', '11-25', '26-50', '50+']
+    },
+
     /** Whether the agency can meet a local match requirement when applying. */
     canMeetLocalMatch: { type: Boolean },
 

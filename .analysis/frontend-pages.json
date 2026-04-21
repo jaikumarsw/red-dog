@@ -1,0 +1,1239 @@
+[
+  {
+    "file": "red-dog-radios-frontend/src/app/admin/(panel)/activity/[id]/page.tsx",
+    "route": "/admin/(panel)/activity/[id]",
+    "imports": [
+      {
+        "what": "{ useParams }",
+        "from": "next/navigation"
+      },
+      {
+        "what": "{ useQuery }",
+        "from": "@tanstack/react-query"
+      },
+      {
+        "what": "adminApi",
+        "from": "@/lib/adminApi"
+      },
+      {
+        "what": "{ AdminBackLink }",
+        "from": "@/components/admin/AdminBackLink"
+      }
+    ],
+    "redirects": [],
+    "apis": [
+      "adminApi.get(`admin/activity-logs/${id}`)"
+    ]
+  },
+  {
+    "file": "red-dog-radios-frontend/src/app/admin/(panel)/activity/page.tsx",
+    "route": "/admin/(panel)/activity",
+    "imports": [
+      {
+        "what": "{ useState }",
+        "from": "react"
+      },
+      {
+        "what": "{ useQuery }",
+        "from": "@tanstack/react-query"
+      },
+      {
+        "what": "adminApi",
+        "from": "@/lib/adminApi"
+      },
+      {
+        "what": "{ AdminTableViewLink }",
+        "from": "@/components/admin/AdminTableViewLink"
+      }
+    ],
+    "redirects": [],
+    "apis": [
+      "adminApi.get(\"admin/activity-logs\", {\r\n        params: {\r\n          limit)"
+    ]
+  },
+  {
+    "file": "red-dog-radios-frontend/src/app/admin/(panel)/agencies/[id]/page.tsx",
+    "route": "/admin/(panel)/agencies/[id]",
+    "imports": [
+      {
+        "what": "{ useParams }",
+        "from": "next/navigation"
+      },
+      {
+        "what": "Link",
+        "from": "next/link"
+      },
+      {
+        "what": "{ useQuery, useMutation, useQueryClient }",
+        "from": "@tanstack/react-query"
+      },
+      {
+        "what": "adminApi",
+        "from": "@/lib/adminApi"
+      },
+      {
+        "what": "{ AdminBackLink }",
+        "from": "@/components/admin/AdminBackLink"
+      },
+      {
+        "what": "{ useState }",
+        "from": "react"
+      },
+      {
+        "what": "{ Button }",
+        "from": "@/components/ui/button"
+      },
+      {
+        "what": "{\n  Dialog,\n  DialogContent,\n  DialogHeader,\n  DialogTitle,\n  DialogFooter,\n  DialogDescription,\n}",
+        "from": "@/components/ui/dialog"
+      },
+      {
+        "what": "{\n  Select,\n  SelectContent,\n  SelectItem,\n  SelectTrigger,\n  SelectValue,\n}",
+        "from": "@/components/ui/select"
+      },
+      {
+        "what": "{\n  AlertDialog,\n  AlertDialogAction,\n  AlertDialogCancel,\n  AlertDialogContent,\n  AlertDialogDescription,\n  AlertDialogFooter,\n  AlertDialogHeader,\n  AlertDialogTitle,\n}",
+        "from": "@/components/ui/alert-dialog"
+      },
+      {
+        "what": "{ useToast }",
+        "from": "@/hooks/use-toast"
+      },
+      {
+        "what": "{ cn }",
+        "from": "@/lib/utils"
+      }
+    ],
+    "redirects": [],
+    "apis": [
+      "adminApi.get(`admin/agencies/${id}`)",
+      "adminApi.get(\"admin/funders\", { params: { limit: 200 } })",
+      "adminApi.get(\"admin/opportunities\", { params: { limit: 200 } })",
+      "adminApi.post(\"admin/applications/create-for-agency\", {\n        agencyId: )",
+      "adminApi.delete(`admin/applications/${appId}`)"
+    ]
+  },
+  {
+    "file": "red-dog-radios-frontend/src/app/admin/(panel)/agencies/page.tsx",
+    "route": "/admin/(panel)/agencies",
+    "imports": [
+      {
+        "what": "{ useState }",
+        "from": "react"
+      },
+      {
+        "what": "{ useQuery }",
+        "from": "@tanstack/react-query"
+      },
+      {
+        "what": "adminApi",
+        "from": "@/lib/adminApi"
+      },
+      {
+        "what": "{ AdminTableViewLink }",
+        "from": "@/components/admin/AdminTableViewLink"
+      },
+      {
+        "what": "{ Input }",
+        "from": "@/components/ui/input"
+      },
+      {
+        "what": "{ Button }",
+        "from": "@/components/ui/button"
+      }
+    ],
+    "redirects": [],
+    "apis": [
+      "adminApi.get(\"admin/agencies\", { params: { search, page, limit: 20 } })"
+    ]
+  },
+  {
+    "file": "red-dog-radios-frontend/src/app/admin/(panel)/applications/[id]/page.tsx",
+    "route": "/admin/(panel)/applications/[id]",
+    "imports": [
+      {
+        "what": "{ useParams }",
+        "from": "next/navigation"
+      },
+      {
+        "what": "{ useQuery, useMutation, useQueryClient }",
+        "from": "@tanstack/react-query"
+      },
+      {
+        "what": "adminApi",
+        "from": "@/lib/adminApi"
+      },
+      {
+        "what": "{ AdminBackLink }",
+        "from": "@/components/admin/AdminBackLink"
+      },
+      {
+        "what": "{ Button }",
+        "from": "@/components/ui/button"
+      },
+      {
+        "what": "{ Textarea }",
+        "from": "@/components/ui/textarea"
+      },
+      {
+        "what": "{ useState, useEffect, useRef }",
+        "from": "react"
+      },
+      {
+        "what": "Link",
+        "from": "next/link"
+      },
+      {
+        "what": "{\n  AlertDialog,\n  AlertDialogAction,\n  AlertDialogCancel,\n  AlertDialogContent,\n  AlertDialogDescription,\n  AlertDialogFooter,\n  AlertDialogHeader,\n  AlertDialogTitle,\n}",
+        "from": "@/components/ui/alert-dialog"
+      },
+      {
+        "what": "{ useToast }",
+        "from": "@/hooks/use-toast"
+      },
+      {
+        "what": "{ Building2, ChevronDown, ChevronUp, ExternalLink, User as UserIcon }",
+        "from": "lucide-react"
+      }
+    ],
+    "redirects": [],
+    "apis": [
+      "adminApi.get(`admin/applications/${appId}`)",
+      "adminApi.put(`admin/applications/${appId}`, { notes })",
+      "adminApi.put(`admin/applications/${appId}/status`, body)",
+      "adminApi.post(`admin/applications/${appId}/generate-ai`)"
+    ]
+  },
+  {
+    "file": "red-dog-radios-frontend/src/app/admin/(panel)/applications/page.tsx",
+    "route": "/admin/(panel)/applications",
+    "imports": [
+      {
+        "what": "{ useState }",
+        "from": "react"
+      },
+      {
+        "what": "{ useQuery }",
+        "from": "@tanstack/react-query"
+      },
+      {
+        "what": "adminApi",
+        "from": "@/lib/adminApi"
+      },
+      {
+        "what": "{ AdminTableViewLink }",
+        "from": "@/components/admin/AdminTableViewLink"
+      },
+      {
+        "what": "{ Input }",
+        "from": "@/components/ui/input"
+      },
+      {
+        "what": "{ Button }",
+        "from": "@/components/ui/button"
+      }
+    ],
+    "redirects": [],
+    "apis": [
+      "adminApi.get(\"admin/applications\", {\n        params: {\n          limit: 5)"
+    ]
+  },
+  {
+    "file": "red-dog-radios-frontend/src/app/admin/(panel)/dashboard/page.tsx",
+    "route": "/admin/(panel)/dashboard",
+    "imports": [
+      {
+        "what": "Link",
+        "from": "next/link"
+      },
+      {
+        "what": "{ useQuery }",
+        "from": "@tanstack/react-query"
+      },
+      {
+        "what": "adminApi",
+        "from": "@/lib/adminApi"
+      },
+      {
+        "what": "{ AdminTableViewLink }",
+        "from": "@/components/admin/AdminTableViewLink"
+      },
+      {
+        "what": "{ Skeleton }",
+        "from": "@/components/ui/skeleton"
+      }
+    ],
+    "redirects": [],
+    "apis": [
+      "adminApi.get(\"admin/dashboard\")"
+    ]
+  },
+  {
+    "file": "red-dog-radios-frontend/src/app/admin/(panel)/funders/[id]/edit/page.tsx",
+    "route": "/admin/(panel)/funders/[id]/edit",
+    "imports": [
+      {
+        "what": "{ useParams, useRouter }",
+        "from": "next/navigation"
+      },
+      {
+        "what": "{ useQuery, useMutation }",
+        "from": "@tanstack/react-query"
+      },
+      {
+        "what": "adminApi",
+        "from": "@/lib/adminApi"
+      },
+      {
+        "what": "{ useState, useEffect }",
+        "from": "react"
+      },
+      {
+        "what": "{ AdminBackLink }",
+        "from": "@/components/admin/AdminBackLink"
+      },
+      {
+        "what": "{ TagSelect }",
+        "from": "@/components/admin/TagSelect"
+      },
+      {
+        "what": "{ EQUIPMENT_TAGS, FUNDER_FUNDING_CATEGORIES, FUNDER_AGENCY_TYPES }",
+        "from": "@/lib/adminConstants"
+      },
+      {
+        "what": "{ Button }",
+        "from": "@/components/ui/button"
+      },
+      {
+        "what": "{ Input }",
+        "from": "@/components/ui/input"
+      },
+      {
+        "what": "{ Label }",
+        "from": "@/components/ui/label"
+      },
+      {
+        "what": "{ Textarea }",
+        "from": "@/components/ui/textarea"
+      }
+    ],
+    "redirects": [],
+    "apis": [
+      "adminApi.get(`admin/funders/${id}`)",
+      "adminApi.put(`admin/funders/${id}`, {\n        name: form.name,\n        we)"
+    ]
+  },
+  {
+    "file": "red-dog-radios-frontend/src/app/admin/(panel)/funders/[id]/page.tsx",
+    "route": "/admin/(panel)/funders/[id]",
+    "imports": [
+      {
+        "what": "Link",
+        "from": "next/link"
+      },
+      {
+        "what": "{ useParams, useRouter }",
+        "from": "next/navigation"
+      },
+      {
+        "what": "{ useMutation, useQueryClient }",
+        "from": "@tanstack/react-query"
+      },
+      {
+        "what": "adminApi",
+        "from": "@/lib/adminApi"
+      },
+      {
+        "what": "{ AdminBackLink }",
+        "from": "@/components/admin/AdminBackLink"
+      },
+      {
+        "what": "{ Button }",
+        "from": "@/components/ui/button"
+      },
+      {
+        "what": "{ useQuery }",
+        "from": "@tanstack/react-query"
+      }
+    ],
+    "redirects": [],
+    "apis": [
+      "adminApi.get(`admin/funders/${id}`)",
+      "adminApi.delete(`admin/funders/${id}`)"
+    ]
+  },
+  {
+    "file": "red-dog-radios-frontend/src/app/admin/(panel)/funders/new/page.tsx",
+    "route": "/admin/(panel)/funders/new",
+    "imports": [
+      {
+        "what": "{ redirect }",
+        "from": "next/navigation"
+      }
+    ],
+    "redirects": [
+      "\"/admin/funders\""
+    ],
+    "apis": []
+  },
+  {
+    "file": "red-dog-radios-frontend/src/app/admin/(panel)/funders/page.tsx",
+    "route": "/admin/(panel)/funders",
+    "imports": [
+      {
+        "what": "{ useState }",
+        "from": "react"
+      },
+      {
+        "what": "{ useQuery, useMutation, useQueryClient }",
+        "from": "@tanstack/react-query"
+      },
+      {
+        "what": "type { AxiosError }",
+        "from": "axios"
+      },
+      {
+        "what": "adminApi",
+        "from": "@/lib/adminApi"
+      },
+      {
+        "what": "{ AdminTableViewLink }",
+        "from": "@/components/admin/AdminTableViewLink"
+      },
+      {
+        "what": "{ TagSelect }",
+        "from": "@/components/admin/TagSelect"
+      },
+      {
+        "what": "{ EQUIPMENT_TAGS, FUNDER_FUNDING_CATEGORIES, FUNDER_AGENCY_TYPES }",
+        "from": "@/lib/adminConstants"
+      },
+      {
+        "what": "{ Button }",
+        "from": "@/components/ui/button"
+      },
+      {
+        "what": "{ Input }",
+        "from": "@/components/ui/input"
+      },
+      {
+        "what": "{ Label }",
+        "from": "@/components/ui/label"
+      },
+      {
+        "what": "{\n  Dialog,\n  DialogContent,\n  DialogHeader,\n  DialogTitle,\n  DialogFooter,\n}",
+        "from": "@/components/ui/dialog"
+      },
+      {
+        "what": "{ Textarea }",
+        "from": "@/components/ui/textarea"
+      },
+      {
+        "what": "{ useToast }",
+        "from": "@/hooks/use-toast"
+      }
+    ],
+    "redirects": [],
+    "apis": [
+      "adminApi.get(\"admin/funders\", { params: { search, limit: 100 } })",
+      "adminApi.post(\"admin/funders\", {\n        name: form.name,\n        website:)"
+    ]
+  },
+  {
+    "file": "red-dog-radios-frontend/src/app/admin/(panel)/matches/[id]/page.tsx",
+    "route": "/admin/(panel)/matches/[id]",
+    "imports": [
+      {
+        "what": "Link",
+        "from": "next/link"
+      },
+      {
+        "what": "{ useParams }",
+        "from": "next/navigation"
+      },
+      {
+        "what": "{ ArrowLeft }",
+        "from": "lucide-react"
+      },
+      {
+        "what": "{ useQuery }",
+        "from": "@tanstack/react-query"
+      },
+      {
+        "what": "adminApi",
+        "from": "@/lib/adminApi"
+      },
+      {
+        "what": "{ AdminTableViewLink }",
+        "from": "@/components/admin/AdminTableViewLink"
+      },
+      {
+        "what": "{ Badge }",
+        "from": "@/components/ui/badge"
+      },
+      {
+        "what": "{ Button }",
+        "from": "@/components/ui/button"
+      }
+    ],
+    "redirects": [],
+    "apis": [
+      "adminApi.get(`admin/matches/${id}`)"
+    ]
+  },
+  {
+    "file": "red-dog-radios-frontend/src/app/admin/(panel)/matches/page.tsx",
+    "route": "/admin/(panel)/matches",
+    "imports": [
+      {
+        "what": "{ useMemo, useState }",
+        "from": "react"
+      },
+      {
+        "what": "{ useMutation, useQuery, useQueryClient }",
+        "from": "@tanstack/react-query"
+      },
+      {
+        "what": "adminApi",
+        "from": "@/lib/adminApi"
+      },
+      {
+        "what": "{ Badge }",
+        "from": "@/components/ui/badge"
+      },
+      {
+        "what": "{ AdminTableViewLink }",
+        "from": "@/components/admin/AdminTableViewLink"
+      },
+      {
+        "what": "{ Input }",
+        "from": "@/components/ui/input"
+      },
+      {
+        "what": "{ Button }",
+        "from": "@/components/ui/button"
+      },
+      {
+        "what": "{\n  AlertDialog,\n  AlertDialogAction,\n  AlertDialogCancel,\n  AlertDialogContent,\n  AlertDialogDescription,\n  AlertDialogFooter,\n  AlertDialogHeader,\n  AlertDialogTitle,\n}",
+        "from": "@/components/ui/alert-dialog"
+      },
+      {
+        "what": "{ Tooltip, TooltipContent, TooltipProvider, TooltipTrigger }",
+        "from": "@/components/ui/tooltip"
+      },
+      {
+        "what": "{ useToast }",
+        "from": "@/hooks/use-toast"
+      }
+    ],
+    "redirects": [],
+    "apis": [
+      "adminApi.get(\"admin/matches\", {\n        params: {\n          page,\n       )",
+      "adminApi.post(\"admin/matches/recompute-all\")"
+    ]
+  },
+  {
+    "file": "red-dog-radios-frontend/src/app/admin/(panel)/opportunities/[id]/edit/page.tsx",
+    "route": "/admin/(panel)/opportunities/[id]/edit",
+    "imports": [
+      {
+        "what": "{ useParams, useRouter }",
+        "from": "next/navigation"
+      },
+      {
+        "what": "{ useQuery, useMutation }",
+        "from": "@tanstack/react-query"
+      },
+      {
+        "what": "adminApi",
+        "from": "@/lib/adminApi"
+      },
+      {
+        "what": "{ useState, useEffect }",
+        "from": "react"
+      },
+      {
+        "what": "{ AdminBackLink }",
+        "from": "@/components/admin/AdminBackLink"
+      },
+      {
+        "what": "{ TagSelect, CategorySelect }",
+        "from": "@/components/admin/TagSelect"
+      },
+      {
+        "what": "{ EQUIPMENT_TAGS, FUNDING_CATEGORIES }",
+        "from": "@/lib/adminConstants"
+      },
+      {
+        "what": "{ Button }",
+        "from": "@/components/ui/button"
+      },
+      {
+        "what": "{ Input }",
+        "from": "@/components/ui/input"
+      },
+      {
+        "what": "{ Label }",
+        "from": "@/components/ui/label"
+      },
+      {
+        "what": "{ Textarea }",
+        "from": "@/components/ui/textarea"
+      }
+    ],
+    "redirects": [],
+    "apis": [
+      "adminApi.get(`admin/opportunities/${id}`)",
+      "adminApi.put(`admin/opportunities/${id}`, {\n        title: form.title,\n  )"
+    ]
+  },
+  {
+    "file": "red-dog-radios-frontend/src/app/admin/(panel)/opportunities/[id]/page.tsx",
+    "route": "/admin/(panel)/opportunities/[id]",
+    "imports": [
+      {
+        "what": "Link",
+        "from": "next/link"
+      },
+      {
+        "what": "{ useParams, useRouter }",
+        "from": "next/navigation"
+      },
+      {
+        "what": "{ ArrowLeft }",
+        "from": "lucide-react"
+      },
+      {
+        "what": "{ useQuery, useMutation, useQueryClient }",
+        "from": "@tanstack/react-query"
+      },
+      {
+        "what": "adminApi",
+        "from": "@/lib/adminApi"
+      },
+      {
+        "what": "{ AdminTableViewLink }",
+        "from": "@/components/admin/AdminTableViewLink"
+      },
+      {
+        "what": "{ Button }",
+        "from": "@/components/ui/button"
+      },
+      {
+        "what": "{ Input }",
+        "from": "@/components/ui/input"
+      },
+      {
+        "what": "{ useToast }",
+        "from": "@/hooks/use-toast"
+      },
+      {
+        "what": "{ useState, useEffect }",
+        "from": "react"
+      }
+    ],
+    "redirects": [],
+    "apis": [
+      "adminApi.get(`admin/opportunities/${id}`)",
+      "adminApi.delete(`admin/opportunities/${id}`)",
+      "adminApi.put(`admin/opportunities/${id}`, body)"
+    ]
+  },
+  {
+    "file": "red-dog-radios-frontend/src/app/admin/(panel)/opportunities/new/page.tsx",
+    "route": "/admin/(panel)/opportunities/new",
+    "imports": [
+      {
+        "what": "{ redirect }",
+        "from": "next/navigation"
+      }
+    ],
+    "redirects": [
+      "\"/admin/opportunities\""
+    ],
+    "apis": []
+  },
+  {
+    "file": "red-dog-radios-frontend/src/app/admin/(panel)/opportunities/page.tsx",
+    "route": "/admin/(panel)/opportunities",
+    "imports": [
+      {
+        "what": "{ useState }",
+        "from": "react"
+      },
+      {
+        "what": "{ useQuery, useMutation }",
+        "from": "@tanstack/react-query"
+      },
+      {
+        "what": "adminApi",
+        "from": "@/lib/adminApi"
+      },
+      {
+        "what": "{ AdminTableViewLink }",
+        "from": "@/components/admin/AdminTableViewLink"
+      },
+      {
+        "what": "{ TagSelect, CategorySelect }",
+        "from": "@/components/admin/TagSelect"
+      },
+      {
+        "what": "{ EQUIPMENT_TAGS, FUNDING_CATEGORIES }",
+        "from": "@/lib/adminConstants"
+      },
+      {
+        "what": "{ Button }",
+        "from": "@/components/ui/button"
+      },
+      {
+        "what": "{ Input }",
+        "from": "@/components/ui/input"
+      },
+      {
+        "what": "{ Label }",
+        "from": "@/components/ui/label"
+      },
+      {
+        "what": "{\n  Dialog,\n  DialogContent,\n  DialogHeader,\n  DialogTitle,\n  DialogFooter,\n}",
+        "from": "@/components/ui/dialog"
+      },
+      {
+        "what": "{ Textarea }",
+        "from": "@/components/ui/textarea"
+      },
+      {
+        "what": "{ useToast }",
+        "from": "@/hooks/use-toast"
+      }
+    ],
+    "redirects": [],
+    "apis": [
+      "adminApi.get(\"admin/opportunities\", {\n        params: { limit: 50, status)",
+      "adminApi.get(\"admin/funders\", { params: { limit: 500 } })",
+      "adminApi.post(\"admin/opportunities\", {\n        title: form.title,\n        )"
+    ]
+  },
+  {
+    "file": "red-dog-radios-frontend/src/app/admin/(panel)/settings/page.tsx",
+    "route": "/admin/(panel)/settings",
+    "imports": [
+      {
+        "what": "{ AdminSettings }",
+        "from": "@/views/admin/AdminSettings"
+      }
+    ],
+    "redirects": [],
+    "apis": []
+  },
+  {
+    "file": "red-dog-radios-frontend/src/app/admin/(panel)/users/[id]/page.tsx",
+    "route": "/admin/(panel)/users/[id]",
+    "imports": [
+      {
+        "what": "{ useState, useEffect }",
+        "from": "react"
+      },
+      {
+        "what": "{ useParams }",
+        "from": "next/navigation"
+      },
+      {
+        "what": "{ useQuery, useMutation, useQueryClient }",
+        "from": "@tanstack/react-query"
+      },
+      {
+        "what": "adminApi",
+        "from": "@/lib/adminApi"
+      },
+      {
+        "what": "{ AdminBackLink }",
+        "from": "@/components/admin/AdminBackLink"
+      },
+      {
+        "what": "{ Button }",
+        "from": "@/components/ui/button"
+      },
+      {
+        "what": "{\r\n  AlertDialog,\r\n  AlertDialogAction,\r\n  AlertDialogCancel,\r\n  AlertDialogContent,\r\n  AlertDialogDescription,\r\n  AlertDialogFooter,\r\n  AlertDialogHeader,\r\n  AlertDialogTitle,\r\n}",
+        "from": "@/components/ui/alert-dialog"
+      },
+      {
+        "what": "{ useToast }",
+        "from": "@/hooks/use-toast"
+      }
+    ],
+    "redirects": [],
+    "apis": [
+      "adminApi.get(`admin/users/${id}`)",
+      "adminApi.put(`admin/users/${id}/role`, { role })"
+    ]
+  },
+  {
+    "file": "red-dog-radios-frontend/src/app/admin/(panel)/users/page.tsx",
+    "route": "/admin/(panel)/users",
+    "imports": [
+      {
+        "what": "{ useQuery }",
+        "from": "@tanstack/react-query"
+      },
+      {
+        "what": "adminApi",
+        "from": "@/lib/adminApi"
+      },
+      {
+        "what": "{ AdminTableViewLink }",
+        "from": "@/components/admin/AdminTableViewLink"
+      }
+    ],
+    "redirects": [],
+    "apis": [
+      "adminApi.get(\"admin/users\", { params: { limit: 200 } })"
+    ]
+  },
+  {
+    "file": "red-dog-radios-frontend/src/app/admin/login/page.tsx",
+    "route": "/admin/login",
+    "imports": [
+      {
+        "what": "{ useState }",
+        "from": "react"
+      },
+      {
+        "what": "Link",
+        "from": "next/link"
+      },
+      {
+        "what": "{ useForm }",
+        "from": "react-hook-form"
+      },
+      {
+        "what": "{ zodResolver }",
+        "from": "@hookform/resolvers/zod"
+      },
+      {
+        "what": "{ z }",
+        "from": "zod"
+      },
+      {
+        "what": "{ LogIn }",
+        "from": "lucide-react"
+      },
+      {
+        "what": "adminApi",
+        "from": "@/lib/adminApi"
+      },
+      {
+        "what": "{ useAdminAuth }",
+        "from": "@/lib/AdminAuthContext"
+      },
+      {
+        "what": "{ useAuthGateRedirects }",
+        "from": "@/lib/useAuthGateRedirects"
+      },
+      {
+        "what": "{ Input }",
+        "from": "@/components/ui/input"
+      },
+      {
+        "what": "{ Label }",
+        "from": "@/components/ui/label"
+      },
+      {
+        "what": "{ cn }",
+        "from": "@/lib/utils"
+      },
+      {
+        "what": "{ getAuthErrorMessage }",
+        "from": "@/lib/authErrors"
+      }
+    ],
+    "redirects": [],
+    "apis": [
+      "adminApi.post(\"admin/auth/login\", {\n        email: String(data.email)"
+    ]
+  },
+  {
+    "file": "red-dog-radios-frontend/src/app/admin/page.tsx",
+    "route": "/admin",
+    "imports": [
+      {
+        "what": "{ redirect }",
+        "from": "next/navigation"
+      }
+    ],
+    "redirects": [
+      "\"/admin/dashboard\""
+    ],
+    "apis": []
+  },
+  {
+    "file": "red-dog-radios-frontend/src/app/alerts/page.tsx",
+    "route": "/alerts",
+    "imports": [
+      {
+        "what": "{ Alerts }",
+        "from": "@/views/Alerts"
+      }
+    ],
+    "redirects": [],
+    "apis": []
+  },
+  {
+    "file": "red-dog-radios-frontend/src/app/applications/[id]/page.tsx",
+    "route": "/applications/[id]",
+    "imports": [
+      {
+        "what": "{ ApplicationBuilder }",
+        "from": "@/views/ApplicationBuilder"
+      }
+    ],
+    "redirects": [],
+    "apis": []
+  },
+  {
+    "file": "red-dog-radios-frontend/src/app/applications/page.tsx",
+    "route": "/applications",
+    "imports": [
+      {
+        "what": "{ Applications }",
+        "from": "@/views/Applications"
+      }
+    ],
+    "redirects": [],
+    "apis": []
+  },
+  {
+    "file": "red-dog-radios-frontend/src/app/create-password/page.tsx",
+    "route": "/create-password",
+    "imports": [
+      {
+        "what": "{ CreatePassword }",
+        "from": "@/views/CreatePassword"
+      }
+    ],
+    "redirects": [],
+    "apis": []
+  },
+  {
+    "file": "red-dog-radios-frontend/src/app/dashboard/page.tsx",
+    "route": "/dashboard",
+    "imports": [
+      {
+        "what": "{ Dashboard }",
+        "from": "@/views/Dashboard"
+      }
+    ],
+    "redirects": [],
+    "apis": []
+  },
+  {
+    "file": "red-dog-radios-frontend/src/app/followups/page.tsx",
+    "route": "/followups",
+    "imports": [
+      {
+        "what": "{ FollowUps }",
+        "from": "@/views/FollowUps"
+      }
+    ],
+    "redirects": [],
+    "apis": []
+  },
+  {
+    "file": "red-dog-radios-frontend/src/app/forgot-password/page.tsx",
+    "route": "/forgot-password",
+    "imports": [
+      {
+        "what": "{ ForgotPassword }",
+        "from": "@/views/ForgotPassword"
+      }
+    ],
+    "redirects": [],
+    "apis": []
+  },
+  {
+    "file": "red-dog-radios-frontend/src/app/funders/[id]/page.tsx",
+    "route": "/funders/[id]",
+    "imports": [
+      {
+        "what": "{ FunderDetail }",
+        "from": "@/views/FunderDetail"
+      }
+    ],
+    "redirects": [],
+    "apis": []
+  },
+  {
+    "file": "red-dog-radios-frontend/src/app/funders/page.tsx",
+    "route": "/funders",
+    "imports": [
+      {
+        "what": "{ Funders }",
+        "from": "@/views/Funders"
+      }
+    ],
+    "redirects": [],
+    "apis": []
+  },
+  {
+    "file": "red-dog-radios-frontend/src/app/login/page.tsx",
+    "route": "/login",
+    "imports": [
+      {
+        "what": "{ Login }",
+        "from": "@/views/Login"
+      }
+    ],
+    "redirects": [],
+    "apis": []
+  },
+  {
+    "file": "red-dog-radios-frontend/src/app/matches/page.tsx",
+    "route": "/matches",
+    "imports": [
+      {
+        "what": "{ Matches }",
+        "from": "@/views/Matches"
+      }
+    ],
+    "redirects": [],
+    "apis": []
+  },
+  {
+    "file": "red-dog-radios-frontend/src/app/onboarding/page.tsx",
+    "route": "/onboarding",
+    "imports": [
+      {
+        "what": "{ OnboardingWelcome }",
+        "from": "@/views/onboarding/OnboardingWelcome"
+      }
+    ],
+    "redirects": [],
+    "apis": []
+  },
+  {
+    "file": "red-dog-radios-frontend/src/app/onboarding/step1/page.tsx",
+    "route": "/onboarding/step1",
+    "imports": [
+      {
+        "what": "{ OnboardingStep1 }",
+        "from": "@/views/onboarding/Step1"
+      }
+    ],
+    "redirects": [],
+    "apis": []
+  },
+  {
+    "file": "red-dog-radios-frontend/src/app/onboarding/step2/page.tsx",
+    "route": "/onboarding/step2",
+    "imports": [
+      {
+        "what": "{ OnboardingStep2 }",
+        "from": "@/views/onboarding/Step2"
+      }
+    ],
+    "redirects": [],
+    "apis": []
+  },
+  {
+    "file": "red-dog-radios-frontend/src/app/onboarding/step3/page.tsx",
+    "route": "/onboarding/step3",
+    "imports": [
+      {
+        "what": "{ OnboardingStep3 }",
+        "from": "@/views/onboarding/Step3"
+      }
+    ],
+    "redirects": [],
+    "apis": []
+  },
+  {
+    "file": "red-dog-radios-frontend/src/app/onboarding/step4/page.tsx",
+    "route": "/onboarding/step4",
+    "imports": [
+      {
+        "what": "{ OnboardingStep4 }",
+        "from": "@/views/onboarding/Step4"
+      }
+    ],
+    "redirects": [],
+    "apis": []
+  },
+  {
+    "file": "red-dog-radios-frontend/src/app/onboarding/step5/page.tsx",
+    "route": "/onboarding/step5",
+    "imports": [
+      {
+        "what": "{ OnboardingStep5 }",
+        "from": "@/views/onboarding/Step5"
+      }
+    ],
+    "redirects": [],
+    "apis": []
+  },
+  {
+    "file": "red-dog-radios-frontend/src/app/opportunities/page.tsx",
+    "route": "/opportunities",
+    "imports": [
+      {
+        "what": "{ Opportunities }",
+        "from": "@/views/Opportunities"
+      }
+    ],
+    "redirects": [],
+    "apis": []
+  },
+  {
+    "file": "red-dog-radios-frontend/src/app/organizations/page.tsx",
+    "route": "/organizations",
+    "imports": [
+      {
+        "what": "{ redirect }",
+        "from": "next/navigation"
+      }
+    ],
+    "redirects": [
+      "\"/settings\""
+    ],
+    "apis": []
+  },
+  {
+    "file": "red-dog-radios-frontend/src/app/otp-verification/page.tsx",
+    "route": "/otp-verification",
+    "imports": [
+      {
+        "what": "{ Suspense }",
+        "from": "react"
+      },
+      {
+        "what": "{ OtpVerification }",
+        "from": "@/views/OtpVerification"
+      }
+    ],
+    "redirects": [],
+    "apis": []
+  },
+  {
+    "file": "red-dog-radios-frontend/src/app/outbox/page.tsx",
+    "route": "/outbox",
+    "imports": [
+      {
+        "what": "{ redirect }",
+        "from": "next/navigation"
+      }
+    ],
+    "redirects": [
+      "\"/dashboard\""
+    ],
+    "apis": []
+  },
+  {
+    "file": "red-dog-radios-frontend/src/app/outreach/[id]/page.tsx",
+    "route": "/outreach/[id]",
+    "imports": [
+      {
+        "what": "{ OutreachBuilder }",
+        "from": "@/views/OutreachBuilder"
+      }
+    ],
+    "redirects": [],
+    "apis": []
+  },
+  {
+    "file": "red-dog-radios-frontend/src/app/outreach/page.tsx",
+    "route": "/outreach",
+    "imports": [
+      {
+        "what": "{ OutreachList }",
+        "from": "@/views/OutreachList"
+      }
+    ],
+    "redirects": [],
+    "apis": []
+  },
+  {
+    "file": "red-dog-radios-frontend/src/app/page.tsx",
+    "route": "/",
+    "imports": [
+      {
+        "what": "{ redirect }",
+        "from": "next/navigation"
+      }
+    ],
+    "redirects": [
+      "\"/login\""
+    ],
+    "apis": []
+  },
+  {
+    "file": "red-dog-radios-frontend/src/app/settings/agency/page.tsx",
+    "route": "/settings/agency",
+    "imports": [
+      {
+        "what": "{ AgencyProfile }",
+        "from": "../../../views/AgencyProfile"
+      }
+    ],
+    "redirects": [],
+    "apis": []
+  },
+  {
+    "file": "red-dog-radios-frontend/src/app/settings/page.tsx",
+    "route": "/settings",
+    "imports": [
+      {
+        "what": "{ Settings }",
+        "from": "@/views/Settings"
+      }
+    ],
+    "redirects": [],
+    "apis": []
+  },
+  {
+    "file": "red-dog-radios-frontend/src/app/signup/page.tsx",
+    "route": "/signup",
+    "imports": [
+      {
+        "what": "{ SignUp }",
+        "from": "@/views/SignUp"
+      }
+    ],
+    "redirects": [],
+    "apis": []
+  },
+  {
+    "file": "red-dog-radios-frontend/src/app/tracker/page.tsx",
+    "route": "/tracker",
+    "imports": [
+      {
+        "what": "{ Tracker }",
+        "from": "@/views/Tracker"
+      }
+    ],
+    "redirects": [],
+    "apis": []
+  },
+  {
+    "file": "red-dog-radios-frontend/src/app/weekly-summary/page.tsx",
+    "route": "/weekly-summary",
+    "imports": [
+      {
+        "what": "{ WeeklySummary }",
+        "from": "@/views/WeeklySummary"
+      }
+    ],
+    "redirects": [],
+    "apis": []
+  },
+  {
+    "file": "red-dog-radios-frontend/src/app/wins/page.tsx",
+    "route": "/wins",
+    "imports": [
+      {
+        "what": "{ Wins }",
+        "from": "@/views/Wins"
+      }
+    ],
+    "redirects": [],
+    "apis": []
+  }
+]

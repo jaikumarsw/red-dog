@@ -142,6 +142,9 @@ const computeMatchScore = (organization, opportunity) => {
   // 5. Award size fit (10 pts)
   const budgetMidpoints = {
     under_25k: 12500,
+    '25k_50k': 37500,
+    '50k_100k': 75000,
+    '100k_plus': 150000,
     '25k_150k': 87500,
     '150k_500k': 325000,
     '500k_plus': 750000,

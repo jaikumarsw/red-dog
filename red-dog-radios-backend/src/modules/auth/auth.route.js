@@ -14,7 +14,39 @@ const { protect } = require('../../middlewares/auth.middleware');
 
 const router = express.Router();
 
-const authStrictLimiter = rateLimit({
+const loginLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: 5,
+  message: { success: false, message: 'Too many login attempts. Try again in 15 minutes.' },
+  standardHeaders: true,
+  legacyHeaders: false,
+});
+
+const forgotPasswordLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: 3,
+  message: { success: false, message: 'Too many reset requests. Try again in 15 minutes.' },
+  standardHeaders: true,
+  legacyHeaders: false,
+});
+
+const otpLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: 10,
+  message: { success: false, message: 'Too many verification attempts. Try again in 15 minutes.' },
+  standardHeaders: true,
+  legacyHeaders: false,
+});
+
+const resendLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: 3,
+  message: { success: false, message: 'Too many resend requests. Try again in 15 minutes.' },
+  standardHeaders: true,
+  legacyHeaders: false,
+});
+
+const resetPasswordLimiter = rateLimit({
   windowMs: 15 * 60 * 1000,
   max: 5,
   message: { success: false, message: 'Too many attempts. Try again in 15 minutes.' },
@@ -66,13 +98,13 @@ router.post('/register', register);
  *       200: { description: Login successful, returns JWT token }
  *       401: { description: Invalid credentials }
  */
-router.post('/login', authStrictLimiter, login);
+router.post('/login', loginLimiter, login);
 
-router.post('/forgot-password', authStrictLimiter, forgotPassword);
-router.post('/verify-otp', authStrictLimiter, verifyOtp);
-router.post('/reset-password', resetPassword);
-router.post('/verify-email', authStrictLimiter, verifySignupOtp);
-router.post('/resend-verification', authStrictLimiter, resendVerificationOtp);
+router.post('/forgot-password', forgotPasswordLimiter, forgotPassword);
+router.post('/verify-otp', otpLimiter, verifyOtp);
+router.post('/reset-password', resetPasswordLimiter, resetPassword);
+router.post('/verify-email', otpLimiter, verifySignupOtp);
+router.post('/resend-verification', resendLimiter, resendVerificationOtp);
 
 /**
  * @swagger

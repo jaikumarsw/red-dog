@@ -1,3 +1,5 @@
+// Updated to save specificRequest, challenges, urgencyStatement, whobenefits, 
+// eligibilityType, annualVolume, serviceArea, staffSizeRange, mainProblems, fundingPriorities
 const User = require('../auth/user.schema');
 const Organization = require('../organizations/organization.schema');
 const { AppError } = require('../../middlewares/error.middleware');
@@ -23,6 +25,16 @@ const complete = async (userId, data) => {
     coverageArea,
     numberOfStaff,
     currentEquipment,
+    // New fields
+    challenges,
+    urgencyStatement,
+    whobenefits,
+    eligibilityType,
+    annualVolume,
+    serviceArea,
+    staffSizeRange,
+    mainProblems: inputMainProblems,
+    fundingPriorities: inputFundingPriorities,
   } = data;
 
   // Input validation
@@ -69,6 +81,12 @@ const complete = async (userId, data) => {
   const budgetMap = {
     'under-25k': 'under_25k',
     'under_25k': 'under_25k',
+    '25k-50k': '25k_50k',
+    '25k_50k': '25k_50k',
+    '50k-100k': '50k_100k',
+    '50k_100k': '50k_100k',
+    '100k-plus': '100k_plus',
+    '100k_plus': '100k_plus',
     '25k-100k': '25k_150k',
     '25k_150k': '25k_150k',
     '100k-500k': '150k_500k',
@@ -77,6 +95,9 @@ const complete = async (userId, data) => {
     '500k_plus': '500k_plus',
   };
   const mappedBudget = budgetMap[budgetRange] || budgetRange;
+
+  const derivedMainProblems = inputMainProblems || challenges || [];
+  const derivedFundingPriorities = inputFundingPriorities || programAreas || [];
 
   // Create or update organization
   let org = await Organization.findOne({ createdBy: userId });
@@ -89,11 +110,21 @@ const complete = async (userId, data) => {
       agencyTypes: mappedAgencyTypes,
       programAreas: programAreas || focusAreas || [],
       focusAreas: focusAreas || programAreas || [],
+      specificRequest: safeRequest,
       budgetRange: mappedBudget,
       timeline,
       goals: goals || [],
       status: 'active',
       createdBy: userId,
+      mainProblems: derivedMainProblems,
+      fundingPriorities: derivedFundingPriorities,
+      ...(challenges && { challenges }),
+      ...(urgencyStatement && { urgencyStatement }),
+      ...(whobenefits && { whobenefits }),
+      ...(eligibilityType && { eligibilityType }),
+      ...(annualVolume && { annualVolume }),
+      ...(serviceArea && { serviceArea }),
+      ...(staffSizeRange && { staffSizeRange }),
       ...(populationServed != null && { populationServed: Number(populationServed) }),
       ...(coverageArea && { coverageArea }),
       ...(numberOfStaff != null && { numberOfStaff: Number(numberOfStaff) }),
@@ -107,9 +138,19 @@ const complete = async (userId, data) => {
     org.agencyTypes = mappedAgencyTypes.length ? mappedAgencyTypes : org.agencyTypes;
     org.programAreas = programAreas || focusAreas || org.programAreas;
     org.focusAreas = focusAreas || programAreas || org.focusAreas;
+    if (safeRequest) org.specificRequest = safeRequest;
     org.budgetRange = mappedBudget || org.budgetRange;
     org.timeline = timeline || org.timeline;
     org.goals = goals || org.goals;
+    if (derivedMainProblems.length) org.mainProblems = derivedMainProblems;
+    if (derivedFundingPriorities.length) org.fundingPriorities = derivedFundingPriorities;
+    if (challenges) org.challenges = challenges;
+    if (urgencyStatement) org.urgencyStatement = urgencyStatement;
+    if (whobenefits) org.whobenefits = whobenefits;
+    if (eligibilityType) org.eligibilityType = eligibilityType;
+    if (annualVolume) org.annualVolume = annualVolume;
+    if (serviceArea) org.serviceArea = serviceArea;
+    if (staffSizeRange) org.staffSizeRange = staffSizeRange;
     if (populationServed != null) org.populationServed = Number(populationServed);
     if (coverageArea) org.coverageArea = coverageArea;
     if (numberOfStaff != null) org.numberOfStaff = Number(numberOfStaff);
