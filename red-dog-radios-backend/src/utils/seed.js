@@ -701,7 +701,41 @@ async function seed() {
   process.exit(0);
 }
 
-seed().catch((err) => {
-  logger.error('Seed failed:', err.message);
-  process.exit(1);
-});
+async function testEmailSend() {
+  const { sendEmail } = require('../config/resend.config.js');
+  try {
+    const result = await sendEmail({
+      to: 'admin@reddogradios.com',
+      subject: 'Red Dog Radios — SMTP Test Email',
+      html: `
+       <h2>✅ SMTP is working</h2>
+       <p>This is a test email from the Red Dog Radios 
+       backend to confirm email sending is configured 
+       correctly.</p>
+       <p>Sent at: ${new Date().toISOString()}</p>
+     `,
+    });
+    if (result && result.success) {
+      console.log('✅ Test email sent successfully');
+    } else {
+      console.log(`❌ Email failed: ${result && result.error != null ? result.error : JSON.stringify(result)}`);
+    }
+  } catch (err) {
+    console.log(`❌ Email failed: ${err && err.stack ? err.stack : err}`);
+  }
+}
+
+if (process.argv[2] !== '--test-email') {
+  seed().catch((err) => {
+    logger.error('Seed failed:', err.message);
+    process.exit(1);
+  });
+}
+
+if (process.argv[2] === '--test-email') {
+  mongoose.connect(MONGO_URI).then(async () => {
+    await testEmailSend();
+    await mongoose.disconnect();
+    process.exit(0);
+  });
+}

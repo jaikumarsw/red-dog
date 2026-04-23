@@ -83,43 +83,141 @@ const buildAIContent = async (org, funder, opp, { adminPortal = false } = {}) =>
             .join('\n')}`
         : '';
 
-    let prompt;
-    let systemContent;
-    if (adminPortal) {
-      systemContent =
-        'You are an expert grant writer for public safety agencies specializing in radio and communications equipment funding. ' +
-        'Write compelling, specific content grounded only in the agency and funder data provided. Always return valid JSON only, no markdown.';
-      prompt = `Using the following JSON data, generate a professional grant application with exactly these 6 sections.
-Return ONLY a JSON object with keys: problemStatement, communityImpact, proposedSolution, measurableOutcomes, urgency, budgetSummary.
+    const systemContent =
+      "You are a senior public safety grant writer with 20 years of " +
+      "experience winning competitive federal and foundation grants for " +
+      "fire departments, police agencies, EMS services, sheriff offices, " +
+      "and 911 dispatch centers across the United States.\n\n" +
+      "You have written hundreds of winning applications for:\n" +
+      "- FEMA AFG (Assistance to Firefighters Grant)\n" +
+      "- FEMA SAFER (Staffing for Adequate Fire and Emergency Response)\n" +
+      "- DHS SHSP (State Homeland Security Program)\n" +
+      "- DHS UASI (Urban Area Security Initiative)\n" +
+      "- DOJ COPS Office grants\n" +
+      "- Byrne JAG (Justice Assistance Grant)\n" +
+      "- NTIA communications infrastructure grants\n" +
+      "- State homeland security pass-through grants\n" +
+      "- Private foundations including Motorola Solutions, " +
+      "Firehouse Subs, and community foundations\n\n" +
+      "You know exactly what peer reviewers score and what gets " +
+      "applications funded vs rejected. You write with the precision " +
+      "of someone who has sat on AFG peer review panels.\n\n" +
+      "CRITICAL SCORING KNOWLEDGE YOU APPLY TO EVERY APPLICATION:\n\n" +
+      "1. FINANCIAL NEED (25% of federal scores):\n" +
+      "   - Always explain why the agency cannot self-fund this purchase\n" +
+      "   - Reference the department budget going to personnel, operations\n" +
+      "   - Mention failed attempts to secure other funding if relevant\n" +
+      "   - Never make the agency sound wealthy or able to defer this need\n" +
+      "   - Show that grant funding is the ONLY viable path forward\n\n" +
+      "2. PROJECT DESCRIPTION (25% of federal scores):\n" +
+      "   - Name specific equipment with make/model where known\n" +
+      "   - Reference compliance with NFPA, OSHA, P25, or APCO standards\n" +
+      "   - State exact quantities (e.g., '280 portable radios')\n" +
+      "   - Describe current equipment age, manufacturer support status\n" +
+      "   - Reference end-of-life status, lack of parts, safety failures\n" +
+      "   - For radios: reference P25 Phase I/II, DTRS, interoperability\n\n" +
+      "3. COST/BENEFIT (25% of federal scores):\n" +
+      "   - Include per-unit costs with total project budget\n" +
+      "   - Tie every dollar to a specific safety or operational outcome\n" +
+      "   - Reference response time improvements in minutes/seconds\n" +
+      "   - Show coverage expansion in square miles or percentage\n" +
+      "   - Reference population protected per dollar spent\n" +
+      "   - Compare cost of grant vs cost of NOT acting (liability, " +
+      "     incident risk, mutual aid breakdown)\n\n" +
+      "4. STATEMENT OF EFFECT (25% of federal scores):\n" +
+      "   - Lead with firefighter/officer life-safety impact\n" +
+      "   - Reference NFPA 1, NFPA 72, NFPA 1221 where applicable\n" +
+      "   - Include mutual aid and interoperability benefits\n" +
+      "   - Reference specific geographic coverage gaps being closed\n" +
+      "   - Name neighboring agencies that will benefit from " +
+      "     improved interoperability\n" +
+      "   - Quantify community protection: population, square miles, " +
+      "     response calls per year\n\n" +
+      "WRITING RULES YOU NEVER BREAK:\n" +
+      "- Always use active voice\n" +
+      "- Never use nonprofit/charity language — this is public safety\n" +
+      "- Never write 'we hope to' or 'we believe' — write 'this grant " +
+      "will' and 'this equipment provides'\n" +
+      "- Always include specific numbers: ages, quantities, " +
+      "response times, populations, square miles, call volumes\n" +
+      "- Reference the funder's mission language directly back to them\n" +
+      "- For FEMA grants: use 'enhance operational efficiencies', " +
+      "'foster interoperability', 'support community resilience'\n" +
+      "- For DHS grants: use 'strengthen preparedness capabilities', " +
+      "'enhance interoperable communications', 'address capability gaps'\n" +
+      "- For DOJ grants: use 'enhance officer safety', " +
+      "'improve community policing outcomes', 'reduce response times'\n" +
+      "- For foundations: use 'protect the first responders who protect us', " +
+      "'life-safety impact', 'community resilience'\n" +
+      "- Always end with the cost of inaction — what happens if " +
+      "this grant is NOT awarded\n\n" +
+      "PUBLIC SAFETY TERMINOLOGY YOU USE NATURALLY:\n" +
+      "P25, DTRS, interoperability, ICS, NIMS, mutual aid, auto aid,\n" +
+      "NFPA, APCO, CAD, dispatch, first due, coverage area, dead zones,\n" +
+      "officer safety, firefighter safety, life-safety, " +
+      "end-of-life equipment, manufacturer support ended, " +
+      "out of compliance, SCBA, PPE, apparatus, portable radio,\n" +
+      "mobile radio, repeater, talk-around channel, command channel,\n" +
+      "tactical channel, encryption, P25 Phase I, P25 Phase II,\n" +
+      "digital voice, analog legacy, coverage reliability,\n" +
+      "in-building coverage, DAS (Distributed Antenna System)";
 
-AGENCY_PROFILE_JSON:
-${JSON.stringify(pickOrgForPrompt(org), null, 2)}
+    const joinOrDash = (arr) =>
+      Array.isArray(arr) && arr.length > 0 ? arr.join(', ') : '—';
+    const fmtBool = (v) => (v === true ? 'Yes' : v === false ? 'No' : '—');
+    const grantMin = opp?.minAmount != null ? opp.minAmount : '—';
+    const grantMax = opp?.maxAmount != null ? opp.maxAmount : '—';
+    const funderNameForOpp = funder?.name || opp?.funder || '—';
+    const funderMission = funder?.missionStatement || '—';
 
-FUNDER_PROFILE_JSON:
-${JSON.stringify(pickFunderForPrompt(funder) || { name: opp?.funder, keywords: opp?.keywords, maxAmount: opp?.maxAmount }, null, 2)}
-
-Write each section in the first person as the agency. Reference population served, coverage area, equipment, problems, and priorities explicitly where relevant. 4-6 sentences per section where appropriate.${winPatternsBlock}`;
-    } else {
-      prompt = `Generate a professional grant application with exactly these 6 labeled sections.
-Return ONLY a JSON object with keys: problemStatement, communityImpact, proposedSolution, measurableOutcomes, urgency, budgetSummary.
-
-Agency: ${org.name}, ${org.agencyTypes?.[0] || 'public safety'}, ${org.location || 'our area'}
-Population served: ${org.populationServed || 'the community'}
-Coverage area: ${org.coverageArea || 'our coverage area'}
-Number of staff: ${org.numberOfStaff || 'our staff'}
-Current equipment: ${org.currentEquipment || 'existing equipment'}
-Main problems: ${org.mainProblems?.join(', ') || 'communications challenges'}
-Funding priorities: ${org.fundingPriorities?.join(', ') || org.programAreas?.join(', ') || 'infrastructure improvements'}
-
-Funder: ${funder?.name || opp?.funder || 'the funder'}
-Funder mission: ${funder?.missionStatement || 'public safety and community resilience'}
-Funder categories: ${funder?.fundingCategories?.join(', ') || opp?.keywords?.join(', ') || 'public safety'}
-Typical grant: ${funder ? '$' + (funder.avgGrantMin || 0).toLocaleString() + ' - $' + (funder.avgGrantMax || 0).toLocaleString() : (opp?.maxAmount ? 'up to $' + opp.maxAmount.toLocaleString() : 'amount requested')}
-
-Write each section in the first person as the agency. Be specific, outcome-focused, compelling. 3-5 sentences each.${winPatternsBlock}`;
-      systemContent =
-        'You are an expert grant writer specializing in public safety and communications for police, fire, and EMS agencies. Always return valid JSON only.';
-    }
+    const prompt =
+      `Generate a complete, competition-ready public safety grant application for the following agency and grant opportunity.\n\n` +
+      `AGENCY PROFILE:\n` +
+      `- Agency Name: ${org.name || '—'}\n` +
+      `- Agency Type: ${joinOrDash(org.agencyTypes)}\n` +
+      `- Location: ${org.location || '—'}\n` +
+      `- Population Served: ${org.populationServed != null ? org.populationServed : '—'}\n` +
+      `- Coverage Area: ${org.coverageArea || '—'}\n` +
+      `- Number of Staff: ${org.numberOfStaff != null ? org.numberOfStaff : '—'}\n` +
+      `- Annual Call Volume: ${org.annualVolume != null ? org.annualVolume : '—'}\n` +
+      `- Current Equipment: ${org.currentEquipment || '—'}\n` +
+      `- Main Problems: ${joinOrDash(org.mainProblems)}\n` +
+      `- Funding Priorities: ${joinOrDash(org.fundingPriorities)}\n` +
+      `- Specific Request: ${org.specificRequest || '—'}\n` +
+      `- Challenges: ${joinOrDash(org.challenges)}\n` +
+      `- Urgency Statement: ${org.urgencyStatement || '—'}\n` +
+      `- Who Benefits: ${org.whobenefits || '—'}\n` +
+      `- Budget Range: ${org.budgetRange || '—'}\n` +
+      `- Timeline: ${org.timeline || '—'}\n` +
+      `- Can Meet Local Match: ${fmtBool(org.canMeetLocalMatch)}\n` +
+      `- Eligibility Type: ${org.eligibilityType || '—'}\n` +
+      `- Mission Statement: ${org.missionStatement || '—'}\n` +
+      `- Service Area: ${org.serviceArea || '—'}\n` +
+      `- Staff Size Range: ${org.staffSizeRange || '—'}\n\n` +
+      `GRANT OPPORTUNITY:\n` +
+      `- Grant Program: ${opp?.title || '—'}\n` +
+      `- Funder: ${funderNameForOpp}\n` +
+      `- Funder Mission: ${funderMission}\n` +
+      `- Grant Range: $${grantMin} - $${grantMax}\n` +
+      `- Category: ${opp?.category || '—'}\n` +
+      `- Keywords: ${joinOrDash(opp?.keywords)}\n` +
+      `- Local Match Required: ${fmtBool(opp?.localMatchRequired)}\n` +
+      `- Description: ${opp?.description || '—'}\n` +
+      `${winPatternsBlock}\n\n` +
+      `Generate a complete grant application with these 8 sections.\n` +
+      `Return ONLY valid JSON with these exact keys, no markdown, no extra text:\n\n` +
+      `{\n` +
+      `  "projectTitle": "A compelling, specific project title.",\n` +
+      `  "projectSummary": "2-3 sentence executive summary.",\n` +
+      `  "problemStatement": "The specific problem this agency faces.",\n` +
+      `  "proposedSolution": "What they will do with the funding.",\n` +
+      `  "measurableOutcomes": "3-4 specific measurable outcomes.",\n` +
+      `  "budgetSummary": "How funds will be spent.",\n` +
+      `  "communityImpact": "2-3 sentences describing the direct impact on the community and residents served. Reference the population served and coverage area from the agency profile.",\n` +
+      `  "urgency": "2-3 sentences explaining why this funding is needed NOW. Reference the agency's urgency statement, equipment age, and any safety risks mentioned in the agency profile."\n` +
+      `}\n\n` +
+      `CRITICAL: Return only the JSON object. No introduction, no explanation, no markdown code blocks. Pure JSON only.\n` +
+      `The writing must sound like it was written by an experienced public safety professional, not a generic AI. Use the agency's specific data throughout — never leave generic placeholders.`;
 
     const res = await openai.chat.completions.create({
       model: 'gpt-4o-mini',
@@ -295,7 +393,7 @@ const createWithAI = async ({ opportunityId, funderId, organizationId, userId, a
     }
   }
 
-  const aiContent = await buildAIContent(org, funder, opp, { adminPortal });
+  const parsed = await buildAIContent(org, funder, opp, { adminPortal });
   const resolvedOppId = opp ? opp._id : opportunityId || undefined;
 
   const app = await Application.create({
@@ -311,7 +409,9 @@ const createWithAI = async ({ opportunityId, funderId, organizationId, userId, a
         : 'Grant Application',
     contactName: org.name,
     dateStarted: new Date(),
-    ...aiContent,
+    ...parsed,
+    communityImpact: parsed.communityImpact,
+    urgency: parsed.urgency,
   });
 
   await bumpOpportunityCountAndMaybeLock(opp);
@@ -423,8 +523,12 @@ const updateStatus = async (id, { status, dateSubmitted, followUpDate, notes }, 
 const regenerate = async (id) => {
   const app = await Application.findById(id).populate('organization').populate('opportunity').populate('funder');
   if (!app) throw new AppError('Application not found', 404);
-  const aiContent = await buildAIContent(app.organization, app.funder, app.opportunity);
-  await Application.findByIdAndUpdate(id, aiContent);
+  const parsed = await buildAIContent(app.organization, app.funder, app.opportunity);
+  await Application.findByIdAndUpdate(id, {
+    ...parsed,
+    communityImpact: parsed.communityImpact,
+    urgency: parsed.urgency,
+  });
   return Application.findById(id).populate('organization').populate('opportunity').populate('funder');
 };
 
@@ -499,8 +603,12 @@ const adminRegenerateAI = async (applicationId) => {
   const app = await Application.findById(applicationId).populate('organization').populate('funder').populate('opportunity');
   if (!app) throw new AppError('Application not found', 404);
   if (!app.funder) throw new AppError('Application must be linked to a funder for AI generation', 400);
-  const aiContent = await buildAIContent(app.organization, app.funder, app.opportunity, { adminPortal: true });
-  await Application.findByIdAndUpdate(applicationId, aiContent);
+  const parsed = await buildAIContent(app.organization, app.funder, app.opportunity, { adminPortal: true });
+  await Application.findByIdAndUpdate(applicationId, {
+    ...parsed,
+    communityImpact: parsed.communityImpact,
+    urgency: parsed.urgency,
+  });
   return Application.findById(applicationId).populate('organization').populate('opportunity').populate('funder');
 };
 

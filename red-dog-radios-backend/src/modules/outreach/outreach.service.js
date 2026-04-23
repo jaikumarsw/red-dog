@@ -13,6 +13,25 @@ const AI_FALLBACK = {
   body: 'Dear Program Officer,\n\nI am reaching out on behalf of our agency to express our strong interest in partnering with your organization. Our agency serves a community facing significant communications infrastructure challenges that directly impact emergency response.\n\nWe believe our mission closely aligns with your commitment to public safety and community resilience. We would welcome the opportunity to discuss how grant funding could help us address these critical needs.\n\nWould you be available for a brief conversation in the coming weeks?\n\nThank you for your consideration.\n\nSincerely,\n[Agency Representative]',
 };
 
+const OUTREACH_AI_SYSTEM_PROMPT =
+  'You are a professional grant coordinator for a public safety agency. You write relationship-building outreach emails to grant funders that open doors and start conversations.\n\n' +
+  'Your emails always:\n' +
+  '- Are under 180 words — funders are busy people\n' +
+  '- Open with one sentence about who you are and who you protect\n' +
+  "- Reference the funder's specific mission or program by name\n" +
+  "- State the specific equipment need in plain language (e.g., 'replace our 15-year-old radio fleet')\n" +
+  '- Include one compelling statistic (population served, coverage area, call volume, or equipment age)\n' +
+  '- Request a specific next step (call, email, application review)\n' +
+  '- Close with genuine appreciation, not flattery\n' +
+  '- Sound like a real human wrote it — not a mail merge template\n\n' +
+  'You never write:\n' +
+  "- 'I hope this email finds you well'\n" +
+  "- 'We are reaching out to express our interest'\n" +
+  "- 'Please do not hesitate to contact us'\n" +
+  '- Anything longer than 3 short paragraphs\n' +
+  '- Generic phrases that could apply to any agency\n\n' +
+  'The tone is: professional, direct, mission-driven, and human.';
+
 const generateFromFunder = async (funderId, organizationId, userId) => {
   const [org, funder] = await Promise.all([
     Organization.findById(organizationId),
@@ -33,7 +52,10 @@ Return JSON only with keys: subject (string), contactName (string), body (plain 
 
       const res = await openai.chat.completions.create({
         model: 'gpt-4o-mini',
-        messages: [{ role: 'user', content: prompt }],
+        messages: [
+          { role: 'system', content: OUTREACH_AI_SYSTEM_PROMPT },
+          { role: 'user', content: prompt },
+        ],
         max_tokens: 500,
       });
       const raw = res.choices[0]?.message?.content?.trim() || '';
@@ -76,7 +98,10 @@ Return JSON only with keys: subject, contactName, body (under 200 words).`;
 
       const res = await openai.chat.completions.create({
         model: 'gpt-4o-mini',
-        messages: [{ role: 'user', content: prompt }],
+        messages: [
+          { role: 'system', content: OUTREACH_AI_SYSTEM_PROMPT },
+          { role: 'user', content: prompt },
+        ],
         max_tokens: 400,
       });
       const raw = res.choices[0]?.message?.content?.trim() || '';
