@@ -7,6 +7,9 @@ import adminApi from "@/lib/adminApi";
 import { AdminBackLink } from "@/components/admin/AdminBackLink";
 import { Button } from "@/components/ui/button";
 import { useQuery } from "@tanstack/react-query";
+import { Input } from "@/components/ui/input";
+import { useToast } from "@/hooks/use-toast";
+import { useEffect, useRef, useState } from "react";
 
 function formatList(val: unknown) {
   if (Array.isArray(val)) return val.length ? val.join(", ") : "—";
@@ -24,7 +27,11 @@ export default function AdminFunderDetailPage() {
   const params = useParams();
   const router = useRouter();
   const qc = useQueryClient();
+  const { toast, dismiss } = useToast();
   const id = typeof params.id === "string" ? params.id : params.id?.[0] ?? "";
+  const [limitInput, setLimitInput] = useState("0");
+  const savingToastIdRef = useRef<string | null>(null);
+  const unlockingToastIdRef = useRef<string | null>(null);
 
   const { data, isLoading, isError } = useQuery({
     queryKey: ["admin", "funder", id],
@@ -35,11 +42,52 @@ export default function AdminFunderDetailPage() {
     enabled: Boolean(id),
   });
 
+  useEffect(() => {
+    if (!data) return;
+    const current = (data.maxApplicationsAllowed as number | undefined) ?? 0;
+    setLimitInput(String(current));
+  }, [data]);
+
   const del = useMutation({
     mutationFn: () => adminApi.delete(`admin/funders/${id}`),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["admin", "funders"] });
       router.push("/admin/funders");
+    },
+  });
+
+  const setLimit = useMutation({
+    mutationFn: (maxApplicationsAllowed: number) =>
+      adminApi.put(`admin/funders/${id}/set-limit`, { maxApplicationsAllowed }),
+    onSuccess: async () => {
+      if (savingToastIdRef.current) dismiss(savingToastIdRef.current);
+      savingToastIdRef.current = null;
+      await qc.invalidateQueries({ queryKey: ["admin", "funder", id] });
+      toast({ title: "Limit saved" });
+    },
+    onError: (err: unknown) => {
+      if (savingToastIdRef.current) dismiss(savingToastIdRef.current);
+      savingToastIdRef.current = null;
+      const msg =
+        (err as { response?: { data?: { message?: string } } })?.response?.data?.message ?? "Save failed";
+      toast({ title: "Error", description: msg, variant: "destructive" });
+    },
+  });
+
+  const unlock = useMutation({
+    mutationFn: () => adminApi.put(`admin/funders/${id}/unlock`),
+    onSuccess: async () => {
+      if (unlockingToastIdRef.current) dismiss(unlockingToastIdRef.current);
+      unlockingToastIdRef.current = null;
+      await qc.invalidateQueries({ queryKey: ["admin", "funder", id] });
+      toast({ title: "Funder unlocked" });
+    },
+    onError: (err: unknown) => {
+      if (unlockingToastIdRef.current) dismiss(unlockingToastIdRef.current);
+      unlockingToastIdRef.current = null;
+      const msg =
+        (err as { response?: { data?: { message?: string } } })?.response?.data?.message ?? "Unlock failed";
+      toast({ title: "Error", description: msg, variant: "destructive" });
     },
   });
 
@@ -49,6 +97,7 @@ export default function AdminFunderDetailPage() {
   if (isError || !data) return <p className="text-red-600">Funder not found.</p>;
 
   const applicantOrgs = (data.applicantOrgs as ApplicantRow[] | undefined) ?? [];
+  const isLocked = Boolean(data.isLocked);
 
   const rows: [string, React.ReactNode][] = [
     ["Name", String(data.name ?? "")],
@@ -97,6 +146,74 @@ export default function AdminFunderDetailPage() {
           >
             Delete
           </Button>
+        </div>
+      </div>
+
+      <div className="rounded-lg border border-[#e5e7eb] bg-white p-6 shadow-sm space-y-4">
+        <h2 className="[font-family:'Montserrat',Helvetica] text-sm font-bold uppercase tracking-wide text-[#111827]">
+          Application Control
+        </h2>
+
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <div className="flex items-center gap-2">
+            {isLocked ? (
+              <>
+                <span className="inline-flex rounded-full bg-[#fee2e2] px-3 py-1 text-xs font-semibold text-[#dc2626]">
+                  LOCKED
+                </span>
+                <Button
+                  type="button"
+                  variant="outline"
+                  className="border-[#e5e7eb]"
+                  disabled={unlock.isPending}
+                  onClick={() => {
+                    if (unlockingToastIdRef.current) dismiss(unlockingToastIdRef.current);
+                    const t = toast({ title: "Unlocking funder..." });
+                    unlockingToastIdRef.current = t.id;
+                    unlock.mutate();
+                  }}
+                >
+                  {unlock.isPending ? "Unlocking..." : "Unlock Funder"}
+                </Button>
+              </>
+            ) : (
+              <span className="inline-flex rounded-full bg-[#dcfce7] px-3 py-1 text-xs font-semibold text-[#16a34a]">
+                Accepting Applications
+              </span>
+            )}
+          </div>
+
+          <div className="flex flex-wrap items-end gap-3">
+            <div>
+              <label className="mb-1 block text-xs font-medium text-[#374151]">Max Applications Allowed</label>
+              <Input
+                type="number"
+                min={0}
+                className="w-40 border-[#e5e7eb]"
+                value={limitInput}
+                onChange={(e) => setLimitInput(e.target.value)}
+              />
+            </div>
+            <Button
+              type="button"
+              variant="secondary"
+              className="border-[#e5e7eb]"
+              disabled={setLimit.isPending}
+              onClick={() => {
+                const n = parseInt(limitInput, 10);
+                if (Number.isNaN(n) || n < 1) {
+                  toast({ title: "Enter a valid number (min 1)", variant: "destructive" });
+                  return;
+                }
+                if (savingToastIdRef.current) dismiss(savingToastIdRef.current);
+                const t = toast({ title: "Saving limit..." });
+                savingToastIdRef.current = t.id;
+                setLimit.mutate(n);
+              }}
+            >
+              {setLimit.isPending ? "Saving..." : "Save Limit"}
+            </Button>
+          </div>
         </div>
       </div>
 

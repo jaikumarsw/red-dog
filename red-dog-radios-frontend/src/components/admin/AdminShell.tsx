@@ -8,13 +8,11 @@ import { AppShellLayout, type ShellMenuItem } from "@/components/AppShellLayout"
 
 const ADMIN_MENU: ShellMenuItem[] = [
   { id: "admin-dashboard", label: "Dashboard", icon: "/figmaAssets/svg-8.svg", path: "/admin/dashboard" },
-  { id: "admin-activity", label: "Activity", icon: "/figmaAssets/svg-15.svg", path: "/admin/activity" },
   { id: "admin-agencies", label: "Agencies", icon: "/figmaAssets/svg-10.svg", path: "/admin/agencies" },
   { id: "admin-opportunities", label: "Opportunities", icon: "/figmaAssets/svg-14.svg", path: "/admin/opportunities" },
   { id: "admin-funders", label: "Funders", icon: "/figmaAssets/svg-12.svg", path: "/admin/funders" },
   { id: "admin-applications", label: "Applications", icon: "/figmaAssets/svg-11.svg", path: "/admin/applications" },
   { id: "admin-users", label: "Users", icon: "/figmaAssets/svg-5.svg", path: "/admin/users" },
-  { id: "admin-settings", label: "Settings", icon: "/figmaAssets/svg-9.svg", path: "/admin/settings" },
 ];
 
 function chunkLoadFailedMessage(msg: string) {
@@ -91,6 +89,7 @@ export function AdminShell({ children }: { children: ReactNode }) {
       onLogout={logout}
       signOutRedirectPath="/admin/login"
       headerSubtitle="Staff portal"
+      profilePath="/admin/settings"
     >
       <div className="flex min-h-0 min-w-0 flex-1 flex-col px-4 pb-8 pt-6 sm:px-6 sm:pt-8 lg:px-8">
         {children}

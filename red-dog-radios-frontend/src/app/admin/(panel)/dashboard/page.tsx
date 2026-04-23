@@ -65,7 +65,7 @@ export default function AdminDashboardPage() {
   ];
 
   return (
-    <div className="space-y-8">
+    <div className="max-w-7xl space-y-8">
       <div className="flex flex-col gap-4 sm:flex-row sm:flex-wrap sm:items-center sm:justify-between">
         <h1 className="[font-family:'Montserrat',Helvetica] text-2xl font-bold text-[#111827]">Dashboard</h1>
       </div>
@@ -79,16 +79,16 @@ export default function AdminDashboardPage() {
         {cards.map((c) => (
           <div
             key={c.label}
-            className="rounded-lg border border-[#e5e7eb] bg-white p-4 shadow-sm"
+            className="rounded-xl border border-[#e5e7eb] bg-white p-5 shadow-[0_1px_4px_rgba(0,0,0,0.05)] transition-all hover:shadow-md"
           >
-            <p className="text-xs uppercase tracking-wide text-[#6b7280]">{c.label}</p>
-            <p className="mt-1 text-2xl font-bold text-[#111827]">{c.value}</p>
+            <p className="text-xs font-semibold uppercase tracking-wide text-[#6b7280] [font-family:'Montserrat',Helvetica]">{c.label}</p>
+            <p className="mt-2 text-2xl font-bold tabular-nums text-[#111827]">{c.value}</p>
           </div>
         ))}
       </div>
       <div className="grid gap-6 md:grid-cols-2">
-        <div className="rounded-lg border border-[#e5e7eb] bg-white p-4 shadow-sm">
-          <h2 className="mb-3 text-sm font-semibold text-[#ef3e34] [font-family:'Montserrat',Helvetica]">
+        <div className="rounded-xl border border-[#e5e7eb] bg-white p-5 shadow-[0_1px_4px_rgba(0,0,0,0.05)]">
+          <h2 className="mb-4 text-sm font-bold uppercase tracking-wide text-[#ef3e34] [font-family:'Montserrat',Helvetica]">
             Recent signups
           </h2>
           <ul className="space-y-3 text-sm">
@@ -108,8 +108,8 @@ export default function AdminDashboardPage() {
             ))}
           </ul>
         </div>
-        <div className="rounded-lg border border-[#e5e7eb] bg-white p-4 shadow-sm">
-          <h2 className="mb-3 text-sm font-semibold text-[#ef3e34] [font-family:'Montserrat',Helvetica]">
+        <div className="rounded-xl border border-[#e5e7eb] bg-white p-5 shadow-[0_1px_4px_rgba(0,0,0,0.05)]">
+          <h2 className="mb-4 text-sm font-bold uppercase tracking-wide text-[#ef3e34] [font-family:'Montserrat',Helvetica]">
             Recent applications
           </h2>
           <ul className="space-y-3 text-sm">

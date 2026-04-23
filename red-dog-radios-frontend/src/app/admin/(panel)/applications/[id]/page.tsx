@@ -63,7 +63,6 @@ export default function AdminApplicationDetailPage() {
   const qc = useQueryClient();
   const { toast } = useToast();
   const [notes, setNotes] = useState("");
-  const [approveOpen, setApproveOpen] = useState(false);
   const [awardOpen, setAwardOpen] = useState(false);
   const [rejectOpen, setRejectOpen] = useState(false);
   const [rejectReason, setRejectReason] = useState("");
@@ -109,7 +108,6 @@ export default function AdminApplicationDetailPage() {
       qc.invalidateQueries({ queryKey: ["admin", "application", appId] });
       qc.invalidateQueries({ queryKey: ["admin", "applications"] });
       toast({ title: "Status updated" });
-      setApproveOpen(false);
       setAwardOpen(false);
       setRejectOpen(false);
       setRejectReason("");
@@ -133,9 +131,10 @@ export default function AdminApplicationDetailPage() {
   if (isLoading || !data) return <p className="text-[#6b7280]">Loading…</p>;
 
   const status = String(data.status ?? "");
-  const isApproved = status === "approved";
-  const isRejected = status === "rejected";
-  const canMarkAwarded = status === "approved" || status === "submitted";
+  const isAwarded = status === "awarded";
+  const isRejected = status === "rejected" || status === "denied";
+  const canMarkAwarded = status === "submitted" || status === "in_review";
+  const canReject = status === "submitted" || status === "in_review";
   const fitScore = data.fitScore;
   const breakdown = data.matchBreakdown;
   const matchReasons = data.matchReasons ?? [];
@@ -149,12 +148,6 @@ export default function AdminApplicationDetailPage() {
   const submittedBy = (data as { submittedBy?: unknown }).submittedBy as
     | { firstName?: string; lastName?: string; email?: string; role?: string; createdAt?: string }
     | undefined;
-
-  const onConfirmApprove = () => {
-    // Close immediately so the dialog doesn't bounce open on fast clicks/rerenders.
-    setApproveOpen(false);
-    statusMutation.mutate({ status: "approved" });
-  };
 
   const onConfirmAwarded = () => {
     setAwardOpen(false);
@@ -187,27 +180,17 @@ export default function AdminApplicationDetailPage() {
           </p>
         </div>
         <div className="flex flex-wrap gap-2">
-          {!isApproved && (
+          {canMarkAwarded && !isAwarded && (
             <Button
               type="button"
               className="bg-emerald-600 text-white hover:bg-emerald-700"
-              disabled={statusMutation.isPending}
-              onClick={() => setApproveOpen(true)}
-            >
-              Approve
-            </Button>
-          )}
-          {canMarkAwarded && (
-            <Button
-              type="button"
-              className="bg-amber-500 text-white hover:bg-amber-600"
               disabled={statusMutation.isPending}
               onClick={() => setAwardOpen(true)}
             >
               Mark as Awarded
             </Button>
           )}
-          {!isRejected && (
+          {canReject && !isRejected && (
             <Button
               type="button"
               variant="destructive"
@@ -526,27 +509,6 @@ export default function AdminApplicationDetailPage() {
           <p className="whitespace-pre-wrap text-sm text-[#374151]">{String(data[k] || "—")}</p>
         </div>
       ))}
-
-      <AlertDialog open={approveOpen} onOpenChange={setApproveOpen}>
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle>Approve this application?</AlertDialogTitle>
-            <AlertDialogDescription>
-              Are you sure you want to approve this application? The agency will be notified.
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel>Cancel</AlertDialogCancel>
-            <AlertDialogAction
-              className="bg-emerald-600 text-white hover:bg-emerald-700"
-              onClick={onConfirmApprove}
-              disabled={statusMutation.isPending}
-            >
-              Approve
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
 
       <AlertDialog open={awardOpen} onOpenChange={setAwardOpen}>
         <AlertDialogContent>

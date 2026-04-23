@@ -131,7 +131,7 @@ export default function AdminOpportunitiesPage() {
   const in14 = 14 * 24 * 60 * 60 * 1000;
 
   return (
-    <div className="space-y-6">
+    <div className="max-w-7xl space-y-6">
       <div className="flex justify-between items-center">
         <h1 className="[font-family:'Montserrat',Helvetica] text-2xl font-bold text-[#111827]">Opportunities</h1>
         <Button
@@ -161,9 +161,9 @@ export default function AdminOpportunitiesPage() {
           Refresh
         </Button>
       </div>
-      <div className="overflow-x-auto rounded-lg border border-[#e5e7eb] bg-white shadow-sm">
+      <div className="overflow-x-auto rounded-xl border border-[#e5e7eb] bg-white shadow-[0_1px_4px_rgba(0,0,0,0.05)]">
         <table className="w-full text-sm">
-          <thead className="bg-[#f9fafb] text-left text-[#6b7280]">
+          <thead className="border-b border-[#f0f0f0] bg-[#f9fafb] text-left text-[#6b7280]">
             <tr>
               <th className="p-3">Title</th>
               <th className="p-3">Funder</th>

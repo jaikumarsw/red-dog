@@ -49,7 +49,6 @@ type ViewMode = "original" | "aligned" | "compare";
 const STATUS_COLORS: Record<string, string> = {
   draft: "bg-gray-100 text-gray-700",
   drafting: "bg-blue-100 text-blue-700",
-  ready_to_submit: "bg-purple-100 text-purple-700",
   submitted: "bg-orange-100 text-orange-700",
   in_review: "bg-yellow-100 text-yellow-700",
   under_review: "bg-yellow-100 text-yellow-700",

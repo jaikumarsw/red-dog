@@ -75,7 +75,7 @@ const statCards = [
     icon: CheckCircle,
     color: "text-[#00d491]",
     bg: "bg-[#e6fdf5]",
-    path: "/tracker",
+    path: "/applications",
     format: (v: number) => String(v),
   },
   {
@@ -84,7 +84,7 @@ const statCards = [
     icon: Trophy,
     color: "text-[#feb900]",
     bg: "bg-[#fff9e6]",
-    path: "/wins",
+    path: "/applications",
     format: (v: number) => String(v),
   },
   {
@@ -93,7 +93,7 @@ const statCards = [
     icon: TrendingUp,
     color: "text-[#ef3e34]",
     bg: "bg-[#fff1f0]",
-    path: "/tracker",
+    path: "/applications",
     format: fmtDollars,
   },
   {
@@ -102,7 +102,7 @@ const statCards = [
     icon: DollarSign,
     color: "text-[#00d491]",
     bg: "bg-[#e6fdf5]",
-    path: "/wins",
+    path: "/applications",
     format: fmtDollars,
   },
 ];
@@ -236,12 +236,11 @@ export const PlatformDashboardSection = () => {
         </div>
 
         {/* Quick Actions */}
-        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 self-stretch w-full">
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 self-stretch w-full">
           {[
             { label: "Browse Funders", path: "/funders", color: "border-[#50a2ff] text-[#50a2ff] hover:bg-[#eef5fe]" },
             { label: "New Application", path: "/opportunities", color: "border-[#ef3e34] text-[#ef3e34] hover:bg-[#fff1f0]" },
-            { label: "View Tracker", path: "/tracker", color: "border-[#00d491] text-[#00d491] hover:bg-[#e6fdf5]" },
-            { label: "Wins Database", path: "/wins", color: "border-[#feb900] text-[#feb900] hover:bg-[#fff9e6]" },
+            { label: "View Applications", path: "/applications", color: "border-[#00d491] text-[#00d491] hover:bg-[#e6fdf5]" },
           ].map((action) => (
             <button
               key={action.path}
@@ -343,7 +342,6 @@ export const PlatformDashboardSection = () => {
                 <>
                   {[
                     { label: "Draft", key: "draft", color: "bg-gray-400" },
-                    { label: "Ready to Submit", key: "ready_to_submit", color: "bg-purple-500" },
                     { label: "Submitted", key: "submitted", color: "bg-orange-400" },
                     { label: "In Review", key: "in_review", color: "bg-yellow-400" },
                     { label: "Awarded", key: "awarded", color: "bg-green-500" },

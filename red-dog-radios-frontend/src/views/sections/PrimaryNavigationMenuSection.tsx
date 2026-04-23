@@ -6,10 +6,7 @@ import { RedDogLogo } from "@/components/RedDogLogo";
 
 const menuItems = [
   { id: "dashboard", label: "Dashboard", icon: "/figmaAssets/svg-8.svg", path: "/dashboard" },
-  { id: "matches", label: "Matches", icon: "/figmaAssets/svg-6.svg", path: "/matches" },
   { id: "applications", label: "Applications", icon: "/figmaAssets/svg-11.svg", path: "/applications" },
-  { id: "tracker", label: "Tracker", icon: "/figmaAssets/svg-12.svg", path: "/tracker" },
-  { id: "wins", label: "Win Database", icon: "/figmaAssets/svg-6.svg", path: "/wins" },
   { id: "settings", label: "Settings", icon: "/figmaAssets/svg-9.svg", path: "/settings" },
 ];
 

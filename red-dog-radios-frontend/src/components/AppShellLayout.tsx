@@ -59,6 +59,7 @@ type AppShellLayoutProps = {
   /** Optional line under the logo (e.g. staff label). */
   headerSubtitle?: string;
   showAshleen?: boolean;
+  profilePath?: string;
 };
 
 function pathIsActive(pathname: string, itemPath: string, prefix: boolean) {
@@ -76,6 +77,7 @@ const SidebarContent = ({
   onLogout,
   signOutRedirectPath,
   headerSubtitle,
+  profilePath,
   onNavClick,
 }: {
   collapsed: boolean;
@@ -85,6 +87,7 @@ const SidebarContent = ({
   onLogout: () => void;
   signOutRedirectPath: string;
   headerSubtitle?: string;
+  profilePath?: string;
   onNavClick?: () => void;
 }) => {
   const router = useRouter();
@@ -96,7 +99,7 @@ const SidebarContent = ({
     : "?";
 
   return (
-    <>
+    <div className="flex h-full min-h-0 flex-col">
       <div
         className={cn(
           "flex-shrink-0 border-b border-[#1f1f1f] px-4 min-w-0",
@@ -119,7 +122,7 @@ const SidebarContent = ({
         )}
       </div>
 
-      <div className="flex w-full flex-col">
+      <div className="flex w-full flex-1 min-h-0 flex-col overflow-y-auto">
         <div className={`flex flex-col items-start gap-2.5 py-6 w-full ${collapsed ? "px-2" : "px-4"}`}>
           {!collapsed && (
             <div className="flex flex-col items-start px-2 self-stretch w-full">
@@ -183,7 +186,19 @@ const SidebarContent = ({
 
       {user && (
         <div
-          className={`flex items-center flex-shrink-0 border-t border-solid border-[#1f1f1f] ${collapsed ? "justify-center p-3" : "gap-3 px-5 py-4"}`}
+          onClick={() => {
+            if (profilePath) {
+              router.push(profilePath);
+              onNavClick?.();
+            }
+          }}
+          className={cn(
+            "flex items-center flex-shrink-0 border-t border-solid border-[#1f1f1f]",
+            profilePath && "cursor-pointer hover:bg-[#ffffff0d] transition-colors",
+            collapsed ? "justify-center p-3" : "gap-3 px-5 py-4"
+          )}
+          role={profilePath ? "button" : "presentation"}
+          title={collapsed && profilePath ? "Settings" : undefined}
         >
           <div className="w-8 h-8 rounded-full bg-[#ef3e34] flex items-center justify-center flex-shrink-0">
             <span className="[font-family:'Montserrat',Helvetica] font-bold text-white text-xs leading-none">{initials}</span>
@@ -238,7 +253,7 @@ const SidebarContent = ({
           )}
         </button>
       </div>
-    </>
+    </div>
   );
 };
 
@@ -251,6 +266,7 @@ export function AppShellLayout({
   signOutRedirectPath,
   headerSubtitle,
   showAshleen = false,
+  profilePath,
 }: AppShellLayoutProps) {
   const [drawerOpen, setDrawerOpen] = useState(false);
   const pathname = usePathname();
@@ -269,7 +285,7 @@ export function AppShellLayout({
 
   return (
     <div className="flex min-h-screen w-full overflow-x-hidden bg-neutral-50">
-      <nav className="z-10 hidden w-72 shrink-0 flex-col items-stretch self-stretch overflow-hidden border-r border-solid border-[#1f1f1f] bg-[#0d0d0d] min-h-screen lg:flex">
+      <nav className="z-10 hidden h-screen w-72 flex-col items-stretch overflow-hidden border-r border-solid border-[#1f1f1f] bg-[#0d0d0d] lg:fixed lg:inset-y-0 lg:left-0 lg:flex">
         <SidebarContent
           collapsed={false}
           menuItems={menuItems}
@@ -278,10 +294,11 @@ export function AppShellLayout({
           onLogout={onLogout}
           signOutRedirectPath={signOutRedirectPath}
           headerSubtitle={headerSubtitle}
+          profilePath={profilePath}
         />
       </nav>
 
-      <nav className="z-10 hidden w-16 shrink-0 flex-col items-stretch self-stretch overflow-hidden border-r border-solid border-[#1f1f1f] bg-[#0d0d0d] min-h-screen md:flex lg:hidden">
+      <nav className="z-10 hidden h-screen w-16 flex-col items-stretch overflow-hidden border-r border-solid border-[#1f1f1f] bg-[#0d0d0d] md:fixed md:inset-y-0 md:left-0 md:flex lg:hidden">
         <SidebarContent
           collapsed
           menuItems={menuItems}
@@ -290,6 +307,7 @@ export function AppShellLayout({
           onLogout={onLogout}
           signOutRedirectPath={signOutRedirectPath}
           headerSubtitle={headerSubtitle}
+          profilePath={profilePath}
         />
       </nav>
 
@@ -312,11 +330,12 @@ export function AppShellLayout({
           onLogout={onLogout}
           signOutRedirectPath={signOutRedirectPath}
           headerSubtitle={headerSubtitle}
+          profilePath={profilePath}
           onNavClick={() => setDrawerOpen(false)}
         />
       </nav>
 
-      <main className="flex min-h-screen min-w-0 flex-1 flex-col">
+      <main className="flex min-h-screen min-w-0 flex-1 flex-col md:pl-16 lg:pl-72">
         <div className="flex h-14 flex-shrink-0 items-center gap-3 border-b border-[#f0f0f0] bg-white px-4 md:hidden">
           <button
             type="button"

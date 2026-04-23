@@ -452,7 +452,8 @@ const OppDetailModal = ({
   const days = daysLeft(opp.deadline);
   const urgentDeadline = days !== null && days >= 0 && days <= 14;
   const sc = scoreColor(opp.fitScore);
-  const cleanReasons = (opp.matchReasons || []).filter(r => typeof r === "string" && r.trim().length > 0);
+  const NEGATIVE_PATTERNS = /\b(not (on|in|listed|funded|eligible|covered|supported|included)|does not (fund|include|cover|support)|no match|agency type.*not|not.*agency type|outside.*scope|ineligible|disqualified|not a (match|fit)|poor fit|low (fit|match)|mismatch)\b/i;
+  const cleanReasons = (opp.matchReasons || []).filter(r => typeof r === "string" && r.trim().length > 0 && !NEGATIVE_PATTERNS.test(r));
   const cleanAiReasoning = typeof opp.aiReasoning === "string" && opp.aiReasoning.trim().length > 0 ? opp.aiReasoning : null;
   const hasAnyAnalysis = cleanReasons.length > 0 || cleanAiReasoning;
 

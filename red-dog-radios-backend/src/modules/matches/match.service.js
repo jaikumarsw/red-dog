@@ -58,25 +58,25 @@ const computeMatchScore = (organization, opportunity) => {
     }
   }
 
-  // 2. Geography match (20 pts)
+  // 2. Geography match (20 pts) — uses opportunity.locationFocus (national = empty / absent)
   const orgLocation = (organization.location || '').toLowerCase();
-  const stateFromLocation = orgLocation.split(',').map((s) => s.trim()).find((s) => s.length > 0) || orgLocation;
-  const oppKeywordsLower = (opportunity.keywords || []).map((k) => k.toLowerCase());
+  const rawLocationFocus = opportunity.locationFocus;
+  const isNationalProgram =
+    rawLocationFocus == null || (Array.isArray(rawLocationFocus) && rawLocationFocus.length === 0);
 
-  if (!opportunity.keywords || opportunity.keywords.length === 0) {
+  if (isNationalProgram) {
     breakdown.geography = 20;
     score += 20;
-    reasons.push('No geographic restriction (+20 pts)');
+    reasons.push('National program — open to all states (+20 pts)');
   } else {
-    const stateMatch = oppKeywordsLower.some((kw) => orgLocation.includes(kw) || kw.includes(stateFromLocation));
-    if (stateMatch) {
+    const focusList = Array.isArray(rawLocationFocus)
+      ? rawLocationFocus.map((s) => String(s).trim().toLowerCase()).filter((s) => s.length > 0)
+      : [];
+    const locationMatchesFocus = focusList.some((focus) => orgLocation.includes(focus));
+    if (locationMatchesFocus) {
       breakdown.geography = 20;
       score += 20;
       reasons.push('Organization location matches opportunity geography (+20 pts)');
-    } else if (!orgLocation) {
-      breakdown.geography = 10;
-      score += 10;
-      reasons.push('Organization location not specified — partial credit (+10 pts)');
     } else {
       breakdown.geography = 0;
       disqualifiers.push('Geographic mismatch — organization location not in opportunity coverage area');

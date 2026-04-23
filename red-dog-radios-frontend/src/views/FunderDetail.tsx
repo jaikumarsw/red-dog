@@ -198,19 +198,23 @@ export const FunderDetail = () => {
             </p>
           </div>
 
-          {funder.matchReasons && funder.matchReasons.length > 0 && (
-            <div className="rounded-xl border border-[#e5e7eb] bg-white p-6 flex flex-col gap-3">
-              <h2 className="[font-family:'Montserrat',Helvetica] font-bold text-[#111827] text-base uppercase tracking-wide">
-                Why This Funder Matches
-              </h2>
-              {funder.matchReasons.map((r, i) => (
-                <div key={i} className="flex items-start gap-2">
-                  <span className="mt-1 h-2 w-2 shrink-0 rounded-full bg-[#22c55e]" />
-                  <p className="[font-family:'Montserrat',Helvetica] text-sm text-[#374151]">{r}</p>
-                </div>
-              ))}
-            </div>
-          )}
+          {(() => {
+            const NEGATIVE = /\b(not (on|in|listed|funded|eligible|covered|supported|included)|does not (fund|include|cover|support)|no match|agency type.*not|not.*agency type|outside.*scope|ineligible|disqualified|not a (match|fit)|poor fit|low (fit|match)|mismatch)\b/i;
+            const posReasons = (funder.matchReasons || []).filter(r => typeof r === "string" && r.trim().length > 0 && !NEGATIVE.test(r));
+            return posReasons.length > 0 ? (
+              <div className="rounded-xl border border-[#e5e7eb] bg-white p-6 flex flex-col gap-3">
+                <h2 className="[font-family:'Montserrat',Helvetica] font-bold text-[#111827] text-base uppercase tracking-wide">
+                  Why This Funder Matches
+                </h2>
+                {posReasons.map((r, i) => (
+                  <div key={i} className="flex items-start gap-2">
+                    <span className="mt-1 h-2 w-2 shrink-0 rounded-full bg-[#22c55e]" />
+                    <p className="[font-family:'Montserrat',Helvetica] text-sm text-[#374151]">{r}</p>
+                  </div>
+                ))}
+              </div>
+            ) : null;
+          })()}
 
           {funder.pastGrantsAwarded && funder.pastGrantsAwarded.length > 0 && (
             <div className="rounded-xl border border-[#e5e7eb] bg-white p-6 flex flex-col gap-3">

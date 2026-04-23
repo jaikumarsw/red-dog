@@ -9,13 +9,7 @@ const menuItems: ShellMenuItem[] = [
   { id: "opportunities", label: "Opportunities", icon: "/figmaAssets/svg-14.svg", path: "/opportunities" },
   { id: "applications", label: "Applications", icon: "/figmaAssets/svg-11.svg", path: "/applications" },
   { id: "funders", label: "Funders", icon: "/figmaAssets/svg-12.svg", path: "/funders" },
-  { id: "alerts", label: "Alerts", icon: "/figmaAssets/svg-15.svg", path: "/alerts" },
-  { id: "outreach", label: "Outreach", icon: "/figmaAssets/svg-3.svg", path: "/outreach" },
-  { id: "followups", label: "Follow-ups", icon: "/figmaAssets/svg-11.svg", path: "/followups" },
   { id: "weekly-summary", label: "Weekly Summary", icon: "/figmaAssets/svg-3.svg", path: "/weekly-summary" },
-  { id: "tracker", label: "Tracker", icon: "/figmaAssets/svg-6.svg", path: "/tracker" },
-  { id: "wins", label: "Wins", icon: "/figmaAssets/svg-12.svg", path: "/wins" },
-  { id: "settings", label: "Settings", icon: "/figmaAssets/svg-9.svg", path: "/settings" },
 ];
 
 export const AppShell = ({ children }: { children: ReactNode }) => {
@@ -28,6 +22,7 @@ export const AppShell = ({ children }: { children: ReactNode }) => {
       user={user}
       onLogout={logout}
       signOutRedirectPath="/login"
+      profilePath="/settings"
       showAshleen
     >
       {children}

@@ -4,6 +4,7 @@ import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import adminApi from "@/lib/adminApi";
 import { AdminTableViewLink } from "@/components/admin/AdminTableViewLink";
+import { AdminBackLink } from "@/components/admin/AdminBackLink";
 
 type Actor = { email?: string; firstName?: string; lastName?: string };
 
@@ -38,7 +39,8 @@ export default function AdminActivityPage() {
   const rows = (data?.data ?? []) as LogRow[];
 
   return (
-    <div className="space-y-6">
+    <div className="max-w-6xl space-y-6">
+      <AdminBackLink href="/admin/dashboard">Back to dashboard</AdminBackLink>
       <div className="flex flex-col gap-4 sm:flex-row sm:flex-wrap sm:items-center sm:justify-between">
         <div>
           <h1 className="[font-family:'Montserrat',Helvetica] text-2xl font-bold text-[#111827]">Activity log</h1>
@@ -63,7 +65,7 @@ export default function AdminActivityPage() {
           </select>
           <button
             type="button"
-            className="rounded-md border border-[#e5e7eb] bg-white px-3 py-2 text-sm text-[#374151] hover:bg-[#f9fafb]"
+            className="rounded border border-[#e5e7eb] bg-white px-4 py-2 text-sm font-semibold text-[#374151] hover:bg-[#f9fafb] transition-colors"
             onClick={() => refetch()}
           >
             Refresh
@@ -71,9 +73,9 @@ export default function AdminActivityPage() {
         </div>
       </div>
 
-      <div className="overflow-x-auto rounded-lg border border-[#e5e7eb] bg-white shadow-sm">
+      <div className="rounded-lg border border-[#e5e7eb] bg-white shadow-[0_1px_4px_rgba(0,0,0,0.05)] overflow-hidden">
         <table className="w-full text-left text-sm">
-          <thead className="bg-[#f9fafb] text-[#6b7280]">
+          <thead className="border-b border-[#f0f0f0] bg-[#f9fafb] text-[#6b7280]">
             <tr>
               <th className="p-3">When</th>
               <th className="p-3">Category</th>

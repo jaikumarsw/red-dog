@@ -183,13 +183,12 @@ const filterTabs: { label: string; value: string }[] = [
 // Statuses an agency user may SET themselves
 const AGENCY_STATUS_OPTIONS = [
   { value: "drafting", label: "Drafting" },
-  { value: "ready_to_submit", label: "Ready to Submit" },
   { value: "submitted", label: "Submitted" },
   { value: "withdrawn", label: "Withdrawn" },
 ];
 
 // Any status NOT in this list was set by an admin — show as read-only badge
-const AGENCY_EDITABLE_STATUSES = ["drafting", "ready_to_submit", "submitted", "withdrawn"];
+const AGENCY_EDITABLE_STATUSES = ["drafting", "submitted", "withdrawn"];
 
 const AppCard = ({ app }: { app: AppItem }) => {
   const cfg = statusConfig[app.status] ?? defaultCfg;

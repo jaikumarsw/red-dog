@@ -240,12 +240,16 @@ export const Funders = () => {
                   {f.missionStatement || "No mission statement available."}
                 </p>
 
-                {/* Match reasons (top 1) */}
-                {hasScore && f.matchReasons && f.matchReasons.length > 0 && (
-                  <p className="[font-family:'Montserrat',Helvetica] text-xs text-[#6b7280] italic line-clamp-1">
-                    ✦ {f.matchReasons[0]}
-                  </p>
-                )}
+                {/* Match reasons (top 1 — positive only) */}
+                {(() => {
+                  const NEGATIVE = /\b(not (on|in|listed|funded|eligible|covered|supported|included)|does not (fund|include|cover|support)|no match|agency type.*not|not.*agency type|outside.*scope|ineligible|disqualified|not a (match|fit)|poor fit|low (fit|match)|mismatch)\b/i;
+                  const pos = (f.matchReasons || []).filter(r => typeof r === "string" && r.trim().length > 0 && !NEGATIVE.test(r));
+                  return hasScore && pos.length > 0 ? (
+                    <p className="[font-family:'Montserrat',Helvetica] text-xs text-[#6b7280] italic line-clamp-1">
+                      ✦ {pos[0]}
+                    </p>
+                  ) : null;
+                })()}
 
                 <div className="flex flex-col gap-2">
                   <div className="flex items-center justify-between">
