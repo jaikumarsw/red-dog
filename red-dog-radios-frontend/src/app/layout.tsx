@@ -5,7 +5,7 @@ import { Providers } from "./providers";
 import { ConditionalAppShell } from "@/components/ConditionalAppShell";
 
 export const metadata: Metadata = {
-  title: "Red Dog Radios — Grant Intelligence",
+  title: "Red Dog Grant Intelligence",
   description: "Real-time intelligence on grants",
   icons: { icon: "/favicon.png" },
 };

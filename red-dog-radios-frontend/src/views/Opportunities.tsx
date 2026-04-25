@@ -7,6 +7,7 @@ import { Search, X, ExternalLink, Loader2, Calendar, DollarSign, Tag, ChevronRig
 import api from "@/lib/api";
 import { qk } from "@/lib/queryKeys";
 import { useToast } from "@/hooks/use-toast";
+import { ToastAction } from "@/components/ui/toast";
 import { cn } from "@/lib/utils";
 import { useAuth } from "@/lib/AuthContext";
 
@@ -199,6 +200,21 @@ export const Opportunities = () => {
       if (id) router.push(`/applications/${id}`);
     },
     onError: (err: unknown) => {
+      const status = (err as any).response?.status;
+      const code = (err as any).response?.data?.code;
+      if (status === 402 && code === "SUBSCRIPTION_REQUIRED") {
+        toast({
+          title: "Subscription Required",
+          description: "An active subscription is required to generate AI applications. Choose a plan to continue.",
+          variant: "destructive",
+          action: (
+            <ToastAction altText="View Plans" onClick={() => router.push("/pricing")}>
+              View Plans
+            </ToastAction>
+          ),
+        });
+        return;
+      }
       const msg = (err as { response?: { data?: { message?: string } } })?.response?.data?.message;
       toast({ title: "Could not start application", description: msg || "Please try again.", variant: "destructive" });
     },

@@ -159,6 +159,14 @@ const statusConfig: Record<string, {
     iconCls: "text-[#ef4444]",
     msgBg: "bg-[#fff1f0] border-[#fecaca]",
   },
+  "waiting_on_information": {
+    label: "Waiting on Info",
+    badgeCls: "bg-[#fef9c3] text-[#b45309]",
+    iconBg: "bg-[#fff7ed]",
+    Icon: Clock,
+    iconCls: "text-[#f59e0b]",
+    msgBg: "bg-[#eff6ff] border-[#dbeafe]",
+  },
 };
 
 const defaultCfg = {
@@ -175,6 +183,7 @@ const filterTabs: { label: string; value: string }[] = [
   { label: "Drafting", value: "drafting" },
   { label: "Submitted", value: "submitted" },
   { label: "Under Review", value: "under-review" },
+  { label: "Waiting on Info", value: "waiting_on_information" },
   { label: "Awarded", value: "awarded" },
   { label: "Declined", value: "declined" },
   { label: "Rejected", value: "rejected" },
@@ -211,7 +220,7 @@ const AppCard = ({ app }: { app: AppItem }) => {
 
   const statusMutation = useMutation({
     mutationFn: (newStatus: string) =>
-      api.put(`/applications/${app.id}/status`, { status: newStatus }),
+      api.patch(`/applications/${app.id}/status`, { status: newStatus }),
     onSuccess: (_, newStatus) => {
       const label = AGENCY_STATUS_OPTIONS.find((o) => o.value === newStatus)?.label ?? newStatus;
       toast({ title: "Status updated", description: `Application marked as "${label}".` });

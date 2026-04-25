@@ -6,6 +6,7 @@ import adminApi from "@/lib/adminApi";
 import { AdminTableViewLink } from "@/components/admin/AdminTableViewLink";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
+import { StatusBadge } from "@/components/StatusBadge";
 
 const STATUS_OPTIONS = [
   { value: "all", label: "All" },
@@ -17,6 +18,7 @@ const STATUS_OPTIONS = [
   { value: "draft", label: "Draft" },
   { value: "drafting", label: "Drafting" },
   { value: "awarded", label: "Awarded" },
+  { value: "waiting_on_information", label: "Waiting on Info" },
 ] as const;
 
 export default function AdminApplicationsPage() {
@@ -122,9 +124,7 @@ export default function AdminApplicationsPage() {
                     </td>
                     <td className="p-3 text-[#374151]">{fitScore != null ? String(fitScore) : "—"}</td>
                     <td className="p-3">
-                      <span className="rounded bg-[#f3f4f6] px-2 py-0.5 text-xs capitalize text-[#374151]">
-                        {String(r.status).replace(/_/g, " ")}
-                      </span>
+                      <StatusBadge status={String(r.status)} />
                     </td>
                     <td className="whitespace-nowrap p-3 text-[#6b7280]">
                       {submitted ? new Date(submitted).toLocaleDateString() : "—"}

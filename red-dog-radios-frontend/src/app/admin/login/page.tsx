@@ -61,7 +61,7 @@ export default function AdminLoginPage() {
       <div className="relative hidden w-[42%] flex-shrink-0 overflow-hidden lg:block">
         <img
           src="/auth-background.png"
-          alt="Red Dog Radios"
+          alt="Red Dog Grant Intelligence"
           className="h-full w-full object-cover object-center"
         />
       </div>
@@ -76,7 +76,7 @@ export default function AdminLoginPage() {
             </div>
             <div className="flex min-w-0 flex-col items-start">
               <span className="[font-family:'Oswald',Helvetica] text-lg font-bold leading-tight tracking-[0.5px] text-black sm:text-xl">
-                RED DOG RADIOS
+                RED DOG GRANT INTELLIGENCE
               </span>
               <span className="[font-family:'Montserrat',Helvetica] text-[10px] font-semibold uppercase leading-snug tracking-[0.85px] text-[#ef3e34] sm:text-[11px]">
                 Staff sign in
@@ -106,7 +106,7 @@ export default function AdminLoginPage() {
                   Staff portal
                 </h2>
                 <p className="mt-0.5 text-xs font-normal text-[#9ca3af] [font-family:'Montserrat',Helvetica]">
-                  Red Dog Radio administrators only
+                  Red Dog Grant Intelligence administrators only
                 </p>
               </div>
             </div>
@@ -153,7 +153,7 @@ export default function AdminLoginPage() {
           </form>
 
           <p className="w-full text-center text-xs font-normal text-[#9ca3af] [font-family:'Montserrat',Helvetica]">
-            © 2026 Red Dog Radios · Grant Intelligence Platform
+            © 2026 Red Dog Grant Intelligence · Grant Intelligence Platform
           </p>
         </div>
       </div>

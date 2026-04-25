@@ -6,6 +6,7 @@ import adminApi from "@/lib/adminApi";
 import { AdminBackLink } from "@/components/admin/AdminBackLink";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
+import { StatusBadge } from "@/components/StatusBadge";
 import { useState, useEffect, useRef } from "react";
 import Link from "next/link";
 import {
@@ -66,6 +67,8 @@ export default function AdminApplicationDetailPage() {
   const [awardOpen, setAwardOpen] = useState(false);
   const [rejectOpen, setRejectOpen] = useState(false);
   const [rejectReason, setRejectReason] = useState("");
+  const [infoRequestOpen, setInfoRequestOpen] = useState(false);
+  const [infoRequestNote, setInfoRequestNote] = useState("");
   const [agencyExpanded, setAgencyExpanded] = useState(true);
   const notesHydrated = useRef(false);
 
@@ -101,16 +104,19 @@ export default function AdminApplicationDetailPage() {
   });
 
   const statusMutation = useMutation({
-    mutationFn: (body: { status: string; notes?: string }) =>
-      adminApi.put(`admin/applications/${appId}/status`, body),
+    mutationFn: (body: { status: string; notes?: string; infoRequestedNote?: string }) =>
+      adminApi.patch(`admin/applications/${appId}/status`, body),
     onSuccess: () => {
       notesHydrated.current = false;
       qc.invalidateQueries({ queryKey: ["admin", "application", appId] });
       qc.invalidateQueries({ queryKey: ["admin", "applications"] });
-      toast({ title: "Status updated" });
+      const isInfoReq = statusMutation.variables?.status === "waiting_on_information";
+      toast({ title: isInfoReq ? "Information request sent to agency" : "Status updated" });
       setAwardOpen(false);
       setRejectOpen(false);
+      setInfoRequestOpen(false);
       setRejectReason("");
+      setInfoRequestNote("");
     },
     onError: (err: unknown) => {
       const msg =
@@ -133,8 +139,9 @@ export default function AdminApplicationDetailPage() {
   const status = String(data.status ?? "");
   const isAwarded = status === "awarded";
   const isRejected = status === "rejected" || status === "denied";
-  const canMarkAwarded = status === "submitted" || status === "in_review";
-  const canReject = status === "submitted" || status === "in_review";
+  const canMarkAwarded = status === "submitted" || status === "in_review" || status === "waiting_on_information";
+  const canReject = status === "submitted" || status === "in_review" || status === "waiting_on_information";
+  const canRequestInfo = !["awarded", "rejected", "denied", "waiting_on_information"].includes(status);
   const fitScore = data.fitScore;
   const breakdown = data.matchBreakdown;
   const matchReasons = data.matchReasons ?? [];
@@ -162,6 +169,14 @@ export default function AdminApplicationDetailPage() {
     statusMutation.mutate({ status: "rejected", notes: merged || undefined });
   };
 
+  const onConfirmRequestInfo = () => {
+    setInfoRequestOpen(false);
+    statusMutation.mutate({
+      status: "waiting_on_information",
+      infoRequestedNote: infoRequestNote.trim() || undefined,
+    });
+  };
+
   return (
     <div className="max-w-4xl space-y-6">
       <AdminBackLink href="/admin/applications">Back to applications</AdminBackLink>
@@ -174,12 +189,21 @@ export default function AdminApplicationDetailPage() {
           </p>
           <p className="mt-2">
             <span className="text-xs uppercase text-[#9ca3af]">Status</span>{" "}
-            <span className="ml-2 rounded bg-[#f3f4f6] px-2 py-0.5 text-sm capitalize text-[#374151]">
-              {status.replace(/_/g, " ")}
-            </span>
+            <StatusBadge status={status} className="ml-2" />
           </p>
         </div>
         <div className="flex flex-wrap gap-2">
+          {canRequestInfo && (
+            <Button
+              type="button"
+              variant="outline"
+              className="border-amber-200 bg-amber-50 text-amber-700 hover:bg-amber-100"
+              disabled={statusMutation.isPending}
+              onClick={() => setInfoRequestOpen(true)}
+            >
+              Request Information
+            </Button>
+          )}
           {canMarkAwarded && !isAwarded && (
             <Button
               type="button"
@@ -553,6 +577,32 @@ export default function AdminApplicationDetailPage() {
               disabled={statusMutation.isPending}
             >
               Reject
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+      <AlertDialog open={infoRequestOpen} onOpenChange={setInfoRequestOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Request Information from Agency</AlertDialogTitle>
+            <AlertDialogDescription>
+              What information is needed from the agency?
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <Textarea
+            placeholder="e.g., Please provide a vendor quote for the 280 P25 Phase II radios"
+            value={infoRequestNote}
+            onChange={(e) => setInfoRequestNote(e.target.value)}
+            className="border-[#e5e7eb] min-h-[100px]"
+          />
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              className="bg-amber-600 hover:bg-amber-700 text-white"
+              onClick={onConfirmRequestInfo}
+              disabled={statusMutation.isPending || !infoRequestNote.trim()}
+            >
+              Send Request
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>

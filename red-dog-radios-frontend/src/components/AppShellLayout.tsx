@@ -350,7 +350,7 @@ export function AppShellLayout({
               <span className="[font-family:'Oswald',Helvetica] text-xs font-bold text-white">RD</span>
             </div>
             <span className="[font-family:'Oswald',Helvetica] text-sm font-bold tracking-[0.5px] text-black">
-              RED DOG RADIOS
+              RED DOG GRANT INTELLIGENCE
             </span>
           </div>
         </div>

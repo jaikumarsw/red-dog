@@ -32,10 +32,13 @@ const variantStyles: Record<string, string> = {
   draft: "bg-gray-100 text-gray-500",
   inactive: "bg-gray-100 text-gray-500",
   low: "bg-gray-100 text-gray-500",
+  waiting_on_information: "bg-amber-100 text-amber-700",
 };
 
-const formatLabel = (status: string) =>
-  status.replace(/_/g, " ").replace(/\b\w/g, (c) => c.toUpperCase());
+const formatLabel = (status: string) => {
+  if (status === "waiting_on_information") return "Waiting on Info";
+  return status.replace(/_/g, " ").replace(/\b\w/g, (c) => c.toUpperCase());
+};
 
 export const StatusBadge = ({
   status,

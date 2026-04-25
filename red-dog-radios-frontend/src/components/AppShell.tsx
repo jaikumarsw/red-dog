@@ -10,6 +10,7 @@ const menuItems: ShellMenuItem[] = [
   { id: "applications", label: "Applications", icon: "/figmaAssets/svg-11.svg", path: "/applications" },
   { id: "funders", label: "Funders", icon: "/figmaAssets/svg-12.svg", path: "/funders" },
   { id: "weekly-summary", label: "Weekly Summary", icon: "/figmaAssets/svg-3.svg", path: "/weekly-summary" },
+  { id: "billing", label: "Billing", icon: "/figmaAssets/svg-6.svg", path: "/account/billing" },
 ];
 
 export const AppShell = ({ children }: { children: ReactNode }) => {

@@ -84,6 +84,29 @@ const organizationSchema = new mongoose.Schema(
     status: { type: String, enum: ['active', 'inactive'], default: 'active' },
     createdBy: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
     lastMatchRecomputedAt: { type: Date },
+
+    subscription: {
+      status: { 
+        type: String, 
+        enum: ['none', 'active', 'past_due', 'cancelled', 'beta_access'],
+        default: 'none' 
+      },
+      tier: { 
+        type: String, 
+        enum: ['none', 'basic', 'premium'],
+        default: 'none' 
+      },
+      stripeCustomerId: { type: String, default: null },
+      stripeSubscriptionId: { type: String, default: null },
+      currentPeriodStart: { type: Date, default: null },
+      currentPeriodEnd: { type: Date, default: null },
+      cancelAtPeriodEnd: { type: Boolean, default: false },
+      
+      // Beta coupon access
+      betaAccess: { type: Boolean, default: false },
+      betaAccessCouponCode: { type: String, default: null },
+      betaAccessGrantedAt: { type: Date, default: null },
+    },
   },
   { timestamps: true }
 );

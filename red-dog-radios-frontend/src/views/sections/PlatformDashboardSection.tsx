@@ -14,6 +14,7 @@ type TrackerStats = {
   totalMatchedFunders: number;
   applicationsInProgress: number;
   submittedApplications: number;
+  waitingOnInformation: number;
   awardsWon: number;
   totalDollarsRequested: number;
   totalDollarsAwarded: number;
@@ -76,6 +77,15 @@ const statCards = [
     color: "text-[#00d491]",
     bg: "bg-[#e6fdf5]",
     path: "/applications",
+    format: (v: number) => String(v),
+  },
+  {
+    key: "waitingOnInformation" as keyof TrackerStats,
+    label: "Waiting on Info",
+    icon: RefreshCw,
+    color: "text-[#b45309]",
+    bg: "bg-[#fef9c3]",
+    path: "/applications?status=waiting_on_information",
     format: (v: number) => String(v),
   },
   {
@@ -344,6 +354,7 @@ export const PlatformDashboardSection = () => {
                     { label: "Draft", key: "draft", color: "bg-gray-400" },
                     { label: "Submitted", key: "submitted", color: "bg-orange-400" },
                     { label: "In Review", key: "in_review", color: "bg-yellow-400" },
+                    { label: "Waiting on Info", key: "waiting_on_information", color: "bg-amber-500" },
                     { label: "Awarded", key: "awarded", color: "bg-green-500" },
                     { label: "Denied", key: "denied", color: "bg-red-400" },
                   ].map(({ label, key, color }) => {

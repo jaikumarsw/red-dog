@@ -62,7 +62,7 @@ const update = asyncHandler(async (req, res) => {
   return success(res, app, 'Application updated');
 });
 
-const ADMIN_ONLY_STATUSES = ['approved', 'rejected', 'awarded', 'denied', 'in_review', 'under_review', 'under-review', 'declined'];
+const ADMIN_ONLY_STATUSES = ['approved', 'rejected', 'awarded', 'denied', 'in_review', 'under_review', 'under-review', 'declined', 'waiting_on_information'];
 
 const updateStatus = asyncHandler(async (req, res) => {
   if (req.user.role !== 'admin' && ADMIN_ONLY_STATUSES.includes(req.body.status)) {
@@ -73,7 +73,10 @@ const updateStatus = asyncHandler(async (req, res) => {
   }
   const organizationId = await resolveAgencyOrganizationId(req.user);
   await assertAppInOrg(req.params.id, organizationId);
-  const app = await appService.updateStatus(req.params.id, req.body, { actorId: req.user._id });
+  const app = await appService.updateStatus(req.params.id, {
+    ...req.body,
+    infoRequestedNote: req.body.infoRequestedNote
+  }, { actorId: req.user._id });
   return success(res, app, 'Application status updated');
 });
 

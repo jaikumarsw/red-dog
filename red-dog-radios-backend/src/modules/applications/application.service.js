@@ -10,6 +10,7 @@ const openai = require('../../config/openai.config');
 const logger = require('../../utils/logger');
 const { AppError } = require('../../middlewares/error.middleware');
 const { sendApplicationStatusEmail } = require('../../config/email.config');
+const Match = require('../matches/match.schema');
 
 const AI_FALLBACK_CONTENT = {
   problemStatement: "Our agency faces critical communications infrastructure challenges that directly impact emergency response capabilities. Outdated radio equipment creates dangerous dead zones throughout our coverage area, delaying response times and putting both officers and the public at risk. Without reliable communications, our ability to coordinate effectively during major incidents is severely compromised.",
@@ -76,91 +77,212 @@ const buildAIContent = async (org, funder, opp, { adminPortal = false } = {}) =>
     const winPatternsBlock =
       recentWins.length > 0
         ? `\n\nPAST_WINNING_APPLICATIONS_THEMES (emphasize similar ideas only when accurate for this agency):\n${recentWins
-            .map(
-              (w) =>
-                `- ${w.funderName || 'Funder'} (${w.agencyType || 'agency type'}): ${(w.winFactors || []).join('; ') || 'n/a'}`
-            )
-            .join('\n')}`
+          .map(
+            (w) =>
+              `- ${w.funderName || 'Funder'} (${w.agencyType || 'agency type'}): ${(w.winFactors || []).join('; ') || 'n/a'}`
+          )
+          .join('\n')}`
         : '';
 
-    const systemContent =
-      "You are a senior public safety grant writer with 20 years of " +
-      "experience winning competitive federal and foundation grants for " +
-      "fire departments, police agencies, EMS services, sheriff offices, " +
-      "and 911 dispatch centers across the United States.\n\n" +
-      "You have written hundreds of winning applications for:\n" +
-      "- FEMA AFG (Assistance to Firefighters Grant)\n" +
-      "- FEMA SAFER (Staffing for Adequate Fire and Emergency Response)\n" +
-      "- DHS SHSP (State Homeland Security Program)\n" +
-      "- DHS UASI (Urban Area Security Initiative)\n" +
-      "- DOJ COPS Office grants\n" +
-      "- Byrne JAG (Justice Assistance Grant)\n" +
-      "- NTIA communications infrastructure grants\n" +
-      "- State homeland security pass-through grants\n" +
-      "- Private foundations including Motorola Solutions, " +
-      "Firehouse Subs, and community foundations\n\n" +
-      "You know exactly what peer reviewers score and what gets " +
-      "applications funded vs rejected. You write with the precision " +
-      "of someone who has sat on AFG peer review panels.\n\n" +
-      "CRITICAL SCORING KNOWLEDGE YOU APPLY TO EVERY APPLICATION:\n\n" +
-      "1. FINANCIAL NEED (25% of federal scores):\n" +
-      "   - Always explain why the agency cannot self-fund this purchase\n" +
-      "   - Reference the department budget going to personnel, operations\n" +
-      "   - Mention failed attempts to secure other funding if relevant\n" +
-      "   - Never make the agency sound wealthy or able to defer this need\n" +
-      "   - Show that grant funding is the ONLY viable path forward\n\n" +
-      "2. PROJECT DESCRIPTION (25% of federal scores):\n" +
-      "   - Name specific equipment with make/model where known\n" +
-      "   - Reference compliance with NFPA, OSHA, P25, or APCO standards\n" +
-      "   - State exact quantities (e.g., '280 portable radios')\n" +
-      "   - Describe current equipment age, manufacturer support status\n" +
-      "   - Reference end-of-life status, lack of parts, safety failures\n" +
-      "   - For radios: reference P25 Phase I/II, DTRS, interoperability\n\n" +
-      "3. COST/BENEFIT (25% of federal scores):\n" +
-      "   - Include per-unit costs with total project budget\n" +
-      "   - Tie every dollar to a specific safety or operational outcome\n" +
-      "   - Reference response time improvements in minutes/seconds\n" +
-      "   - Show coverage expansion in square miles or percentage\n" +
-      "   - Reference population protected per dollar spent\n" +
-      "   - Compare cost of grant vs cost of NOT acting (liability, " +
-      "     incident risk, mutual aid breakdown)\n\n" +
-      "4. STATEMENT OF EFFECT (25% of federal scores):\n" +
-      "   - Lead with firefighter/officer life-safety impact\n" +
-      "   - Reference NFPA 1, NFPA 72, NFPA 1221 where applicable\n" +
-      "   - Include mutual aid and interoperability benefits\n" +
-      "   - Reference specific geographic coverage gaps being closed\n" +
-      "   - Name neighboring agencies that will benefit from " +
-      "     improved interoperability\n" +
-      "   - Quantify community protection: population, square miles, " +
-      "     response calls per year\n\n" +
-      "WRITING RULES YOU NEVER BREAK:\n" +
-      "- Always use active voice\n" +
-      "- Never use nonprofit/charity language — this is public safety\n" +
-      "- Never write 'we hope to' or 'we believe' — write 'this grant " +
-      "will' and 'this equipment provides'\n" +
-      "- Always include specific numbers: ages, quantities, " +
-      "response times, populations, square miles, call volumes\n" +
-      "- Reference the funder's mission language directly back to them\n" +
-      "- For FEMA grants: use 'enhance operational efficiencies', " +
-      "'foster interoperability', 'support community resilience'\n" +
-      "- For DHS grants: use 'strengthen preparedness capabilities', " +
-      "'enhance interoperable communications', 'address capability gaps'\n" +
-      "- For DOJ grants: use 'enhance officer safety', " +
-      "'improve community policing outcomes', 'reduce response times'\n" +
-      "- For foundations: use 'protect the first responders who protect us', " +
-      "'life-safety impact', 'community resilience'\n" +
-      "- Always end with the cost of inaction — what happens if " +
-      "this grant is NOT awarded\n\n" +
-      "PUBLIC SAFETY TERMINOLOGY YOU USE NATURALLY:\n" +
-      "P25, DTRS, interoperability, ICS, NIMS, mutual aid, auto aid,\n" +
-      "NFPA, APCO, CAD, dispatch, first due, coverage area, dead zones,\n" +
-      "officer safety, firefighter safety, life-safety, " +
-      "end-of-life equipment, manufacturer support ended, " +
-      "out of compliance, SCBA, PPE, apparatus, portable radio,\n" +
-      "mobile radio, repeater, talk-around channel, command channel,\n" +
-      "tactical channel, encryption, P25 Phase I, P25 Phase II,\n" +
-      "digital voice, analog legacy, coverage reliability,\n" +
-      "in-building coverage, DAS (Distributed Antenna System)";
+    const systemContent = `You are a senior public safety grant writer with 
+20+ years of experience and a 90%+ win rate on competitive federal and 
+foundation grants for fire departments, police agencies, EMS services, 
+sheriff offices, and 911 dispatch centers across the United States.
+
+You have personally written winning applications for FEMA AFG, FEMA SAFER, 
+FEMA FP&S, DHS SHSP, DHS UASI, DOJ COPS Office, Byrne JAG, NTIA public 
+safety broadband grants, state homeland security pass-through programs, 
+and major foundations including Motorola Solutions Foundation, Firehouse 
+Subs Public Safety Foundation, and Walmart Foundation. You have served on 
+AFG peer review panels and you know exactly how reviewers score.
+
+═══════════════════════════════════════════════════════════════════
+FEDERAL SCORING RUBRIC YOU APPLY TO EVERY APPLICATION
+═══════════════════════════════════════════════════════════════════
+
+FEMA AFG / DHS / DOJ peer reviewers weight applications across four areas. 
+Every section you write must map to and reinforce these scoring buckets:
+
+[1] FINANCIAL NEED (≈25% weight on federal applications)
+   • Document why the agency cannot self-fund this from existing budget
+   • Reference specific budget allocation (e.g., "X% of municipal budget 
+     to public safety; Y% to personnel leaves $Z for capital equipment")
+   • Cite failed attempts to secure other funding (state, local, 
+     prior grant cycles) when the data supports it
+   • Show that grant funding is the ONLY viable path forward
+   • NEVER make the agency sound wealthy or able to defer the need
+   • Address sustainability: how the agency will maintain the equipment 
+     after the grant period ends (training, parts, replacement cycle)
+
+[2] PROJECT DESCRIPTION (≈25% weight)
+   • Name specific equipment with make/model/standard where the agency 
+     profile supports it (e.g., "P25 Phase II compliant portable radios")
+   • Reference applicable standards: NFPA 1, NFPA 1221, NFPA 1801, 
+     OSHA 1910.156, APCO P25, NIST SP 800-53 (cyber), 2 CFR 200
+   • State exact quantities pulled from the agency profile — never round 
+     or invent numbers
+   • Describe current equipment age, manufacturer support status, 
+     end-of-life dates, parts availability
+   • For radio/communications projects: cite P25 Phase I vs Phase II, 
+     DTRS, talk-around channels, command/tactical channels, in-building 
+     coverage, DAS, encryption (AES-256 where relevant)
+   • Tie equipment selection to documented operational gaps in the profile
+
+[3] COST-BENEFIT (≈25% weight)
+   • Include per-unit cost × quantity = total project budget
+   • Tie every dollar to a measurable safety or operational outcome
+   • Quantify response time improvements (in seconds/minutes)
+   • Quantify coverage expansion (square miles or % coverage)
+   • State population protected per dollar spent
+   • Compare cost of THIS grant vs cost of inaction (liability exposure, 
+     incident risk, mutual-aid breakdown, OSHA citations)
+   • Address total cost of ownership across 3–5 years where relevant
+
+[4] STATEMENT OF EFFECT (≈25% weight)
+   • Lead with firefighter/officer life-safety impact in concrete terms
+   • Quantify community protection: residents served, sq miles, 
+     annual call volume, mutual-aid agreements affected
+   • Name neighboring agencies that gain interoperability benefit
+   • Cite specific coverage gaps being closed
+   • Reference NFPA 1221 (emergency services communications), 
+     NFPA 1561 (incident management), or applicable standards
+   • End with cost of inaction — what happens if this grant is NOT awarded
+
+═══════════════════════════════════════════════════════════════════
+WRITING RULES YOU NEVER BREAK
+═══════════════════════════════════════════════════════════════════
+
+VOICE & TONE
+   • Active voice only. Never "it is hoped that" — write "this grant will."
+   • Never "we believe" — write "the data shows" or "this equipment 
+     provides."
+   • Public safety voice, not nonprofit/charity voice. You are not 
+     pleading; you are documenting operational necessity.
+   • Use present-tense urgency for current problems, future-tense 
+     certainty for funded outcomes.
+
+NUMBERS DISCIPLINE — CRITICAL
+   • ONLY use numbers that appear in the AGENCY PROFILE or GRANT 
+     OPPORTUNITY blocks of the user prompt.
+   • NEVER invent statistics, response times, populations, square miles, 
+     equipment ages, dollar amounts, or call volumes.
+   • If a data point is missing, write a placeholder like "[exact figure 
+     to be supplied by agency]" — do NOT fabricate.
+   • For costs: if the agency profile gives a budget range, work within 
+     it. If it doesn't, use vendor-quote placeholders.
+
+FUNDER LANGUAGE ALIGNMENT — CRITICAL
+   • Mirror the funder's mission statement language verbatim where 
+     natural. The funder must recognize their own voice.
+   • Echo the funder's funding categories as exact phrases.
+   • If the funder says "community policing" → use "community policing" 
+     (not "law enforcement engagement")
+   • If the funder says "first responders" → use "first responders" 
+     (not "emergency personnel")
+   • If the funder says "interoperability" → use "interoperability" 
+     (not "communication compatibility")
+   • For FEMA: use "enhance operational efficiencies," "foster 
+     interoperability," "support community resilience"
+   • For DHS: use "strengthen preparedness capabilities," "address 
+     capability gaps," "risk-driven, capabilities-based"
+   • For DOJ COPS: use "community policing," "officer safety," 
+     "build safer communities"
+   • For Byrne JAG: use "criminal justice activities," "evidence-based"
+   • For foundations: use "protect the first responders who protect us," 
+     "life-safety impact"
+
+ANTI-GENERICISM RULES
+   • NEVER write "improving safety" without saying HOW (specific metric)
+   • NEVER write "modernizing equipment" without saying WHAT (make/model/standard)
+   • NEVER write "serving the community" without saying WHO (population, area)
+   • NEVER write "high-quality" — show the standard (NFPA, P25, APCO)
+   • NEVER write "many," "several," "various" — give exact counts
+
+PUBLIC SAFETY TERMINOLOGY (use naturally; never define unless asked)
+   P25 Phase I/II, DTRS, ICS, NIMS, mutual aid, auto aid, NFPA, APCO, 
+   CAD, dispatch, first due, coverage area, dead zones, officer safety, 
+   firefighter safety, life-safety, end-of-life equipment, manufacturer 
+   support ended, out of compliance, SCBA, PPE, apparatus, portable 
+   radio, mobile radio, repeater, talk-around channel, command channel, 
+   tactical channel, encryption, digital voice, analog legacy, in-building 
+   coverage, DAS, supplanting, cost share, local match, federal pass-through.
+
+═══════════════════════════════════════════════════════════════════
+SECTION-BY-SECTION REQUIREMENTS
+═══════════════════════════════════════════════════════════════════
+
+projectTitle (1 line, 8–14 words)
+   • Action verb + specific equipment/capability + agency or community
+   • Example pattern: "Replacing End-of-Life P25 Radios to Eliminate 
+     Mountain Coverage Gaps for Colorado Springs Fire Department"
+
+projectSummary (3–4 sentences, executive summary)
+   • Sentence 1: Who is asking, what they need, dollar amount range
+   • Sentence 2: The specific operational problem being solved
+   • Sentence 3: The measurable outcome funded equipment will produce
+   • Sentence 4: Population/community benefit and alignment with 
+     the funder's mission
+
+problemStatement (4–6 sentences, maps to FINANCIAL NEED + 
+STATEMENT OF EFFECT)
+   • Open with the specific equipment/capability gap, not platitudes
+   • Quantify the problem (ages, dead zones, failure incidents, 
+     coverage %, missed-call data) using ONLY profile numbers
+   • Document financial need: why the agency cannot self-fund
+   • Identify the safety/life risk created by inaction
+   • End with one sentence on consequences if unfunded
+
+proposedSolution (4–6 sentences, maps to PROJECT DESCRIPTION)
+   • Lead with exact equipment/quantities from agency profile
+   • Reference applicable standards (NFPA, P25, APCO) where relevant
+   • Describe the implementation approach (procurement, install, 
+     training, programming)
+   • Tie each component to a documented gap from the problem statement
+   • Mention any vendor-quote or sole-source justification placeholder 
+     if appropriate
+
+measurableOutcomes (4 numbered SMART objectives)
+   • Format: "1. [Specific metric] by [target value] within [timeframe]."
+   • Each must be Specific, Measurable, Achievable, Relevant, Time-bound
+   • Include baseline → target where the data supports it
+   • Cover: coverage/dead-zone elimination, response-time improvement, 
+     interoperability gains, life-safety/officer-safety metric
+   • Reference reporting cadence (quarterly, annually) on at least one
+
+budgetSummary (3–5 sentences, maps to COST-BENEFIT)
+   • State total project cost, broken into 2–3 line items
+   • Per-unit cost × quantity = subtotal
+   • Reference local match if required (per opportunity.localMatchRequired)
+   • Address sustainability: who pays for maintenance, training, 
+     replacement after the grant period
+   • One sentence on cost of inaction vs cost of grant
+
+communityImpact (3–4 sentences, maps to STATEMENT OF EFFECT)
+   • Open with population served + geographic coverage from the profile
+   • Quantify direct community benefit (response-time gains, 
+     coverage gains, mutual-aid agencies that benefit)
+   • Reference vulnerable populations within the coverage area where 
+     supported by profile data (rural, mountain, low-income)
+   • Tie back to the funder's mission language
+
+urgency (3–4 sentences, maps to FINANCIAL NEED + STATEMENT OF EFFECT)
+   • Open with the immediate operational risk (equipment age, 
+     manufacturer support status, recent incidents)
+   • Cite the specific deterioration timeline if profile supports it
+   • Document one concrete near-miss or capability gap
+   • End with the consequences of delay (life safety, mutual aid 
+     failure, OSHA exposure, NFPA non-compliance)
+
+═══════════════════════════════════════════════════════════════════
+WHEN AGENCY DATA IS THIN
+═══════════════════════════════════════════════════════════════════
+If a profile field is empty (—) or missing:
+   • Do NOT invent numbers
+   • Use placeholder language like "[exact figure to be supplied 
+     by agency]" or "[department to provide vendor quote]"
+   • Keep the section structure intact so the agency can fill blanks
+   • Lean on the funder mission language and standards references 
+     to maintain professional voice`;
 
     const joinOrDash = (arr) =>
       Array.isArray(arr) && arr.length > 0 ? arr.join(', ') : '—';
@@ -171,53 +293,75 @@ const buildAIContent = async (org, funder, opp, { adminPortal = false } = {}) =>
     const funderMission = funder?.missionStatement || '—';
 
     const prompt =
-      `Generate a complete, competition-ready public safety grant application for the following agency and grant opportunity.\n\n` +
-      `AGENCY PROFILE:\n` +
-      `- Agency Name: ${org.name || '—'}\n` +
-      `- Agency Type: ${joinOrDash(org.agencyTypes)}\n` +
-      `- Location: ${org.location || '—'}\n` +
-      `- Population Served: ${org.populationServed != null ? org.populationServed : '—'}\n` +
-      `- Coverage Area: ${org.coverageArea || '—'}\n` +
-      `- Number of Staff: ${org.numberOfStaff != null ? org.numberOfStaff : '—'}\n` +
-      `- Annual Call Volume: ${org.annualVolume != null ? org.annualVolume : '—'}\n` +
-      `- Current Equipment: ${org.currentEquipment || '—'}\n` +
-      `- Main Problems: ${joinOrDash(org.mainProblems)}\n` +
-      `- Funding Priorities: ${joinOrDash(org.fundingPriorities)}\n` +
-      `- Specific Request: ${org.specificRequest || '—'}\n` +
-      `- Challenges: ${joinOrDash(org.challenges)}\n` +
-      `- Urgency Statement: ${org.urgencyStatement || '—'}\n` +
-      `- Who Benefits: ${org.whobenefits || '—'}\n` +
-      `- Budget Range: ${org.budgetRange || '—'}\n` +
-      `- Timeline: ${org.timeline || '—'}\n` +
-      `- Can Meet Local Match: ${fmtBool(org.canMeetLocalMatch)}\n` +
-      `- Eligibility Type: ${org.eligibilityType || '—'}\n` +
-      `- Mission Statement: ${org.missionStatement || '—'}\n` +
-      `- Service Area: ${org.serviceArea || '—'}\n` +
-      `- Staff Size Range: ${org.staffSizeRange || '—'}\n\n` +
-      `GRANT OPPORTUNITY:\n` +
-      `- Grant Program: ${opp?.title || '—'}\n` +
-      `- Funder: ${funderNameForOpp}\n` +
-      `- Funder Mission: ${funderMission}\n` +
-      `- Grant Range: $${grantMin} - $${grantMax}\n` +
-      `- Category: ${opp?.category || '—'}\n` +
-      `- Keywords: ${joinOrDash(opp?.keywords)}\n` +
-      `- Local Match Required: ${fmtBool(opp?.localMatchRequired)}\n` +
-      `- Description: ${opp?.description || '—'}\n` +
+      `Generate a complete, competition-ready public safety grant application 
+for the agency and grant opportunity below.\n\n` +
+
+      `═══════════════════════════════════════════════════════════════════\n` +
+      `AGENCY PROFILE (use ONLY these facts — do not invent)\n` +
+      `═══════════════════════════════════════════════════════════════════\n` +
+      `• Today's Date: ${new Date().toISOString().slice(0, 10)}\n` +
+      `• Agency Name: ${org.name || '—'}\n` +
+      `• Agency Type: ${joinOrDash(org.agencyTypes)}\n` +
+      `• Location: ${org.location || '—'}\n` +
+      `• Population Served: ${org.populationServed != null ? org.populationServed : '—'}\n` +
+      `• Coverage Area: ${org.coverageArea || '—'}\n` +
+      `• Number of Staff: ${org.numberOfStaff != null ? org.numberOfStaff : '—'}\n` +
+      `• Annual Call Volume: ${org.annualVolume != null ? org.annualVolume : '—'}\n` +
+      `• Current Equipment: ${org.currentEquipment || '—'}\n` +
+      `• Main Problems: ${joinOrDash(org.mainProblems)}\n` +
+      `• Funding Priorities: ${joinOrDash(org.fundingPriorities)}\n` +
+      `• Specific Request: ${org.specificRequest || '—'}\n` +
+      `• Documented Challenges: ${joinOrDash(org.challenges)}\n` +
+      `• Urgency Statement: ${org.urgencyStatement || '—'}\n` +
+      `• Who Benefits: ${org.whobenefits || '—'}\n` +
+      `• Budget Range: ${org.budgetRange || '—'}\n` +
+      `• Timeline: ${org.timeline || '—'}\n` +
+      `• Can Meet Local Match: ${fmtBool(org.canMeetLocalMatch)}\n` +
+      `• Eligibility Type: ${org.eligibilityType || '—'}\n` +
+      `• Mission Statement: ${org.missionStatement || '—'}\n` +
+      `• Service Area: ${org.serviceArea || '—'}\n` +
+      `• Staff Size Range: ${org.staffSizeRange || '—'}\n\n` +
+
+      `═══════════════════════════════════════════════════════════════════\n` +
+      `GRANT OPPORTUNITY\n` +
+      `═══════════════════════════════════════════════════════════════════\n` +
+      `• Grant Program: ${opp?.title || '—'}\n` +
+      `• Funder: ${funderNameForOpp}\n` +
+      `• Funder Mission: ${funderMission}\n` +
+      `• Grant Range: $${grantMin} – $${grantMax}\n` +
+      `• Category: ${opp?.category || '—'}\n` +
+      `• Keywords: ${joinOrDash(opp?.keywords)}\n` +
+      `• Local Match Required: ${fmtBool(opp?.localMatchRequired)}\n` +
+      `• Description: ${opp?.description || '—'}\n` +
       `${winPatternsBlock}\n\n` +
-      `Generate a complete grant application with these 8 sections.\n` +
-      `Return ONLY valid JSON with these exact keys, no markdown, no extra text:\n\n` +
+
+      `═══════════════════════════════════════════════════════════════════\n` +
+      `FUNDER LANGUAGE TO MIRROR (use these phrases verbatim where natural)\n` +
+      `═══════════════════════════════════════════════════════════════════\n` +
+      `Funder Mission Statement:\n${funder?.missionStatement || funderMission}\n\n` +
+      `Funder Priority Categories: ${(funder?.fundingCategories || opp?.keywords || []).join(', ') || '—'}\n` +
+      `Opportunity Keywords: ${(opp?.keywords || []).join(', ') || '—'}\n\n` +
+
+      `═══════════════════════════════════════════════════════════════════\n` +
+      `OUTPUT INSTRUCTIONS\n` +
+      `═══════════════════════════════════════════════════════════════════\n` +
+      `Return ONLY a valid JSON object with these EXACT 8 keys (no markdown, ` +
+      `no code fences, no commentary, no extra keys):\n\n` +
       `{\n` +
-      `  "projectTitle": "A compelling, specific project title.",\n` +
-      `  "projectSummary": "2-3 sentence executive summary.",\n` +
-      `  "problemStatement": "The specific problem this agency faces.",\n` +
-      `  "proposedSolution": "What they will do with the funding.",\n` +
-      `  "measurableOutcomes": "3-4 specific measurable outcomes.",\n` +
-      `  "budgetSummary": "How funds will be spent.",\n` +
-      `  "communityImpact": "2-3 sentences describing the direct impact on the community and residents served. Reference the population served and coverage area from the agency profile.",\n` +
-      `  "urgency": "2-3 sentences explaining why this funding is needed NOW. Reference the agency's urgency statement, equipment age, and any safety risks mentioned in the agency profile."\n` +
+      `  "projectTitle": "8–14 word title with action verb + specific equipment + agency.",\n` +
+      `  "projectSummary": "3–4 sentence executive summary covering ask, problem, outcome, and funder alignment.",\n` +
+      `  "problemStatement": "4–6 sentences mapping to Financial Need + Statement of Effect.",\n` +
+      `  "proposedSolution": "4–6 sentences mapping to Project Description with specific equipment, quantities, and standards.",\n` +
+      `  "measurableOutcomes": "Four numbered SMART objectives in a single string, each on its own line, each with metric + target + timeframe.",\n` +
+      `  "budgetSummary": "3–5 sentences with per-unit × quantity = subtotal math, local-match note if required, and sustainability plan.",\n` +
+      `  "communityImpact": "3–4 sentences with population served, coverage area, and direct community benefit tied to funder mission language.",\n` +
+      `  "urgency": "3–4 sentences with immediate operational risk, equipment age, near-miss/capability gap, and consequences of delay."\n` +
       `}\n\n` +
-      `CRITICAL: Return only the JSON object. No introduction, no explanation, no markdown code blocks. Pure JSON only.\n` +
-      `The writing must sound like it was written by an experienced public safety professional, not a generic AI. Use the agency's specific data throughout — never leave generic placeholders.`;
+      `RULES:\n` +
+      `• Use ONLY numbers that appear in the AGENCY PROFILE block above.\n` +
+      `• If a dollar amount or budget figure is missing from the profile, DO NOT guess — write "[exact figure to be supplied by agency]".\n` +
+      `• Mirror the funder's mission language verbatim where natural.\n` +
+      `• No markdown, no fences, no preamble — pure JSON only.`;
 
     const res = await openai.chat.completions.create({
       model: 'gpt-4o-mini',
@@ -283,13 +427,38 @@ const resolveOpportunityForAI = async ({ opportunityId, funderId, adminPortal })
   return null;
 };
 
-const bumpOpportunityCountAndMaybeLock = async (opp) => {
+const bumpOpportunityCountAndMaybeLock = async (opp, fitScore = null) => {
   if (!opp) return;
-  const max = opp.maxApplicationsAllowed != null ? opp.maxApplicationsAllowed : 0;
+  const max = opp.maxApplicationsAllowed != null
+    ? opp.maxApplicationsAllowed : 0;
   if (max <= 0) return;
-  const updated = await Opportunity.findByIdAndUpdate(opp._id, { $inc: { currentApplicationCount: 1 } }, { new: true });
-  if (updated && updated.currentApplicationCount >= max) {
-    await Opportunity.findByIdAndUpdate(opp._id, { isLocked: true });
+
+  // Always increment total application count
+  await Opportunity.findByIdAndUpdate(
+    opp._id,
+    { $inc: { currentApplicationCount: 1 } }
+  );
+
+  // Only count toward the lock threshold if fitScore >= 90
+  const SCORE_THRESHOLD = 90;
+  if (fitScore !== null && fitScore >= SCORE_THRESHOLD) {
+    const updated = await Opportunity.findByIdAndUpdate(
+      opp._id,
+      { $inc: { highScoreApplicationCount: 1 } },
+      { new: true }
+    );
+    // Lock only when high-score applications reach the cap
+    if (updated && updated.highScoreApplicationCount >= max) {
+      await Opportunity.findByIdAndUpdate(
+        opp._id,
+        { $set: { isLocked: true } }
+      );
+      logger.info(
+        `[Opportunity] Locked ${opp.title || opp._id} — ` +
+        `${updated.highScoreApplicationCount} high-score (≥90%) ` +
+        `applications reached cap of ${max}`
+      );
+    }
   }
 };
 
@@ -329,7 +498,17 @@ const create = async (data) => {
   if (opp && !payload.opportunity) payload.opportunity = opp._id;
 
   const app = await Application.create(payload);
-  await bumpOpportunityCountAndMaybeLock(opp);
+
+  // Before calling bump, look up the match score
+  let fitScore = null;
+  if (opp && data.organization) {
+    const matchDoc = await Match.findOne({
+      organization: data.organization,
+      opportunity: opp._id
+    }).select('fitScore').lean();
+    fitScore = matchDoc?.fitScore ?? null;
+  }
+  await bumpOpportunityCountAndMaybeLock(opp, fitScore);
   await bumpFunderCountAndMaybeLock(data.funder, funder.maxApplicationsAllowed);
   return app;
 };
@@ -396,6 +575,14 @@ const createWithAI = async ({ opportunityId, funderId, organizationId, userId, a
   const parsed = await buildAIContent(org, funder, opp, { adminPortal });
   const resolvedOppId = opp ? opp._id : opportunityId || undefined;
 
+  // After resolving the opportunity and before creating the app,
+  // look up the match score
+  const matchDoc = await Match.findOne({
+    organization: organizationId,
+    opportunity: opp?._id
+  }).select('fitScore').lean();
+  const agencyFitScore = matchDoc?.fitScore ?? null;
+
   const app = await Application.create({
     organization: organizationId,
     opportunity: resolvedOppId,
@@ -414,9 +601,15 @@ const createWithAI = async ({ opportunityId, funderId, organizationId, userId, a
     urgency: parsed.urgency,
   });
 
-  await bumpOpportunityCountAndMaybeLock(opp);
+  await bumpOpportunityCountAndMaybeLock(opp, agencyFitScore);
   await bumpFunderCountAndMaybeLock(funderId, funder?.maxApplicationsAllowed);
-  return app;
+  
+  const response = app.toObject ? app.toObject() : app;
+  if (agencyFitScore !== null && agencyFitScore < 90) {
+    response.warning = "Agencies with a match score below 90% can still apply, but do not count toward the application limit for this opportunity.";
+  }
+  
+  return response;
 };
 
 const getOne = async (id) => {
@@ -439,16 +632,22 @@ const update = async (id, data) => {
   return app;
 };
 
-const updateStatus = async (id, { status, dateSubmitted, followUpDate, notes }, { actorId } = {}) => {
+const updateStatus = async (id, { status, dateSubmitted, followUpDate, notes, infoRequestedNote }, { actorId } = {}) => {
   const before = await Application.findById(id);
   if (!before) throw new AppError('Application not found', 404);
 
   const updateData = { status };
-  if (['submitted','in_review'].includes(status)) {
+  if (['submitted', 'in_review'].includes(status)) {
     updateData.dateSubmitted = dateSubmitted || new Date();
     updateData.submittedAt = dateSubmitted || new Date();
     if (!before.submittedBy && actorId) updateData.submittedBy = actorId;
   }
+
+  if (status === 'waiting_on_information') {
+    updateData.infoRequestedAt = new Date();
+    if (infoRequestedNote) updateData.infoRequestedNote = infoRequestedNote;
+  }
+
   if (followUpDate) updateData.followUpDate = followUpDate;
   if (notes !== undefined) updateData.notes = notes;
 
@@ -532,6 +731,7 @@ const regenerate = async (id) => {
   return Application.findById(id).populate('organization').populate('opportunity').populate('funder');
 };
 
+// DEPRECATED — alignment now happens automatically in buildAIContent. This endpoint kept for backwards compatibility only.
 const alignToFunder = async (id) => {
   const app = await Application.findById(id).populate('organization').populate('opportunity').populate('funder');
   if (!app) throw new AppError('Application not found', 404);

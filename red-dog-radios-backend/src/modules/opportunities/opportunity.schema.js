@@ -19,6 +19,7 @@ const opportunitySchema = new mongoose.Schema(
     /** 0 = unlimited applications for this opportunity */
     maxApplicationsAllowed: { type: Number, default: 0 },
     currentApplicationCount: { type: Number, default: 0 },
+    highScoreApplicationCount: { type: Number, default: 0 },
     isLocked: { type: Boolean, default: false },
     createdBy: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
   },

@@ -129,7 +129,7 @@ export const Login = () => {
       <div className="hidden lg:block lg:w-[42%] flex-shrink-0 relative overflow-hidden">
         <img
           src="/auth-background.png"
-          alt="Red Dog Radios"
+          alt="Red Dog Grant Intelligence"
           className="w-full h-full object-cover object-center"
         />
       </div>
@@ -151,7 +151,7 @@ export const Login = () => {
             </button>
             <Link
               href="/signup"
-              className="flex-1 rounded-full py-2 px-4 flex items-center justify-center gap-1.5 no-underline"
+              className="flex-1 rounded-full py-2 px-4 flex items-center justify-center gap-1.5 no-underline transition-colors hover:text-[#374151] cursor-pointer"
               data-testid="tab-signup"
             >
               <UserPlus size={13} className="text-[#9ca3af]" />
@@ -272,11 +272,11 @@ export const Login = () => {
             </button>
 
             <p className="[font-family:'Montserrat',Helvetica] font-normal text-[#9ca3af] text-[10px] text-center leading-4">
-              By continuing, you agree to the Red Dog Radios platform terms of service.
+              By continuing, you agree to the Red Dog Grant Intelligence platform terms of service.
             </p>
           </form>
           <p className="mt-5 w-full text-center [font-family:'Montserrat',Helvetica] text-xs font-normal text-[#9ca3af] sm:mt-6">
-            © 2026 Red Dog Radios · Grant Intelligence Platform
+            © 2026 Red Dog Grant Intelligence · Grant Intelligence Platform
           </p>
         </div>
       </div>

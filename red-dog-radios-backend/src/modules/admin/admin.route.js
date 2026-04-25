@@ -32,7 +32,7 @@ router.get('/applications', protectAdmin, ctrl.listApplications);
 router.post('/applications/create-for-agency', protectAdmin, ctrl.createApplicationForAgency);
 router.get('/applications/:id', protectAdmin, ctrl.getApplication);
 router.put('/applications/:id', protectAdmin, ctrl.updateApplication);
-router.put('/applications/:id/status', protectAdmin, ctrl.updateApplicationStatus);
+router.patch('/applications/:id/status', protectAdmin, ctrl.updateApplicationStatus);
 router.post('/applications/:id/generate-ai', protectAdmin, ctrl.generateApplicationAI);
 router.delete('/applications/:id', protectAdmin, ctrl.deleteApplication);
 

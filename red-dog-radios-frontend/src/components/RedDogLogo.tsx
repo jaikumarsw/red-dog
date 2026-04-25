@@ -21,12 +21,12 @@ export const RedDogLogo = ({ dark = false }: RedDogLogoProps) => {
         <span
           className={`[font-family:'Oswald',Helvetica] text-base font-bold uppercase leading-none tracking-[0.5px] sm:text-lg ${titleCls}`}
         >
-          RED DOG RADIOS
+          RED DOG GRANT INTELLIGENCE
         </span>
         <span
           className={`[font-family:'Montserrat',Helvetica] text-[11px] font-medium leading-snug tracking-[0.02em] sm:text-xs sm:leading-relaxed ${taglineCls}`}
         >
-          Grant Intelligence for Public Safety
+          for Public Safety
         </span>
       </div>
     </div>

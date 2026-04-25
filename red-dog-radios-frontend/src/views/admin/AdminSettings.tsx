@@ -237,7 +237,7 @@ export function AdminSettings() {
             <label className={labelCls}>Access</label>
             <div className="rounded-lg border border-[#e5e7eb] bg-[#f9fafb] px-4 py-2.5">
               <span className="[font-family:'Montserrat',Helvetica] text-sm font-semibold text-[#111827]">
-                Red Dog Radio — Administrator
+                Red Dog Grant Intelligence — Administrator
               </span>
               <p className="mt-0.5 [font-family:'Montserrat',Helvetica] text-xs text-[#9ca3af]">
                 Full access to agencies, funders, opportunities, and user management

@@ -28,6 +28,17 @@ type Digest = {
   opportunities: DigestOpp[];
 };
 
+type TrackerStats = {
+  totalMatchedFunders: number;
+  applicationsInProgress: number;
+  submittedApplications: number;
+  waitingOnInformation: number;
+  awardsWon: number;
+  totalDollarsRequested: number;
+  totalDollarsAwarded: number;
+  statusCounts: Record<string, number>;
+};
+
 type ApiDigest = {
   _id: string;
   orgName?: string;
@@ -92,7 +103,13 @@ const scoreColor = (n: number) => {
   return "text-[#ef4444]";
 };
 
-const LivePreview = ({ digest }: { digest: Digest | null }) => {
+const fmtDollars = (n: number) => {
+  if (n >= 1_000_000) return "$" + (n / 1_000_000).toFixed(1) + "M";
+  if (n >= 1_000) return "$" + (n / 1_000).toFixed(0) + "K";
+  return "$" + n.toLocaleString();
+};
+
+const LivePreview = ({ digest, stats }: { digest: Digest | null; stats?: TrackerStats }) => {
   if (!digest) {
     return (
       <div className="flex flex-col items-center justify-center h-full gap-4 py-20">
@@ -123,7 +140,41 @@ const LivePreview = ({ digest }: { digest: Digest | null }) => {
         </p>
       </div>
 
-      <div className="px-4 pt-4 pb-5 flex flex-col gap-3">
+      {stats && (
+        <div className="px-4 py-4 flex flex-col gap-3">
+          <div className="grid grid-cols-5 gap-2">
+            {[
+              { label: "Matched", value: stats.totalMatchedFunders, color: "text-[#50a2ff]" },
+              { label: "In Progress", value: stats.applicationsInProgress, color: "text-[#c17aff]" },
+              { label: "Submitted", value: stats.submittedApplications, color: "text-[#00d491]" },
+              { label: "Waiting", value: stats.waitingOnInformation, color: "text-[#b45309]" },
+              {
+                label: "Awarded",
+                value: stats.awardsWon,
+                sub: `${fmtDollars(stats.totalDollarsAwarded)}`,
+                color: "text-[#feb900]",
+              },
+            ].map((s, i) => (
+              <div key={i} className="flex flex-col items-center text-center p-1.5 rounded bg-white border border-[#f3f4f6]">
+                <span className={`[font-family:'Oswald',Helvetica] font-bold text-lg leading-tight ${s.color}`}>
+                  {s.value}
+                </span>
+                <span className="[font-family:'Montserrat',Helvetica] font-medium text-[10px] text-[#6b7280] uppercase tracking-tight">
+                  {s.label}
+                </span>
+                {s.sub && (
+                  <span className="[font-family:'Montserrat',Helvetica] font-bold text-[9px] text-[#00d491] leading-none mt-0.5">
+                    {s.sub}
+                  </span>
+                )}
+              </div>
+            ))}
+          </div>
+          <div className="h-px bg-[#f3f4f6] w-full mt-1" />
+        </div>
+      )}
+
+      <div className="px-4 pt-2 pb-5 flex flex-col gap-3">
         <p className="[font-family:'Oswald',Helvetica] font-bold text-[#111827] text-sm tracking-[0.5px] uppercase">
           Top Opportunities This Week
         </p>
@@ -162,6 +213,14 @@ export const WeeklySummary = () => {
       const res = await api.get("/digests", { params: { limit: 20 } });
       const raw: ApiDigest[] = res.data.data ?? [];
       return raw.map(mapDigest);
+    },
+  });
+  
+  const { data: trackerStats } = useQuery<TrackerStats>({
+    queryKey: qk.trackerStats(),
+    queryFn: async () => {
+      const res = await api.get("/tracker/stats");
+      return res.data.data as TrackerStats;
     },
   });
 
@@ -323,7 +382,7 @@ export const WeeklySummary = () => {
           </div>
 
           <div className="min-h-0 flex-1 overflow-y-auto p-3 sm:p-4">
-            <LivePreview digest={selected} />
+            <LivePreview digest={selected} stats={trackerStats} />
           </div>
         </div>
       </div>

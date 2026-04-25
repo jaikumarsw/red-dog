@@ -11,12 +11,10 @@ import { Label } from "@/components/ui/label";
 import { cn } from "@/lib/utils";
 import { signUpSchema, type SignUpFormValues } from "@/lib/validation-schemas";
 import api from "@/lib/api";
-import { useAuthGateRedirects } from "@/lib/useAuthGateRedirects";
 import { RedDogLogo } from "@/components/RedDogLogo";
 import { useToast } from "@/hooks/use-toast";
 
 export const SignUp = () => {
-  useAuthGateRedirects();
   const router = useRouter();
   const { toast } = useToast();
   const [showPassword, setShowPassword] = useState(false);
@@ -82,7 +80,7 @@ export const SignUp = () => {
       <div className="hidden lg:block lg:w-[42%] flex-shrink-0 relative overflow-hidden">
         <img
           src="/auth-background.png"
-          alt="Red Dog Radios"
+          alt="Red Dog Grant Intelligence"
           className="w-full h-full object-cover object-center"
         />
       </div>
@@ -94,7 +92,7 @@ export const SignUp = () => {
           <div className="w-full bg-[#f3f4f6] rounded-full p-1 flex gap-1">
             <Link
               href="/login"
-              className="flex-1 rounded-full py-2 px-4 flex items-center justify-center gap-1.5 no-underline"
+              className="flex-1 rounded-full py-2 px-4 flex items-center justify-center gap-1.5 no-underline transition-colors hover:text-[#374151] cursor-pointer"
               data-testid="tab-signin"
             >
               <LogIn size={13} className="text-[#9ca3af]" />
@@ -226,7 +224,7 @@ export const SignUp = () => {
             </button>
           </form>
           <p className="mt-5 w-full text-center [font-family:'Montserrat',Helvetica] text-xs font-normal text-[#9ca3af] sm:mt-6">
-            © 2026 Red Dog Radios · Grant Intelligence Platform
+            © 2026 Red Dog Grant Intelligence · Grant Intelligence Platform
           </p>
         </div>
       </div>

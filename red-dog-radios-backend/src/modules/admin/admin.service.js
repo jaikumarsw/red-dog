@@ -48,6 +48,7 @@ const dashboard = async () => {
     topOpps,
     awardsWon,
     appsSubmitted,
+    waitingOnInformation,
   ] = await Promise.all([
     Organization.countDocuments({ status: 'active' }),
     Opportunity.countDocuments(),
@@ -66,6 +67,7 @@ const dashboard = async () => {
     ]),
     Application.countDocuments({ status: 'awarded' }),
     Application.countDocuments({ status: { $in: ['submitted', 'in_review'] } }),
+    Application.countDocuments({ status: 'waiting_on_information' }),
   ]);
 
   const oppIds = topOpps.map((t) => t._id);
@@ -116,6 +118,7 @@ const dashboard = async () => {
     totalFunders,
     awardsWon,
     applicationsSubmitted: appsSubmitted,
+    waitingOnInformation,
     applicationsByStatus: appsByStatus.reduce((acc, r) => ({ ...acc, [r._id]: r.count }), {}),
     recentSignups: recentSignups.map((o) => ({
       id: o._id,
@@ -568,6 +571,13 @@ const unlockFunderAdmin = async (id) => {
     { new: true }
   );
   if (!f) throw new AppError('Funder not found', 404);
+
+  // Also unlock associated opportunities and reset their high-score counts
+  await Opportunity.updateMany(
+    { funder: f.name },
+    { $set: { isLocked: false, currentApplicationCount: 0, highScoreApplicationCount: 0 } }
+  );
+
   return f;
 };
 

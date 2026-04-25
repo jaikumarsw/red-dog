@@ -6,6 +6,7 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import api from "@/lib/api";
 import { qk } from "@/lib/queryKeys";
 import { useToast } from "@/hooks/use-toast";
+import { ToastAction } from "@/components/ui/toast";
 import { ArrowLeft, Download, RefreshCw, CheckCircle, Columns2, FileText, AlertTriangle } from "lucide-react";
 import { cn } from "@/lib/utils";
 
@@ -114,24 +115,28 @@ export const ApplicationBuilder = () => {
       setViewMode("original");
       setShowRegenerateConfirm(false);
     },
-    onError: () => {
+    onError: (err: unknown) => {
+      const status = (err as any).response?.status;
+      const code = (err as any).response?.data?.code;
+      if (status === 402 && code === "SUBSCRIPTION_REQUIRED") {
+        toast({
+          title: "Subscription Required",
+          description: "An active subscription is required to regenerate AI applications. Choose a plan to continue.",
+          variant: "destructive",
+          action: (
+            <ToastAction altText="View Plans" onClick={() => router.push("/pricing")}>
+              View Plans
+            </ToastAction>
+          ),
+        });
+        return;
+      }
       toast({ title: "Error", description: "Failed to regenerate.", variant: "destructive" });
       setShowRegenerateConfirm(false);
     },
   });
 
-  const alignMutation = useMutation({
-    mutationFn: () => api.post(`/applications/${id}/align`),
-    onSuccess: () => {
-      toast({
-        title: "✓ Aligned to funder language",
-        description: "A funder-specific rewrite is now available. Compare both versions below.",
-      });
-      queryClient.invalidateQueries({ queryKey: qk.application(id) });
-      setViewMode("compare");
-    },
-    onError: () => toast({ title: "Error", description: "Failed to align.", variant: "destructive" }),
-  });
+
 
   const statusMutation = useMutation({
     mutationFn: (status: string) => api.put(`/applications/${id}/status`, { status }),
@@ -222,25 +227,25 @@ export const ApplicationBuilder = () => {
           </div>
         </div>
 
-        <div className="flex flex-wrap gap-2">
+        <div className="flex items-center gap-2 sm:shrink-0">
           <button
             onClick={handleExport}
-            className="flex items-center gap-2 rounded-lg border border-[#e5e7eb] bg-white px-3 py-2 text-sm [font-family:'Montserrat',Helvetica] text-[#374151] hover:bg-[#f9fafb]"
+            className="inline-flex items-center justify-center gap-2 rounded-lg border border-[#e5e7eb] bg-white px-3 py-2 text-sm font-medium [font-family:'Montserrat',Helvetica] text-[#374151] hover:bg-[#f9fafb] transition-colors h-10"
           >
             <Download size={14} /> Export
           </button>
           <button
             onClick={() => setShowRegenerateConfirm(true)}
             disabled={regenerateMutation.isPending}
-            className="flex items-center gap-2 rounded-lg border border-[#e5e7eb] bg-white px-3 py-2 text-sm [font-family:'Montserrat',Helvetica] text-[#374151] hover:bg-[#f9fafb] disabled:opacity-50"
+            className="inline-flex items-center justify-center gap-2 rounded-lg border border-[#e5e7eb] bg-white px-3 py-2 text-sm font-medium [font-family:'Montserrat',Helvetica] text-[#374151] hover:bg-[#f9fafb] disabled:opacity-50 transition-colors h-10"
           >
             <RefreshCw size={14} className={regenerateMutation.isPending ? "animate-spin" : ""} />
-            {regenerateMutation.isPending ? "Regenerating..." : "↺ Regenerate"}
+            {regenerateMutation.isPending ? "Regenerating..." : "Regenerate"}
           </button>
           {!isEditing ? (
             <button
               onClick={() => setIsEditing(true)}
-              className="rounded-lg border border-[#e5e7eb] bg-white px-3 py-2 text-sm font-semibold [font-family:'Montserrat',Helvetica] text-[#374151] hover:bg-[#f9fafb]"
+              className="inline-flex items-center justify-center rounded-lg border border-[#e5e7eb] bg-white px-4 py-2 text-sm font-semibold [font-family:'Montserrat',Helvetica] text-[#374151] hover:bg-[#f9fafb] transition-colors h-10"
             >
               Edit
             </button>
@@ -248,7 +253,7 @@ export const ApplicationBuilder = () => {
             <button
               onClick={() => saveMutation.mutate()}
               disabled={saveMutation.isPending}
-              className="rounded-lg bg-[#ef3e34] px-4 py-2 text-sm font-bold text-white [font-family:'Montserrat',Helvetica] hover:bg-[#d63029] disabled:opacity-50"
+              className="inline-flex items-center justify-center rounded-lg bg-[#ef3e34] px-4 py-2 text-sm font-bold text-white [font-family:'Montserrat',Helvetica] hover:bg-[#d63029] disabled:opacity-50 transition-colors h-10"
             >
               {saveMutation.isPending ? "Saving..." : "Save Draft"}
             </button>
@@ -456,17 +461,7 @@ export const ApplicationBuilder = () => {
 
       {/* Bottom Actions */}
       <div className="flex flex-wrap gap-3 border-t border-[#e5e7eb] pt-4">
-        <button
-          onClick={() => alignMutation.mutate()}
-          disabled={alignMutation.isPending}
-          className="flex items-center gap-2 rounded-lg border border-[#ef3e34] bg-white px-4 py-2.5 text-sm font-semibold [font-family:'Montserrat',Helvetica] text-[#ef3e34] hover:bg-[#fef2f2] disabled:opacity-50 transition-colors"
-        >
-          {alignMutation.isPending ? (
-            <><RefreshCw size={14} className="animate-spin" /> Aligning to Funder…</>
-          ) : (
-            <><CheckCircle size={14} /> Align to Funder Language</>
-          )}
-        </button>
+
         {!isAdminControlled && app.status !== "submitted" && (
           <button
             onClick={() => statusMutation.mutate("submitted")}

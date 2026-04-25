@@ -9,6 +9,11 @@ const AGENCY_PUBLIC = [
   "/create-password",
 ];
 
+// Pages that must always render regardless of any session cookies. This
+// prevents a stale/expired rdg_token cookie from bouncing users off /signup
+// into /dashboard (which then 401s and kicks them to /login).
+const AGENCY_UNCONDITIONAL = ["/signup"];
+
 export function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;
 
@@ -48,12 +53,15 @@ export function middleware(request: NextRequest) {
   }
 
   const isAgencyPublic = AGENCY_PUBLIC.some((p) => pathname === p || pathname.startsWith(`${p}/`));
+  const isUnconditional = AGENCY_UNCONDITIONAL.some(
+    (p) => pathname === p || pathname.startsWith(`${p}/`)
+  );
 
-  if (adminToken && isAgencyPublic) {
+  if (adminToken && isAgencyPublic && !isUnconditional) {
     return NextResponse.redirect(new URL("/admin/dashboard", request.url));
   }
 
-  if (agencyToken && isAgencyPublic) {
+  if (agencyToken && isAgencyPublic && !isUnconditional) {
     if (onboardingCookie === "0") {
       return NextResponse.redirect(new URL("/onboarding", request.url));
     }

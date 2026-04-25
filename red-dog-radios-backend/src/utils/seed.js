@@ -11,6 +11,7 @@ const Outbox = require('../modules/outbox/outbox.schema');
 const Digest = require('../modules/digests/digest.schema');
 const Funder = require('../modules/funders/funder.schema');
 const Win = require('../modules/wins/win.schema');
+const Coupon = require('../modules/coupons/coupon.schema');
 const { computeMatchScore } = require('../modules/matches/match.service');
 const logger = require('./logger');
 
@@ -687,6 +688,21 @@ async function seed() {
   const opportunitiesSeeded = await seedRealOpportunities();
   const matchesComputed = await seedTestAgency();
 
+  // Upsert beta access coupon
+  await Coupon.findOneAndUpdate(
+    { code: 'BETA2026' },
+    {
+      code: 'BETA2026',
+      description: 'Beta tester access — bypasses paywall for fire chiefs',
+      grantFullAccess: true,
+      maxUses: 50,
+      isActive: true,
+      expiresAt: new Date('2026-12-31')
+    },
+    { upsert: true, new: true }
+  );
+  console.log('✅ Beta coupon seeded: BETA2026 (50 uses, expires Dec 2026)');
+
   console.log('===================================');
   console.log('✅ SEED COMPLETE');
   console.log('Admin:    admin@reddogradios.com / Admin1234!');
@@ -699,6 +715,28 @@ async function seed() {
 
   await mongoose.disconnect();
   process.exit(0);
+}
+
+async function testDeadlineAlerts() {
+  const { createDeadlineAlerts } = require('../modules/alerts/alert.service.js');
+  const title = 'FEMA AFG — Assistance to Firefighters Grant';
+  const deadline = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000);
+  const opp = await Opportunity.findOneAndUpdate(
+    { title },
+    { $set: { deadline } },
+    { new: true }
+  );
+  if (!opp) {
+    console.error(`❌ Opportunity not found: "${title}"`);
+    return;
+  }
+  console.log(`Updated "${title}" deadline to ${deadline.toISOString()}`);
+
+  const { count, created } = await createDeadlineAlerts();
+  console.log(`✅ Deadline alerts created: ${count}`);
+  if (created && created.length > 0) {
+    console.log(JSON.stringify(created, null, 2));
+  }
 }
 
 async function testEmailSend() {
@@ -725,7 +763,7 @@ async function testEmailSend() {
   }
 }
 
-if (process.argv[2] !== '--test-email') {
+if (process.argv[2] !== '--test-email' && process.argv[2] !== '--test-alerts') {
   seed().catch((err) => {
     logger.error('Seed failed:', err.message);
     process.exit(1);
@@ -735,6 +773,14 @@ if (process.argv[2] !== '--test-email') {
 if (process.argv[2] === '--test-email') {
   mongoose.connect(MONGO_URI).then(async () => {
     await testEmailSend();
+    await mongoose.disconnect();
+    process.exit(0);
+  });
+}
+
+if (process.argv[2] === '--test-alerts') {
+  mongoose.connect(MONGO_URI).then(async () => {
+    await testDeadlineAlerts();
     await mongoose.disconnect();
     process.exit(0);
   });

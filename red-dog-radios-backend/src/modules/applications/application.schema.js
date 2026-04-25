@@ -11,6 +11,7 @@ const applicationSchema = new mongoose.Schema(
         'draft',
         'submitted',
         'in_review',
+        'waiting_on_information',
         'approved',
         'awarded',
         'rejected',
@@ -30,6 +31,8 @@ const applicationSchema = new mongoose.Schema(
     contactName: { type: String },
     contactEmail: { type: String, lowercase: true },
     submittedAt: { type: Date },
+    infoRequestedAt: { type: Date },
+    infoRequestedNote: { type: String },
 
     // AI-generated structured sections
     problemStatement: { type: String },

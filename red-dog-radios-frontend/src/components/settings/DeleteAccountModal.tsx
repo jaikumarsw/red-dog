@@ -55,7 +55,7 @@ export function DeleteAccountModal({ onClose, onConfirm, variant = "agency" }: D
           </h2>
           <p className="[font-family:'Montserrat',Helvetica] text-sm font-normal leading-6 text-[#6b7280]">
             {isStaff
-              ? "Your Red Dog Radio staff login will be deactivated. You will lose access to the admin portal until an administrator restores your account. Platform data for agencies is not deleted."
+              ? "Your Red Dog Grant Intelligence staff login will be deactivated. You will lose access to the admin portal until an administrator restores your account. Platform data for agencies is not deleted."
               : "This action is permanent – your account and all associated data will be permanently deleted and cannot be recovered."}
           </p>
           <div className="flex flex-col gap-1.5">

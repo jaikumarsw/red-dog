@@ -28,7 +28,7 @@ export const AuthSplitLayout = ({ children }: AuthSplitLayoutProps) => {
         {/* Bottom left brand text */}
         <div className="absolute bottom-10 left-10">
           <p className="[font-family:'Oswald',Helvetica] font-bold text-white text-2xl tracking-widest opacity-20">
-            RED DOG RADIOS
+            RED DOG GRANT INTELLIGENCE
           </p>
           <p className="[font-family:'Montserrat',Helvetica] text-[#a6a6a6] text-xs tracking-[2px] mt-1 opacity-40">
             GRANT INTELLIGENCE PLATFORM

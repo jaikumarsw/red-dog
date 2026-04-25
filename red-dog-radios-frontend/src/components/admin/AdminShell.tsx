@@ -13,6 +13,7 @@ const ADMIN_MENU: ShellMenuItem[] = [
   { id: "admin-funders", label: "Funders", icon: "/figmaAssets/svg-12.svg", path: "/admin/funders" },
   { id: "admin-applications", label: "Applications", icon: "/figmaAssets/svg-11.svg", path: "/admin/applications" },
   { id: "admin-users", label: "Users", icon: "/figmaAssets/svg-5.svg", path: "/admin/users" },
+  { id: "admin-coupons", label: "Coupons", icon: "/figmaAssets/svg-13.svg", path: "/admin/coupons" },
 ];
 
 function chunkLoadFailedMessage(msg: string) {

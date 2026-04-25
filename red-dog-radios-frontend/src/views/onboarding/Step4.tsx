@@ -13,7 +13,7 @@ import { onboardingStep4Schema, type OnboardingStep4FormValues } from "@/lib/val
 import { RedDogLogo } from "@/components/RedDogLogo";
 import api from "@/lib/api";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
-import { Sparkles } from "lucide-react";
+import { Sparkles, Ticket, Check, X, Loader2 } from "lucide-react";
 
 const budgets = [
   { id: "under_25k", title: "Under $25K" },
@@ -90,6 +90,13 @@ export const OnboardingStep4 = () => {
   const [showSuggestions, setShowSuggestions] = useState(false);
   const suggestionsRef = useRef<HTMLDivElement>(null);
 
+  // Coupon State
+  const [couponCode, setCouponCode] = useState("");
+  const [isValidatingCoupon, setIsValidatingCoupon] = useState(false);
+  const [couponStatus, setCouponStatus] = useState<"none" | "valid" | "invalid">("none");
+  const [couponError, setCouponError] = useState("");
+  const [appliedCoupon, setAppliedCoupon] = useState<string | null>(null);
+
   const {
     register,
     handleSubmit,
@@ -145,6 +152,29 @@ export const OnboardingStep4 = () => {
     setShowSuggestions(false);
   };
 
+  const handleApplyCoupon = async () => {
+    if (!couponCode.trim()) return;
+    setCouponError("");
+    setIsValidatingCoupon(true);
+    setCouponStatus("none");
+
+    try {
+      const res = await api.get(`/coupons/validate?code=${couponCode.trim()}`);
+      if (res.data?.data?.valid) {
+        setCouponStatus("valid");
+        setAppliedCoupon(couponCode.trim().toUpperCase());
+      } else {
+        setCouponStatus("invalid");
+        setCouponError(res.data?.data?.reason || "Invalid or expired code");
+      }
+    } catch (err) {
+      setCouponStatus("invalid");
+      setCouponError("Could not validate code");
+    } finally {
+      setIsValidatingCoupon(false);
+    }
+  };
+
   const onSubmit = async (data: OnboardingStep4FormValues) => {
     setErrorMsg("");
     if (!selectedBudget) { setErrorMsg("Please select a budget range."); return; }
@@ -178,6 +208,16 @@ export const OnboardingStep4 = () => {
       };
 
       const res = await api.post("/onboarding/complete", payload);
+
+      // If a coupon was applied, redeem it now that the org exists
+      if (appliedCoupon) {
+        try {
+          await api.post("/coupons/redeem", { code: appliedCoupon });
+        } catch (couponRedeemErr) {
+          console.error("Failed to redeem coupon:", couponRedeemErr);
+          // We don't block the onboarding success if coupon redemption fails silently
+        }
+      }
 
       // Store result to pass it to results page
       sessionStorage.setItem("rdg_onboarding_results", JSON.stringify(res));
@@ -341,6 +381,61 @@ export const OnboardingStep4 = () => {
               <Label htmlFor="government_agency" className="font-normal text-sm">Government agency</Label>
             </div>
           </RadioGroup>
+        </div>
+
+        {/* Coupon Code Section */}
+        <div className="flex flex-col gap-3 pt-2 pb-2 border-t border-b border-gray-100 -mx-4 px-4 sm:-mx-8 sm:px-8">
+          <Label className="[font-family:'Montserrat',Helvetica] font-medium text-sm text-[#111827] flex items-center gap-2">
+            <Ticket className="w-4 h-4 text-[#ef3e34]" />
+            Have a beta access code? <span className="text-gray-400 font-normal">(Optional)</span>
+          </Label>
+          <div className="flex gap-2">
+            <div className="relative flex-1">
+              <Input
+                type="text"
+                placeholder="ENTER CODE"
+                value={couponCode}
+                onChange={(e) => {
+                  setCouponCode(e.target.value.toUpperCase().slice(0, 20));
+                  if (couponStatus !== "none") setCouponStatus("none");
+                }}
+                disabled={couponStatus === "valid" || isSubmitting}
+                className={cn(
+                  "h-10 border-[#e5e7eb] rounded-lg text-sm uppercase tracking-wider font-semibold",
+                  couponStatus === "valid" && "border-green-500 bg-green-50 text-green-700 pr-10",
+                  couponStatus === "invalid" && "border-red-300"
+                )}
+              />
+              {couponStatus === "valid" && (
+                <div className="absolute right-3 top-1/2 -translate-y-1/2">
+                  <Check className="w-4 h-4 text-green-600" />
+                </div>
+              )}
+              {couponStatus === "invalid" && (
+                <div className="absolute right-3 top-1/2 -translate-y-1/2">
+                  <X className="w-4 h-4 text-red-500" />
+                </div>
+              )}
+            </div>
+            <button
+              type="button"
+              onClick={handleApplyCoupon}
+              disabled={!couponCode || couponStatus === "valid" || isValidatingCoupon || isSubmitting}
+              className="px-4 h-10 rounded-lg bg-gray-100 text-gray-700 text-sm font-semibold hover:bg-gray-200 transition-colors disabled:opacity-50 flex items-center justify-center min-w-[90px]"
+            >
+              {isValidatingCoupon ? <Loader2 className="w-4 h-4 animate-spin" /> : "Apply Code"}
+            </button>
+          </div>
+          {couponStatus === "valid" && (
+            <p className="text-xs font-semibold text-green-600 flex items-center gap-1">
+              ✓ Beta access code applied — full access unlocked
+            </p>
+          )}
+          {couponStatus === "invalid" && (
+            <p className="text-xs font-semibold text-red-600">
+              {couponError}
+            </p>
+          )}
         </div>
 
         <div className="flex flex-col gap-4 pt-1 sm:flex-row sm:items-center sm:justify-between">

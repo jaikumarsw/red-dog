@@ -6,6 +6,7 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import api from "@/lib/api";
 import { qk } from "@/lib/queryKeys";
 import { useToast } from "@/hooks/use-toast";
+import { ToastAction } from "@/components/ui/toast";
 import { ArrowLeft, Globe, Mail, Phone, AlertCircle } from "lucide-react";
 
 interface Funder {
@@ -82,7 +83,23 @@ export const FunderDetail = () => {
     },
     onError: (err: unknown) => {
       const status = (err as { response?: { status?: number } })?.response?.status;
+      const code = (err as any).response?.data?.code;
       const msg = (err as { response?: { data?: { message?: string } } })?.response?.data?.message;
+      
+      if (status === 402 && code === "SUBSCRIPTION_REQUIRED") {
+        toast({
+          title: "Subscription Required",
+          description: "An active subscription is required to generate AI applications. Choose a plan to continue.",
+          variant: "destructive",
+          action: (
+            <ToastAction altText="View Plans" onClick={() => router.push("/pricing")}>
+              View Plans
+            </ToastAction>
+          ),
+        });
+        return;
+      }
+
       if (status === 423) {
         toast({
           title: "Application limit reached",
