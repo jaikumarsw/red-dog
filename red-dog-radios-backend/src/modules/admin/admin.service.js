@@ -176,6 +176,13 @@ const listAgencies = async (query) => {
   return { ...result, docs: enriched };
 };
 
+const listPriorityAgencies = async () => {
+  return Organization.find({ 'priorityFlags.isLongTermNoWin': true })
+    .select('name email location websiteUrl priorityFlags createdAt')
+    .sort({ 'priorityFlags.flaggedAt': -1, createdAt: -1 })
+    .lean();
+};
+
 const getAgencyDetail = async (id) => {
   const org = await Organization.findById(id);
   if (!org) throw new AppError('Agency not found', 404);
@@ -628,14 +635,13 @@ const updateUserRole = async (userId, { role }) => {
 };
 
 const listActivityLogsAdmin = (query) => activityLogService.listAdmin(query);
-
 const approveMatchAdmin = (matchId) => matchService.approveMatch(matchId);
-
 const rejectMatchAdmin = (matchId) => matchService.rejectMatch(matchId);
 
 module.exports = {
   dashboard,
   listAgencies,
+  listPriorityAgencies,
   getAgencyDetail,
   listOpportunitiesAdmin,
   createOpportunityAdmin,
@@ -667,3 +673,4 @@ module.exports = {
   approveMatchAdmin,
   rejectMatchAdmin,
 };
+

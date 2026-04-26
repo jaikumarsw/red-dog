@@ -27,6 +27,11 @@ mongoose
       logger.warn(`User.syncIndexes() skipped or failed: ${e.message}`);
     }
 
+    const Application = require('./modules/applications/application.schema');
+    Application.syncIndexes().catch((err) => {
+      logger.warn('[Application] Index sync failed (likely existing duplicates):', err.message);
+    });
+
     app.listen(PORT, () => {
       logger.info(`🚀 Red Dog Backend running on port ${PORT} (${process.env.NODE_ENV || 'development'})`);
       logger.info(`📋 Health: http://localhost:${PORT}/health`);

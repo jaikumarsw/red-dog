@@ -5,6 +5,7 @@ import { useQuery } from "@tanstack/react-query";
 import adminApi from "@/lib/adminApi";
 import { AdminTableViewLink } from "@/components/admin/AdminTableViewLink";
 import { Skeleton } from "@/components/ui/skeleton";
+import { Button } from "@/components/ui/button";
 
 type DashboardData = {
   totalAgencies: number;
@@ -29,12 +30,32 @@ type DashboardData = {
   }[];
 };
 
+type PriorityAgency = {
+  _id: string;
+  name: string;
+  email?: string;
+  priorityFlags?: {
+    isLongTermNoWin?: boolean;
+    daysSinceSignup?: number;
+    applicationsSubmittedCount?: number;
+    awardsWonCount?: number;
+  };
+};
+
 export default function AdminDashboardPage() {
   const { data, isLoading } = useQuery({
     queryKey: ["admin", "dashboard"],
     queryFn: async () => {
       const res = await adminApi.get("admin/dashboard");
       return res.data.data as DashboardData;
+    },
+  });
+
+  const { data: priorityAgencies } = useQuery({
+    queryKey: ["admin", "agencies", "priority"],
+    queryFn: async () => {
+      const res = await adminApi.get("admin/agencies/priority");
+      return (res.data.data || []) as PriorityAgency[];
     },
   });
 
@@ -127,6 +148,56 @@ export default function AdminDashboardPage() {
             ))}
           </ul>
         </div>
+      </div>
+
+      <div className="rounded-xl border border-[#e5e7eb] bg-white p-5 shadow-[0_1px_4px_rgba(0,0,0,0.05)]">
+        <h2 className="mb-2 text-sm font-bold uppercase tracking-wide text-[#ef3e34] [font-family:'Montserrat',Helvetica]">
+          ⚠️ Priority Agencies
+        </h2>
+        <p className="mb-4 text-xs text-[#6b7280]">
+          Agencies flagged as 60+ days on platform with no wins (and at least 3 submitted/reviewed applications).
+        </p>
+
+        {(priorityAgencies?.length || 0) === 0 ? (
+          <p className="text-sm text-[#6b7280]">
+            No priority agencies right now. All agencies are within their first 60 days or have won grants.
+          </p>
+        ) : (
+          <ul className="divide-y divide-[#f0f0f0]">
+            {(priorityAgencies || []).map((a) => (
+              <li key={a._id} className="flex flex-col gap-2 py-3 sm:flex-row sm:items-center sm:justify-between">
+                <div className="min-w-0">
+                  <Link href={`/admin/agencies/${a._id}`} className="font-medium text-[#111827] hover:underline">
+                    {a.name}
+                  </Link>
+                  <p className="mt-1 text-xs text-[#6b7280]">
+                    {a.priorityFlags?.daysSinceSignup ?? "—"} days since signup ·{" "}
+                    {a.priorityFlags?.applicationsSubmittedCount ?? "—"} submitted ·{" "}
+                    {a.priorityFlags?.awardsWonCount ?? 0} won
+                  </p>
+                </div>
+                <div className="flex items-center gap-2">
+                  <Button
+                    type="button"
+                    variant="outline"
+                    className="border-[#e5e7eb] bg-white text-[#374151] hover:bg-[#f9fafb]"
+                    asChild
+                  >
+                    <a
+                      href={
+                        a.email
+                          ? `mailto:${a.email}?subject=${encodeURIComponent(`Re: ${a.name} — Grant award support`)}`
+                          : `mailto:admin@reddogradios.com?subject=${encodeURIComponent(`Reach out: ${a.name}`)}`
+                      }
+                    >
+                      Reach Out
+                    </a>
+                  </Button>
+                </div>
+              </li>
+            ))}
+          </ul>
+        )}
       </div>
     </div>
   );

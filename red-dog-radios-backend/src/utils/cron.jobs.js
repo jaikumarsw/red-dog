@@ -5,8 +5,9 @@ const outboxService = require('../modules/outbox/outbox.service');
 const followupService = require('../modules/followups/followup.service');
 const Organization = require('../modules/organizations/organization.schema');
 const logger = require('./logger');
-const { sendEmail, sendDeadlineAlertEmail } = require('../config/email.config');
+const { sendEmail, sendDeadlineAlertEmail, sendPostAwardFollowUpEmail } = require('../config/email.config');
 const User = require('../modules/auth/user.schema');
+const Application = require('../modules/applications/application.schema');
 
 const ADMIN_ALERT_EMAIL = process.env.ADMIN_EMAIL;
 
@@ -95,6 +96,58 @@ cron.schedule('0 8 * * *', async () => {
   }
 });
 
+// Daily 8:00 AM MT — update priority flags for long-term agencies without wins
+cron.schedule(
+  '0 8 * * *',
+  async () => {
+    try {
+      const orgs = await Organization.find({}).select('_id createdAt priorityFlags.flaggedAt').lean();
+      const now = Date.now();
+
+      for (const org of orgs) {
+        const submittedCount = await Application.countDocuments({
+          organization: org._id,
+          status: { $in: ['submitted', 'in_review', 'approved', 'awarded', 'rejected'] },
+        });
+        const awardedCount = await Application.countDocuments({
+          organization: org._id,
+          status: 'awarded',
+        });
+        const lastWin = await Application.findOne({
+          organization: org._id,
+          status: 'awarded',
+        })
+          .sort({ updatedAt: -1 })
+          .select('updatedAt')
+          .lean();
+
+        const daysSinceSignup = Math.floor((now - new Date(org.createdAt).getTime()) / (24 * 60 * 60 * 1000));
+        const isLongTermNoWin = daysSinceSignup >= 60 && awardedCount === 0 && submittedCount >= 3;
+
+        const update = {
+          'priorityFlags.daysSinceSignup': daysSinceSignup,
+          'priorityFlags.applicationsSubmittedCount': submittedCount,
+          'priorityFlags.awardsWonCount': awardedCount,
+          'priorityFlags.lastWinAt': lastWin?.updatedAt || null,
+          'priorityFlags.isLongTermNoWin': isLongTermNoWin,
+        };
+
+        if (isLongTermNoWin && !org?.priorityFlags?.flaggedAt) {
+          update['priorityFlags.flaggedAt'] = new Date();
+        }
+
+        await Organization.findByIdAndUpdate(org._id, { $set: update });
+      }
+
+      logger.info('[PriorityFlags] Updated for all orgs');
+    } catch (e) {
+      logger.warn('[PriorityFlags Cron] Failed:', e.message);
+      await notifyCronError('Priority flags updater', e);
+    }
+  },
+  { timezone: 'America/Denver' }
+);
+
 // Every hour — process outbox email queue
 cron.schedule('0 * * * *', async () => {
   try {
@@ -107,8 +160,71 @@ cron.schedule('0 * * * *', async () => {
   }
 });
 
+// Daily 9:00 AM MT — post-award follow-up sender (equipment recommendations)
+cron.schedule(
+  '0 9 * * *',
+  async () => {
+    try {
+      const now = new Date();
+      const apps = await Application.find({
+        'postAwardSequence.followUpScheduledFor': { $lte: now },
+        'postAwardSequence.followUpSentAt': null,
+        status: 'awarded',
+      })
+        .populate('organization')
+        .populate('funder')
+        .populate('opportunity')
+        .lean();
+
+      for (const app of apps) {
+        try {
+          const users = await User.find({ organizationId: app.organization?._id })
+            .select('email firstName fullName')
+            .lean();
+          const funderName = app.funder?.name || app.opportunity?.funder || 'the funder';
+
+          for (const u of users) {
+            if (!u?.email) continue;
+            await sendPostAwardFollowUpEmail({
+              to: u.email,
+              name: u.firstName || u.fullName,
+              agencyName: app.organization?.name,
+              funderName,
+              agencyResponse: app.postAwardSequence?.agencyResponse,
+              applicationId: app._id,
+            });
+          }
+
+          await Application.findByIdAndUpdate(app._id, {
+            $set: { 'postAwardSequence.followUpSentAt': new Date() },
+          });
+
+          try {
+            const commService = require('../modules/communication-log/communication-log.service');
+            await commService.logSystemEvent({
+              application: app._id,
+              organization: app.organization?._id,
+              subject: 'Post-award follow-up sent',
+              body: 'Equipment recommendations email sent to agency.',
+            });
+          } catch (e) {}
+
+          logger.info(`[PostAward] Follow-up sent for app ${app._id}`);
+        } catch (e) {
+          logger.warn(`[PostAward] Failed for app ${app._id}:`, e.message);
+        }
+      }
+    } catch (e) {
+      logger.warn('[PostAward Cron] Failed:', e.message);
+      await notifyCronError('Post-award follow-up sender', e);
+    }
+  },
+  { timezone: 'America/Denver' }
+);
+logger.info('[PostAward] Cron scheduled: daily 9 AM MT');
+
 logger.info(
-  '✅ Cron jobs registered: match refresh (2am), deadline alerts (2:30am), high-fit alerts (2:45am), follow-up backfill (8am), outbox (hourly)'
+  '✅ Cron jobs registered: match refresh (2am), deadline alerts (2:30am), high-fit alerts (2:45am), follow-up backfill (8am), priority flags (8am), outbox (hourly), post-award follow-up (9am MT)'
 );
 
 module.exports = {};

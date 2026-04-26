@@ -58,6 +58,15 @@ const applicationSchema = new mongoose.Schema(
     followUpDate: { type: Date },
     notes: { type: String },
 
+    // Post-award email sequence tracking
+    postAwardSequence: {
+      congratsSentAt: { type: Date, default: null },
+      followUpScheduledFor: { type: Date, default: null },
+      followUpSentAt: { type: Date, default: null },
+      agencyResponse: { type: String, default: null },
+      agencyResponseAt: { type: Date, default: null },
+    },
+
     statusHistory: [
       {
         status: { type: String },
@@ -89,5 +98,50 @@ applicationSchema.plugin(mongoosePaginateV2);
 applicationSchema.index({ organization: 1, status: 1 });
 applicationSchema.index({ organization: 1, createdAt: -1 });
 applicationSchema.index({ funder: 1 });
+
+// Statuses included in partial unique indexes: all enum values except terminal denied/rejected.
+// MongoDB partial indexes cannot use $ne/$nin on the filter path; keep this list in sync with `status.enum` above.
+const NON_TERMINAL_APPLICATION_STATUSES = [
+  'draft',
+  'submitted',
+  'in_review',
+  'waiting_on_information',
+  'approved',
+  'awarded',
+  'not_started',
+  'drafting',
+  'ready_to_submit',
+  'follow_up_needed',
+];
+
+// Prevent duplicate active applications for the same org + opportunity.
+// Only enforces uniqueness for non-terminal statuses; agencies can
+// re-apply if a previous attempt was denied or rejected.
+applicationSchema.index(
+  { organization: 1, opportunity: 1 },
+  {
+    unique: true,
+    partialFilterExpression: {
+      opportunity: { $exists: true, $type: 'objectId' },
+      status: { $in: NON_TERMINAL_APPLICATION_STATUSES },
+    },
+    name: 'unique_active_org_opportunity',
+  }
+);
+
+// Same for org + funder when no opportunity is linked.
+// Use `opportunity: null` (not $exists: false) — MongoDB partial indexes reject $exists: false.
+applicationSchema.index(
+  { organization: 1, funder: 1 },
+  {
+    unique: true,
+    partialFilterExpression: {
+      funder: { $exists: true, $type: 'objectId' },
+      opportunity: null,
+      status: { $in: NON_TERMINAL_APPLICATION_STATUSES },
+    },
+    name: 'unique_active_org_funder',
+  }
+);
 
 module.exports = mongoose.model('Application', applicationSchema);

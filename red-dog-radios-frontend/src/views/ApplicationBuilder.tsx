@@ -1,18 +1,29 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { useParams, useRouter } from "next/navigation";
+import { useParams, useRouter, useSearchParams } from "next/navigation";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import api from "@/lib/api";
 import { qk } from "@/lib/queryKeys";
 import { useToast } from "@/hooks/use-toast";
-import { ToastAction } from "@/components/ui/toast";
-import { ArrowLeft, Download, RefreshCw, CheckCircle, Columns2, FileText, AlertTriangle } from "lucide-react";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
+import { ArrowLeft, Download, RefreshCw, CheckCircle, Columns2, FileText, AlertTriangle, Mail, Phone, Users, Settings } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { formatDistanceToNow } from "date-fns";
 
 interface Application {
   _id: string;
   projectTitle?: string;
+  projectSummary?: string;
   status: string;
   problemStatement?: string;
   communityImpact?: string;
@@ -37,6 +48,7 @@ interface Application {
 }
 
 const SECTIONS = [
+  { key: "projectSummary", label: "Project Summary" },
   { key: "problemStatement", label: "Problem Statement" },
   { key: "communityImpact", label: "Community Impact" },
   { key: "proposedSolution", label: "Proposed Solution" },
@@ -72,6 +84,7 @@ const EmptyContent = () => (
 export const ApplicationBuilder = () => {
   const { id } = useParams<{ id: string }>();
   const router = useRouter();
+  const searchParams = useSearchParams();
   const { toast } = useToast();
   const queryClient = useQueryClient();
   const [isEditing, setIsEditing] = useState(false);
@@ -79,6 +92,9 @@ export const ApplicationBuilder = () => {
   const [form, setForm] = useState<Partial<Application>>({});
   const [editNotes, setEditNotes] = useState("");
   const [showRegenerateConfirm, setShowRegenerateConfirm] = useState(false);
+  const [paywallOpen, setPaywallOpen] = useState(false);
+  const [awardResponse, setAwardResponse] = useState("");
+  const [awardResponseSubmitted, setAwardResponseSubmitted] = useState(false);
 
   const { data: app, isLoading, isError, refetch } = useQuery<Application>({
     queryKey: qk.application(id),
@@ -116,22 +132,19 @@ export const ApplicationBuilder = () => {
       setShowRegenerateConfirm(false);
     },
     onError: (err: unknown) => {
-      const status = (err as any).response?.status;
-      const code = (err as any).response?.data?.code;
-      if (status === 402 && code === "SUBSCRIPTION_REQUIRED") {
-        toast({
-          title: "Subscription Required",
-          description: "An active subscription is required to regenerate AI applications. Choose a plan to continue.",
-          variant: "destructive",
-          action: (
-            <ToastAction altText="View Plans" onClick={() => router.push("/pricing")}>
-              View Plans
-            </ToastAction>
-          ),
-        });
+      const e = err as {
+        response?: { status?: number; data?: { code?: string; message?: string } };
+      };
+      if (e?.response?.status === 402 && e?.response?.data?.code === "SUBSCRIPTION_REQUIRED") {
+        setPaywallOpen(true);
+        setShowRegenerateConfirm(false);
         return;
       }
-      toast({ title: "Error", description: "Failed to regenerate.", variant: "destructive" });
+      toast({
+        title: "Error",
+        description: e?.response?.data?.message ?? "Failed to regenerate.",
+        variant: "destructive",
+      });
       setShowRegenerateConfirm(false);
     },
   });
@@ -146,6 +159,70 @@ export const ApplicationBuilder = () => {
       queryClient.invalidateQueries({ queryKey: qk.applications() });
     },
   });
+
+  const awardResponseMutation = useMutation({
+    mutationFn: async () => {
+      const res = await api.post(`/applications/${id}/award-response`, { response: awardResponse.trim() });
+      return res.data.data as Application;
+    },
+    onSuccess: () => {
+      setAwardResponseSubmitted(true);
+      toast({ title: "Thank you!", description: "Your response has been sent to the Red Dog team." });
+      queryClient.invalidateQueries({ queryKey: qk.application(id) });
+    },
+    onError: () => toast({ title: "Error", description: "Could not submit response.", variant: "destructive" }),
+  });
+
+  type CommLog = {
+    _id: string;
+    type: "system" | "email_sent" | "email_received" | "phone_call" | "meeting" | "note";
+    direction?: "inbound" | "outbound" | "internal";
+    subject?: string;
+    body: string;
+    createdByName?: string;
+    withParty?: string;
+    createdAt?: string;
+  };
+
+  const commQuery = useQuery<CommLog[]>({
+    queryKey: ["agency", "communication-log", id],
+    queryFn: async () => {
+      const res = await api.get(`/communication-log/agency/application/${id}`);
+      return (res.data.data || []) as CommLog[];
+    },
+    enabled: !!id,
+  });
+
+  const commIcon = (t: CommLog["type"]) => {
+    if (t === "email_sent" || t === "email_received") return <Mail size={16} className="text-[#ef3e34]" />;
+    if (t === "phone_call") return <Phone size={16} className="text-[#ef3e34]" />;
+    if (t === "meeting") return <Users size={16} className="text-[#ef3e34]" />;
+    if (t === "system") return <Settings size={16} className="text-[#6b7280]" />;
+    return <FileText size={16} className="text-[#ef3e34]" />;
+  };
+
+  const commTypeLabel = (t: CommLog["type"]) => {
+    switch (t) {
+      case "email_sent":
+      case "email_received":
+        return "Email";
+      case "phone_call":
+        return "Phone Call";
+      case "meeting":
+        return "Meeting";
+      case "system":
+        return "System";
+      default:
+        return "Note";
+    }
+  };
+
+  const commDirectionLabel = (d?: CommLog["direction"]) => {
+    if (!d) return "";
+    if (d === "outbound") return "Outbound";
+    if (d === "inbound") return "Inbound";
+    return "Internal";
+  };
 
   const handleExport = async () => {
     try {
@@ -195,6 +272,8 @@ export const ApplicationBuilder = () => {
   const statusColor = STATUS_COLORS[app.status] || "bg-gray-100 text-gray-700";
   const hasAligned = !!app.alignedVersion;
   const isAdminControlled = ADMIN_CONTROLLED_STATUSES.includes(app.status);
+  const action = searchParams.get("action");
+  const showAwardRespondBanner = action === "respond" && app.status === "awarded" && !awardResponseSubmitted;
 
   const appRecord = app as unknown as Record<string, unknown>;
   const alignedRecord = app.alignedVersion as unknown as Record<string, unknown> | undefined;
@@ -260,6 +339,40 @@ export const ApplicationBuilder = () => {
           )}
         </div>
       </div>
+
+      {showAwardRespondBanner && (
+        <div className="rounded-xl border border-[#ef3e3433] bg-[#fff8f8] p-5">
+          <p className="[font-family:'Montserrat',Helvetica] text-sm font-bold text-[#111827]">
+            🎉 Congratulations on your award! What equipment are you planning to purchase with this funding?
+          </p>
+          <textarea
+            className="mt-3 w-full rounded-lg border border-[#e5e7eb] bg-white px-3 py-2 text-sm [font-family:'Montserrat',Helvetica] text-[#111827] focus:border-[#ef3e34] focus:outline-none min-h-[110px]"
+            placeholder="Tell us what you plan to purchase (radios, repeaters, consoles, etc.)"
+            value={awardResponse}
+            onChange={(e) => setAwardResponse(e.target.value)}
+          />
+          <div className="mt-3 flex items-center gap-2">
+            <button
+              onClick={() => awardResponseMutation.mutate()}
+              disabled={awardResponseMutation.isPending || awardResponse.trim().length < 10}
+              className="rounded-lg bg-[#ef3e34] px-4 py-2 text-sm font-bold text-white [font-family:'Montserrat',Helvetica] hover:bg-[#d63029] disabled:opacity-60"
+            >
+              {awardResponseMutation.isPending ? "Submitting..." : "Submit"}
+            </button>
+            <span className="[font-family:'Montserrat',Helvetica] text-xs text-[#6b7280]">
+              Minimum 10 characters.
+            </span>
+          </div>
+        </div>
+      )}
+
+      {action === "respond" && app.status === "awarded" && awardResponseSubmitted && (
+        <div className="rounded-xl border border-[#bbf7d0] bg-[#f0fdf4] p-4">
+          <p className="[font-family:'Montserrat',Helvetica] text-sm font-semibold text-[#166534]">
+            Thanks — we received your response. A Red Dog specialist will follow up soon with recommendations.
+          </p>
+        </div>
+      )}
 
       {/* Regenerate Confirm Banner */}
       {showRegenerateConfirm && (
@@ -457,6 +570,61 @@ export const ApplicationBuilder = () => {
             <p className="[font-family:'Montserrat',Helvetica] text-sm text-[#374151]">{app.notes || "No notes."}</p>
           )}
         </div>
+
+        <div className="rounded-xl border border-[#e5e7eb] bg-white p-5 flex flex-col gap-2">
+          <div className="flex items-start justify-between gap-3">
+            <div>
+              <h3 className="[font-family:'Montserrat',Helvetica] font-bold text-[#111827] text-sm uppercase tracking-wide">
+                Communication Log
+              </h3>
+              <p className="[font-family:'Montserrat',Helvetica] text-xs text-[#6b7280]">
+                Activity and updates on this application
+              </p>
+            </div>
+          </div>
+
+          <div className="mt-2 space-y-3">
+            {commQuery.isLoading ? (
+              <p className="[font-family:'Montserrat',Helvetica] text-sm text-[#6b7280]">Loading…</p>
+            ) : (commQuery.data?.length || 0) === 0 ? (
+              <p className="[font-family:'Montserrat',Helvetica] text-sm text-[#6b7280]">
+                No activity yet. You&apos;ll see updates here as your application progresses.
+              </p>
+            ) : (
+              (commQuery.data || []).map((log) => {
+                const createdAt = log.createdAt ? new Date(log.createdAt) : null;
+                const relTime = createdAt ? formatDistanceToNow(createdAt, { addSuffix: true }) : "—";
+                return (
+                  <div key={log._id} className="rounded-lg border border-[#f0f0f0] bg-[#fafafa] p-3">
+                    <div className="flex items-start gap-2">
+                      <div className="mt-0.5">{commIcon(log.type)}</div>
+                      <div className="min-w-0">
+                        <p className="text-xs font-semibold text-[#6b7280] uppercase tracking-wide [font-family:'Montserrat',Helvetica]">
+                          {commTypeLabel(log.type)}
+                          {log.direction ? ` · ${commDirectionLabel(log.direction)}` : ""}
+                        </p>
+                        {log.subject ? (
+                          <p className="[font-family:'Montserrat',Helvetica] text-sm font-semibold text-[#111827] mt-1">
+                            {log.subject}
+                          </p>
+                        ) : null}
+                        {log.withParty ? (
+                          <p className="mt-2 text-xs text-[#6b7280]">
+                            <span className="font-semibold">With:</span> {log.withParty}
+                          </p>
+                        ) : null}
+                        <p className="mt-2 whitespace-pre-wrap text-sm text-[#374151]">{log.body}</p>
+                        <p className="mt-2 text-xs text-[#9ca3af]">
+                          by {log.createdByName || "Unknown"} · {relTime}
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+                );
+              })
+            )}
+          </div>
+        </div>
       </div>
 
       {/* Bottom Actions */}
@@ -479,6 +647,27 @@ export const ApplicationBuilder = () => {
           Aligned version generated: {new Date(app.alignedVersion.generatedAt).toLocaleString()}
         </p>
       )}
+
+      <AlertDialog open={paywallOpen} onOpenChange={setPaywallOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Subscription Required</AlertDialogTitle>
+            <AlertDialogDescription>
+              AI grant writing requires an active subscription. Plans start at $199/month and include unlimited AI applications, smart
+              funder matching, and weekly digests.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Maybe Later</AlertDialogCancel>
+            <AlertDialogAction
+              className="bg-[#ef3e34] hover:bg-[#d63530] text-white"
+              onClick={() => router.push("/pricing")}
+            >
+              View Plans
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 };

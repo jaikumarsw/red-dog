@@ -7,7 +7,16 @@ import { Search, X, ExternalLink, Loader2, Calendar, DollarSign, Tag, ChevronRig
 import api from "@/lib/api";
 import { qk } from "@/lib/queryKeys";
 import { useToast } from "@/hooks/use-toast";
-import { ToastAction } from "@/components/ui/toast";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import { cn } from "@/lib/utils";
 import { useAuth } from "@/lib/AuthContext";
 
@@ -157,6 +166,8 @@ export const Opportunities = () => {
 
   // Selected Items
   const [selectedOpp, setSelectedOpp] = useState<RankedOpportunity | null>(null);
+  const [paywallOpen, setPaywallOpen] = useState(false);
+  const [generatingFor, setGeneratingFor] = useState<string | null>(null);
 
   // Queries
   const { data: matchRows = [], isLoading: matchesLoading } = useQuery<ApiMatchRow[]>({
@@ -200,23 +211,19 @@ export const Opportunities = () => {
       if (id) router.push(`/applications/${id}`);
     },
     onError: (err: unknown) => {
-      const status = (err as any).response?.status;
-      const code = (err as any).response?.data?.code;
-      if (status === 402 && code === "SUBSCRIPTION_REQUIRED") {
-        toast({
-          title: "Subscription Required",
-          description: "An active subscription is required to generate AI applications. Choose a plan to continue.",
-          variant: "destructive",
-          action: (
-            <ToastAction altText="View Plans" onClick={() => router.push("/pricing")}>
-              View Plans
-            </ToastAction>
-          ),
-        });
+      const e = err as {
+        response?: { status?: number; data?: { code?: string; message?: string } };
+      };
+      if (e?.response?.status === 402 && e?.response?.data?.code === "SUBSCRIPTION_REQUIRED") {
+        setPaywallOpen(true);
         return;
       }
-      const msg = (err as { response?: { data?: { message?: string } } })?.response?.data?.message;
-      toast({ title: "Could not start application", description: msg || "Please try again.", variant: "destructive" });
+      const msg = e?.response?.data?.message;
+      toast({
+        title: "Failed to draft application",
+        description: msg ?? "Please try again.",
+        variant: "destructive",
+      });
     },
   });
 
@@ -363,7 +370,6 @@ export const Opportunities = () => {
             const days = daysLeft(opp.deadline);
             const urgentDeadline = days !== null && days >= 0 && days <= 14;
             const deadlineStr = fmtDate(opp.deadline);
-            const isGenerating = generateMutation.isPending && generateMutation.variables === opp._id;
             const sc = scoreColor(opp.fitScore);
 
             return (
@@ -427,10 +433,27 @@ export const Opportunities = () => {
 
                   <button
                     className="w-full rounded-lg bg-[#ef3e34]/10 text-[#ef3e34] border border-[#ef3e34]/20 px-4 py-2.5 text-xs font-bold [font-family:'Montserrat',Helvetica] hover:bg-[#ef3e34] hover:text-white transition-all flex items-center justify-center gap-2 disabled:opacity-50 disabled:hover:bg-[#ef3e34]/10 disabled:hover:text-[#ef3e34]"
-                    disabled={opp.status === "closed" || generateMutation.isPending}
-                    onClick={(e) => { e.stopPropagation(); generateMutation.mutate(opp._id); }}
+                    disabled={opp.status === "closed" || generatingFor !== null}
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      if (generatingFor) return;
+                      setGeneratingFor(opp._id);
+                      generateMutation.mutate(opp._id, {
+                        onSettled: () => setGeneratingFor(null),
+                      });
+                    }}
                   >
-                    {isGenerating ? (<><Loader2 size={13} className="animate-spin" /> Working…</>) : opp.status === "closed" ? "Closed to Applications" : (<><Sparkles size={13} className="shrink-0" /> Draft Application</>)}
+                    {generatingFor === opp._id ? (
+                      <>
+                        <Loader2 size={13} className="animate-spin" /> Working…
+                      </>
+                    ) : opp.status === "closed" ? (
+                      "Closed to Applications"
+                    ) : (
+                      <>
+                        <Sparkles size={13} className="shrink-0" /> Draft Application
+                      </>
+                    )}
                   </button>
                 </div>
               </div>
@@ -444,10 +467,38 @@ export const Opportunities = () => {
         <OppDetailModal
           opp={selectedOpp}
           onClose={() => setSelectedOpp(null)}
-          onApply={() => generateMutation.mutate(selectedOpp._id)}
-          applying={generateMutation.isPending}
+          onApply={() => {
+            if (generatingFor) return;
+            setGeneratingFor(selectedOpp._id);
+            generateMutation.mutate(selectedOpp._id, {
+              onSettled: () => setGeneratingFor(null),
+            });
+          }}
+          applying={generatingFor === selectedOpp._id}
+          applyLocked={generatingFor !== null}
         />
       )}
+
+      <AlertDialog open={paywallOpen} onOpenChange={setPaywallOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Subscription Required</AlertDialogTitle>
+            <AlertDialogDescription>
+              AI grant writing requires an active subscription. Plans start at $199/month and include unlimited AI applications, smart
+              funder matching, and weekly digests.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Maybe Later</AlertDialogCancel>
+            <AlertDialogAction
+              className="bg-[#ef3e34] hover:bg-[#d63530] text-white"
+              onClick={() => router.push("/pricing")}
+            >
+              View Plans
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 };
@@ -607,8 +658,8 @@ const OppDetailModal = ({
                 Cancel
               </button>
               <button
-                onClick={() => { onApply(); onClose(); }}
-                disabled={opp.status === "closed" || applying}
+                onClick={() => onApply()}
+                disabled={opp.status === "closed" || applying || applyLocked}
                 className="rounded-lg bg-[#ef3e34] px-5 py-2.5 text-sm font-bold text-white [font-family:'Montserrat',Helvetica] hover:bg-[#d63029] disabled:opacity-60 flex items-center justify-center gap-2 transition-all shadow-sm active:scale-[0.98]"
               >
                 {applying ? (<><Loader2 size={16} className="animate-spin" /> Drafting…</>) : (<><Sparkles size={16} /> Apply with Ashleen</>)}

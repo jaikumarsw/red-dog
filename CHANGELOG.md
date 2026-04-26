@@ -1,5 +1,33 @@
 # Changelog — April 25, 2026
 
+## [1.4.0] — Stripe Payments, Communication Log, Post-Award Sequence
+### Added
+- **Stripe Subscription Billing**: Two tiers ($199 Basic / $385 Premium) with Stripe Checkout integration, billing portal, and webhook handlers for subscription lifecycle events.
+- **Beta Coupon → Premium Access**: BETA2026 coupon now grants free Premium tier access via grantBetaAccessFromCoupon flow.
+- **Paywall Middleware**: Active subscription required to generate AI applications. Other features remain accessible.
+- **Communication Log**: Per-application timeline showing system events (status changes, AI generation, submission) plus admin-logged emails, calls, meetings, and notes. Visible to both admin and agency.
+- **Post-Award Email Sequence**: When an application is marked awarded, the system automatically sends a congratulations email asking what equipment will be purchased, schedules a 3-day follow-up with Red Dog radio recommendations, and notifies admin.
+- **Award Response Capture**: Agency can respond to the post-award email with their equipment plans, captured for personalized follow-up.
+- **Priority Agencies System**: Daily cron flags agencies that have been on the platform 60+ days without a win. Flagged agencies receive a +5 match score boost and appear in a "Priority Agencies" section on the admin dashboard.
+- **Project Summary Section**: Now displayed in both admin and agency application detail views.
+
+### Changed
+- **AI Budget Discipline**: Strengthened prompt to prevent invented per-unit costs. AI now uses placeholders or labeled example ranges when profile data is insufficient.
+
+### Fixed
+- Onboarding step 5 redirect issue addressed.
+
+### Infrastructure
+- Two new daily cron jobs: post-award follow-up sender (9 AM MT), priority flags updater (8 AM MT).
+- New Mongoose schemas: CommunicationLog, Coupon (already existed).
+- New Organization fields: subscription block, postAwardSequence, priorityFlags.
+
+### Pending Client Action
+- Stripe API keys (Setup guide in red-dog-radios-backend/STRIPE_SETUP.md)
+- Real opportunity deadlines via admin panel
+- Private funders list
+- Production server deployment
+
 ## [1.3.0] - Branding & UI Enhancements
 ### Changed
 - **Branding Rename**: Updated all frontend display text from "Red Dog Radios" to "Red Dog Grant Intelligence" across:

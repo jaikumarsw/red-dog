@@ -688,16 +688,19 @@ async function seed() {
   const opportunitiesSeeded = await seedRealOpportunities();
   const matchesComputed = await seedTestAgency();
 
-  // Upsert beta access coupon
+  // Upsert beta access coupon (currentUses only on insert — do not wipe redemptions on re-seed)
   await Coupon.findOneAndUpdate(
     { code: 'BETA2026' },
     {
-      code: 'BETA2026',
-      description: 'Beta tester access — bypasses paywall for fire chiefs',
-      grantFullAccess: true,
-      maxUses: 50,
-      isActive: true,
-      expiresAt: new Date('2026-12-31')
+      $set: {
+        code: 'BETA2026',
+        description: 'Beta tester access — bypasses paywall for fire chiefs',
+        grantFullAccess: true,
+        maxUses: 50,
+        isActive: true,
+        expiresAt: new Date('2026-12-31T23:59:59.000Z'),
+      },
+      $setOnInsert: { currentUses: 0 },
     },
     { upsert: true, new: true }
   );

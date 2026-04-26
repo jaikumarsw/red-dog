@@ -1,6 +1,7 @@
 const express = require('express');
 const { getAll, getOne, generate, preview, send } = require('./digest.controller');
 const { protect } = require('../../middlewares/auth.middleware');
+const { requireActiveSubscription } = require('../../middlewares/paywall.middleware');
 
 const router = express.Router();
 
@@ -42,7 +43,8 @@ router.get('/', protect, getAll);
  *               weekStart: { type: string, format: date }
  *               weekEnd: { type: string, format: date }
  */
-router.post('/generate', protect, generate);
+// GATED: user-triggered from Weekly Summary; no digest cron in cron.jobs.js
+router.post('/generate', protect, requireActiveSubscription, generate);
 
 /**
  * @swagger
@@ -52,7 +54,7 @@ router.post('/generate', protect, generate);
  *     tags: [Digests]
  *     security: [{ bearerAuth: [] }]
  */
-router.post('/preview', protect, preview);
+router.post('/preview', protect, requireActiveSubscription, preview);
 
 /**
  * @swagger

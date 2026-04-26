@@ -58,6 +58,10 @@ export function middleware(request: NextRequest) {
   );
 
   if (adminToken && isAgencyPublic && !isUnconditional) {
+    // Agency session ended but staff cookie remains — still allow agency auth screens
+    if (!agencyToken) {
+      return NextResponse.next();
+    }
     return NextResponse.redirect(new URL("/admin/dashboard", request.url));
   }
 

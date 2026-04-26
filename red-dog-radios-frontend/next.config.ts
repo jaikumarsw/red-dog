@@ -7,6 +7,9 @@ const apiOrigin =
   "http://localhost:4000";
 
 const nextConfig: NextConfig = {
+  async redirects() {
+    return [{ source: "/coupons", destination: "/admin/coupons", permanent: false }];
+  },
   allowedDevOrigins: [
     "*.replit.dev",
     "*.worf.replit.dev",

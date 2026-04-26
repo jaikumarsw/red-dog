@@ -215,7 +215,17 @@ const computeMatchScore = (organization, opportunity) => {
   const recommendedAction = buildRecommendedAction(fitScore, disqualifiers);
   const state = organization.location ? organization.location.split(',').map((s) => s.trim()).pop() : '';
 
-  return { fitScore, reasons, fitReasons: reasons, disqualifiers, recommendedAction, breakdown, state };
+  const result = { fitScore, reasons, fitReasons: reasons, disqualifiers, recommendedAction, breakdown, state };
+
+  // Priority boost for long-term non-winning agencies
+  if (organization?.priorityFlags?.isLongTermNoWin) {
+    const PRIORITY_BOOST = 5;
+    result.fitScore = Math.min(100, (result.fitScore || 0) + PRIORITY_BOOST);
+    result.reasons = result.reasons || [];
+    result.reasons.push(`Priority boost (+${PRIORITY_BOOST}) — long-term agency, no recent wins`);
+  }
+
+  return result;
 };
 
 const getAll = async ({ page = 1, limit = 20, organizationId, oppId, status, minScore, maxScore, search }) => {

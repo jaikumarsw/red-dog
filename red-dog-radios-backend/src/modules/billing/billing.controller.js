@@ -62,8 +62,24 @@ const createPortal = async (req, res, next) => {
 // POST /api/billing/webhook — Stripe webhook receiver
 // IMPORTANT: this endpoint needs raw body parsing
 const handleWebhook = async (req, res) => {
-  const sig = req.headers['stripe-signature'];
+  // Guard: Stripe not configured
+  if (!stripe) {
+    logger.warn('[Stripe Webhook] Received but Stripe not configured');
+    return res.status(503).json({
+      error: 'Stripe not configured on server',
+    });
+  }
+
+  // Guard: webhook secret missing
   const endpointSecret = process.env.STRIPE_WEBHOOK_SECRET;
+  if (!endpointSecret || endpointSecret.includes('REPLACE_ME')) {
+    logger.warn('[Stripe Webhook] STRIPE_WEBHOOK_SECRET not configured');
+    return res.status(503).json({
+      error: 'Webhook secret not configured',
+    });
+  }
+
+  const sig = req.headers['stripe-signature'];
   
   let event;
   try {

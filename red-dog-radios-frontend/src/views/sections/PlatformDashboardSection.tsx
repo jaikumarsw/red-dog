@@ -34,6 +34,14 @@ type DashboardData = {
   attentionItems: AttentionItem[];
 };
 
+type SettingsData = {
+  organizationId?: {
+    priorityFlags?: {
+      isLongTermNoWin?: boolean;
+    };
+  } | null;
+};
+
 const fmtDollars = (n: number) => {
   if (n >= 1_000_000) return "$" + (n / 1_000_000).toFixed(1) + "M";
   if (n >= 1_000) return "$" + (n / 1_000).toFixed(0) + "K";
@@ -139,6 +147,14 @@ export const PlatformDashboardSection = () => {
     },
   });
 
+  const { data: settingsData } = useQuery<SettingsData>({
+    queryKey: qk.settings(),
+    queryFn: async () => {
+      const res = await api.get("/settings");
+      return res.data.data as SettingsData;
+    },
+  });
+
   const handleRefresh = async () => {
     setRefreshing(true);
     await Promise.all([
@@ -153,6 +169,7 @@ export const PlatformDashboardSection = () => {
   const attentionItems = dashData?.attentionItems ?? [];
 
   const firstName = user?.firstName || user?.fullName?.split(" ")[0] || "there";
+  const isPriorityAgency = Boolean(settingsData?.organizationId?.priorityFlags?.isLongTermNoWin);
 
   return (
     <div className="flex w-full flex-1 flex-col items-start overflow-y-auto px-4 pb-0 pt-6 sm:px-6 sm:pt-8 lg:px-8">
@@ -209,6 +226,20 @@ export const PlatformDashboardSection = () => {
             >
               Retry
             </button>
+          </div>
+        )}
+
+        {isPriorityAgency && (
+          <div className="flex w-full items-start gap-3 rounded-xl border border-[#fdba74] bg-[#fffbeb] px-4 py-3">
+            <AlertTriangle size={16} className="shrink-0 text-[#b45309] mt-0.5" />
+            <div className="min-w-0 flex-1">
+              <p className="[font-family:'Montserrat',Helvetica] text-sm font-semibold text-[#92400e]">
+                We&apos;re prioritizing additional funding sources for you.
+              </p>
+              <p className="[font-family:'Montserrat',Helvetica] text-xs text-[#92400e] mt-1">
+                Our team is actively surfacing private foundations and community grants matched to your needs. Check back daily for new opportunities.
+              </p>
+            </div>
           </div>
         )}
 

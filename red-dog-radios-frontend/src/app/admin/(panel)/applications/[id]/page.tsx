@@ -20,7 +20,39 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import { useToast } from "@/hooks/use-toast";
-import { Building2, ChevronDown, ChevronUp, ExternalLink, User as UserIcon } from "lucide-react";
+import { useAdminAuth } from "@/lib/AdminAuthContext";
+import {
+  Building2,
+  ChevronDown,
+  ChevronUp,
+  ExternalLink,
+  FileText,
+  Mail,
+  Phone,
+  Settings,
+  Trash2,
+  User as UserIcon,
+  Users,
+} from "lucide-react";
+import { formatDistanceToNow } from "date-fns";
+import { Input } from "@/components/ui/input";
+import { Checkbox } from "@/components/ui/checkbox";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import { Label } from "@/components/ui/label";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 
 const BUDGET_LABELS: Record<string, string> = {
   under_25k: "Under $25K",
@@ -48,6 +80,7 @@ const formatMemberSince = (d?: string) => {
 };
 
 const KEYS = [
+  "projectSummary",
   "problemStatement",
   "communityImpact",
   "proposedSolution",
@@ -63,6 +96,7 @@ export default function AdminApplicationDetailPage() {
   const appId = typeof id === "string" ? id : id?.[0] ?? "";
   const qc = useQueryClient();
   const { toast } = useToast();
+  const { user: adminUser } = useAdminAuth();
   const [notes, setNotes] = useState("");
   const [awardOpen, setAwardOpen] = useState(false);
   const [rejectOpen, setRejectOpen] = useState(false);
@@ -71,6 +105,15 @@ export default function AdminApplicationDetailPage() {
   const [infoRequestNote, setInfoRequestNote] = useState("");
   const [agencyExpanded, setAgencyExpanded] = useState(true);
   const notesHydrated = useRef(false);
+  const [commOpen, setCommOpen] = useState(false);
+  const [commForm, setCommForm] = useState({
+    type: "note",
+    direction: "internal",
+    withParty: "",
+    subject: "",
+    body: "",
+    visibleToAgency: true,
+  });
 
   const { data, isLoading } = useQuery({
     queryKey: ["admin", "application", appId],
@@ -132,6 +175,104 @@ export default function AdminApplicationDetailPage() {
       toast({ title: "AI content regenerated" });
     },
   });
+
+  type CommLog = {
+    _id: string;
+    type: "system" | "email_sent" | "email_received" | "phone_call" | "meeting" | "note";
+    direction?: "inbound" | "outbound" | "internal";
+    subject?: string;
+    body: string;
+    createdBy?: string;
+    createdByName?: string;
+    createdByRole?: "admin" | "agency" | "system";
+    withParty?: string;
+    visibleToAgency?: boolean;
+    createdAt?: string;
+  };
+
+  const commQuery = useQuery({
+    queryKey: ["admin", "communication-log", appId],
+    queryFn: async () => {
+      const res = await adminApi.get(`communication-log/admin/application/${appId}`);
+      return (res.data.data || []) as CommLog[];
+    },
+    enabled: Boolean(appId),
+  });
+
+  const addComm = useMutation({
+    mutationFn: async () => {
+      const payload = {
+        application: appId,
+        type: commForm.type,
+        direction: commForm.direction,
+        withParty: commForm.withParty.trim() || undefined,
+        subject: commForm.subject.trim() || undefined,
+        body: commForm.body,
+        visibleToAgency: commForm.visibleToAgency,
+      };
+      const res = await adminApi.post("communication-log", payload);
+      return res.data.data as CommLog;
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["admin", "communication-log", appId] });
+      setCommOpen(false);
+      setCommForm({
+        type: "note",
+        direction: "internal",
+        withParty: "",
+        subject: "",
+        body: "",
+        visibleToAgency: true,
+      });
+      toast({ title: "Entry added" });
+    },
+    onError: (err: unknown) => {
+      const msg =
+        (err as { response?: { data?: { message?: string } } })?.response?.data?.message ?? "Could not add entry";
+      toast({ title: "Error", description: msg, variant: "destructive" });
+    },
+  });
+
+  const deleteComm = useMutation({
+    mutationFn: (logId: string) => adminApi.delete(`communication-log/${logId}`),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["admin", "communication-log", appId] });
+      toast({ title: "Entry deleted" });
+    },
+    onError: () => toast({ title: "Error", description: "Delete failed", variant: "destructive" }),
+  });
+
+  const commIcon = (t: CommLog["type"]) => {
+    if (t === "email_sent" || t === "email_received") return <Mail size={16} className="text-[#ef3e34]" />;
+    if (t === "phone_call") return <Phone size={16} className="text-[#ef3e34]" />;
+    if (t === "meeting") return <Users size={16} className="text-[#ef3e34]" />;
+    if (t === "system") return <Settings size={16} className="text-[#6b7280]" />;
+    return <FileText size={16} className="text-[#ef3e34]" />;
+  };
+
+  const commTypeLabel = (t: CommLog["type"]) => {
+    switch (t) {
+      case "email_sent":
+        return "Email";
+      case "email_received":
+        return "Email";
+      case "phone_call":
+        return "Phone Call";
+      case "meeting":
+        return "Meeting";
+      case "system":
+        return "System";
+      default:
+        return "Note";
+    }
+  };
+
+  const commDirectionLabel = (d?: CommLog["direction"]) => {
+    if (!d) return "";
+    if (d === "outbound") return "Outbound";
+    if (d === "inbound") return "Inbound";
+    return "Internal";
+  };
 
   if (!appId) return null;
   if (isLoading || !data) return <p className="text-[#6b7280]">Loading…</p>;
@@ -528,11 +669,188 @@ export default function AdminApplicationDetailPage() {
       {KEYS.map((k) => (
         <div key={k} className="rounded-lg border border-[#e5e7eb] bg-white p-4 shadow-sm">
           <h2 className="mb-2 text-sm font-semibold capitalize text-[#ef3e34] [font-family:'Montserrat',Helvetica]">
-            {k.replace(/([A-Z])/g, " $1")}
+            {k === "projectSummary"
+              ? "Project Summary"
+              : k.replace(/([A-Z])/g, " $1").replace(/^./, (c) => c.toUpperCase())}
           </h2>
           <p className="whitespace-pre-wrap text-sm text-[#374151]">{String(data[k] || "—")}</p>
         </div>
       ))}
+
+      <div className="rounded-lg border border-[#e5e7eb] bg-white p-4 shadow-sm">
+        <div className="flex items-start justify-between gap-3">
+          <div>
+            <h2 className="[font-family:'Montserrat',Helvetica] text-sm font-bold uppercase tracking-wide text-[#111827]">
+              Communication Log
+            </h2>
+            <p className="mt-1 text-xs text-[#6b7280]">Timeline of conversations and system activity</p>
+          </div>
+          <Button
+            type="button"
+            className="bg-[#ef3e34] hover:bg-[#d63530] text-white"
+            onClick={() => setCommOpen(true)}
+          >
+            Add Entry
+          </Button>
+        </div>
+
+        <div className="mt-4 space-y-3">
+          {commQuery.isLoading ? (
+            <p className="text-sm text-[#6b7280]">Loading…</p>
+          ) : (commQuery.data?.length || 0) === 0 ? (
+            <p className="text-sm text-[#6b7280]">No communications logged yet.</p>
+          ) : (
+            (commQuery.data || []).map((log) => {
+              const canDelete =
+                log.type !== "system" &&
+                adminUser?._id &&
+                (String(log.createdBy || "") === String(adminUser._id) || log.createdByRole === "admin");
+              const createdAt = log.createdAt ? new Date(log.createdAt) : null;
+              const relTime = createdAt ? formatDistanceToNow(createdAt, { addSuffix: true }) : "—";
+              return (
+                <div key={log._id} className="rounded-lg border border-[#f0f0f0] bg-[#fafafa] p-3">
+                  <div className="flex items-start justify-between gap-3">
+                    <div className="flex items-start gap-2 min-w-0">
+                      <div className="mt-0.5">{commIcon(log.type)}</div>
+                      <div className="min-w-0">
+                        <p className="text-xs font-semibold text-[#6b7280] uppercase tracking-wide [font-family:'Montserrat',Helvetica]">
+                          {commTypeLabel(log.type)}
+                          {log.direction ? ` · ${commDirectionLabel(log.direction)}` : ""}
+                        </p>
+                        {log.subject ? (
+                          <p className="[font-family:'Montserrat',Helvetica] text-sm font-semibold text-[#111827] mt-1">
+                            {log.subject}
+                          </p>
+                        ) : null}
+                      </div>
+                    </div>
+                    {canDelete && (
+                      <button
+                        type="button"
+                        className="text-[#9ca3af] hover:text-red-600"
+                        onClick={() => deleteComm.mutate(log._id)}
+                        disabled={deleteComm.isPending}
+                        aria-label="Delete entry"
+                      >
+                        <Trash2 size={16} />
+                      </button>
+                    )}
+                  </div>
+
+                  {log.withParty ? (
+                    <p className="mt-2 text-xs text-[#6b7280]">
+                      <span className="font-semibold">With:</span> {log.withParty}
+                    </p>
+                  ) : null}
+
+                  <p className="mt-2 whitespace-pre-wrap text-sm text-[#374151]">{log.body}</p>
+
+                  <p className="mt-2 text-xs text-[#9ca3af]">
+                    by {log.createdByName || "Unknown"} · {relTime}
+                  </p>
+                </div>
+              );
+            })
+          )}
+        </div>
+      </div>
+
+      <Dialog open={commOpen} onOpenChange={setCommOpen}>
+        <DialogContent className="max-w-xl">
+          <DialogHeader>
+            <DialogTitle>Add Communication Log Entry</DialogTitle>
+            <DialogDescription>Log an email, call, meeting, or internal note.</DialogDescription>
+          </DialogHeader>
+
+          <div className="grid gap-4">
+            <div className="grid gap-2">
+              <Label>Type</Label>
+              <Select value={commForm.type} onValueChange={(v) => setCommForm((p) => ({ ...p, type: v }))}>
+                <SelectTrigger>
+                  <SelectValue placeholder="Select type" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="email_sent">Email Sent</SelectItem>
+                  <SelectItem value="email_received">Email Received</SelectItem>
+                  <SelectItem value="phone_call">Phone Call</SelectItem>
+                  <SelectItem value="meeting">Meeting</SelectItem>
+                  <SelectItem value="note">Note</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+
+            {(commForm.type === "email_sent" ||
+              commForm.type === "email_received" ||
+              commForm.type === "phone_call") && (
+              <div className="grid gap-2">
+                <Label>Direction</Label>
+                <Select
+                  value={commForm.direction}
+                  onValueChange={(v) => setCommForm((p) => ({ ...p, direction: v }))}
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="Select direction" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="outbound">Outbound</SelectItem>
+                    <SelectItem value="inbound">Inbound</SelectItem>
+                    <SelectItem value="internal">Internal</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+            )}
+
+            <div className="grid gap-2">
+              <Label>With (optional)</Label>
+              <Input
+                placeholder="e.g., Sarah Chen @ FEMA"
+                value={commForm.withParty}
+                onChange={(e) => setCommForm((p) => ({ ...p, withParty: e.target.value }))}
+              />
+            </div>
+
+            <div className="grid gap-2">
+              <Label>Subject</Label>
+              <Input
+                value={commForm.subject}
+                onChange={(e) => setCommForm((p) => ({ ...p, subject: e.target.value }))}
+              />
+            </div>
+
+            <div className="grid gap-2">
+              <Label>Body</Label>
+              <Textarea
+                value={commForm.body}
+                onChange={(e) => setCommForm((p) => ({ ...p, body: e.target.value }))}
+                className="min-h-[140px]"
+              />
+              <p className="text-xs text-[#9ca3af]">Required (min 10 characters).</p>
+            </div>
+
+            <label className="flex items-center gap-2 text-sm text-[#374151]">
+              <Checkbox
+                checked={commForm.visibleToAgency}
+                onCheckedChange={(v) => setCommForm((p) => ({ ...p, visibleToAgency: Boolean(v) }))}
+              />
+              Visible to agency
+            </label>
+          </div>
+
+          <DialogFooter className="mt-2">
+            <Button type="button" variant="outline" onClick={() => setCommOpen(false)}>
+              Cancel
+            </Button>
+            <Button
+              type="button"
+              className="bg-[#ef3e34] hover:bg-[#d63530] text-white"
+              onClick={() => addComm.mutate()}
+              disabled={addComm.isPending || commForm.body.trim().length < 10}
+            >
+              {addComm.isPending ? "Saving…" : "Save Entry"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       <AlertDialog open={awardOpen} onOpenChange={setAwardOpen}>
         <AlertDialogContent>

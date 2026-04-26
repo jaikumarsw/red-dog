@@ -12,6 +12,7 @@ router.get('/activity-logs', protectAdmin, ctrl.listActivityLogs);
 router.get('/activity-logs/:id', protectAdmin, ctrl.getActivityLog);
 
 router.get('/agencies', protectAdmin, ctrl.listAgencies);
+router.get('/agencies/priority', protectAdmin, ctrl.listPriorityAgencies);
 router.get('/agencies/:id', protectAdmin, ctrl.getAgency);
 
 router.get('/opportunities', protectAdmin, ctrl.listOpportunities);

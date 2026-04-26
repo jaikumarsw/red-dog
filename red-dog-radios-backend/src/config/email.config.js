@@ -287,10 +287,84 @@ const sendDeadlineAlertEmail = async ({ to, name, opportunityTitle, deadline, da
   });
 };
 
+const sendPostAwardCongratsEmail = async ({ to, name, agencyName, funderName, awardAmount, applicationId }) => {
+  const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:3000';
+  const responseUrl = `${frontendUrl}/applications/${applicationId}?action=respond`;
+
+  const html = `
+    <h2 style="color:#ef3e34;">Congratulations, ${name || agencyName}!</h2>
+    <p>Outstanding news — your grant application to <strong>${funderName}</strong> has been <strong>awarded</strong>.</p>
+    ${awardAmount ? `<p>Award amount: <strong>$${Number(awardAmount).toLocaleString()}</strong></p>` : ''}
+    <p>This is a major win for ${agencyName} and the community you protect.</p>
+    <h3>Quick Question — What Equipment Will You Be Purchasing?</h3>
+    <p>Now that you have funding secured, we'd like to help you make the most of it. Could you reply and let us know what equipment you're planning to buy with these funds?</p>
+    <p>For example:</p>
+    <ul>
+      <li>Portable radios (P25 Phase II compliant)</li>
+      <li>Mobile radios for apparatus</li>
+      <li>Repeaters or DAS for coverage</li>
+      <li>Dispatch console upgrades</li>
+      <li>Other communications equipment</li>
+    </ul>
+    <p><a href="${responseUrl}" style="display:inline-block;background:#ef3e34;color:#fff;padding:12px 24px;border-radius:6px;text-decoration:none;font-weight:bold;">Tell Us What You Need</a></p>
+    <p>Red Dog Grant Intelligence specializes in P25 public safety radio systems. We'd love to make sure your award funding gets you the best equipment for your agency.</p>
+    <p>Congratulations again — well deserved.</p>
+    <p>— The Red Dog Team</p>
+  `;
+
+  return sendEmail({ to, subject: `🎉 Congratulations — ${funderName} grant awarded!`, html });
+};
+
+const sendPostAwardFollowUpEmail = async ({ to, name, agencyName, funderName, agencyResponse, applicationId }) => {
+  const responseSection = agencyResponse
+    ? `<p>You mentioned you're looking at: <em>"${agencyResponse}"</em></p>
+       <p>Based on what you shared, here are our recommendations:</p>`
+    : `<p>We haven't heard back yet on what equipment you're planning to purchase. Here are our top recommendations for fire and EMS agencies:</p>`;
+
+  const html = `
+    <h2 style="color:#ef3e34;">Equipment Recommendations for ${agencyName}</h2>
+    <p>Hi ${name || 'Chief'},</p>
+    <p>Following up on your <strong>${funderName}</strong> grant award. Now that you have funding in hand, let's make sure you spend it on equipment that actually solves your operational problems.</p>
+    ${responseSection}
+    <h3>Recommended P25 Radio Systems</h3>
+    <ul>
+      <li><strong>P25 Phase II Portable Radios</strong> — full encryption, multi-band, NFPA 1802 compliant</li>
+      <li><strong>P25 Mobile Radios</strong> — apparatus-mounted, 110W output for rural/mountain coverage</li>
+      <li><strong>Strategic Repeaters</strong> — extend coverage into dead zones, configured for your DTRS</li>
+      <li><strong>Dispatch Console Integration</strong> — interoperability with neighboring agencies</li>
+    </ul>
+    <p>We can put together a quote tailored to your award amount and operational needs — including installation, programming, and training.</p>
+    <p><a href="mailto:admin@reddogradios.com?subject=Equipment%20Quote%20-%20${encodeURIComponent(agencyName)}" style="display:inline-block;background:#ef3e34;color:#fff;padding:12px 24px;border-radius:6px;text-decoration:none;font-weight:bold;">Request a Quote</a></p>
+    <p>Talk soon,</p>
+    <p>— The Red Dog Team</p>
+  `;
+
+  return sendEmail({ to, subject: `Equipment recommendations for your ${funderName} award`, html });
+};
+
+const sendAdminAwardNotification = async ({ agencyName, funderName, awardAmount, agencyEmail }) => {
+  const html = `
+    <h2 style="color:#ef3e34;">🎉 New Grant Award</h2>
+    <p><strong>${agencyName}</strong> just won the <strong>${funderName}</strong> grant.</p>
+    ${awardAmount ? `<p>Amount: <strong>$${Number(awardAmount).toLocaleString()}</strong></p>` : ''}
+    <p>Agency contact: ${agencyEmail}</p>
+    <p>Congratulations email sent automatically. Follow-up with equipment recommendations scheduled for 3 days from now.</p>
+    <p>Time to reach out personally and offer Red Dog radio solutions.</p>
+  `;
+  return sendEmail({
+    to: 'admin@reddogradios.com',
+    subject: `🎉 New Award: ${agencyName} won ${funderName}`,
+    html,
+  });
+};
+
 module.exports = {
   sendEmail,
   sendOtpEmail,
   sendWelcomeEmail,
   sendApplicationStatusEmail,
   sendDeadlineAlertEmail,
+  sendPostAwardCongratsEmail,
+  sendPostAwardFollowUpEmail,
+  sendAdminAwardNotification,
 };

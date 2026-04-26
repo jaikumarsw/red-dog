@@ -2,6 +2,7 @@ const express = require('express');
 const rateLimit = require('express-rate-limit');
 const { generateSummary, generateEmail, generateApplication, computeMatch } = require('./ai.controller');
 const { protect } = require('../../middlewares/auth.middleware');
+const { requireActiveSubscription } = require('../../middlewares/paywall.middleware');
 
 const router = express.Router();
 
@@ -33,7 +34,7 @@ const aiLimiter = rateLimit({
  *     responses:
  *       200: { description: AI-generated summary }
  */
-router.post('/generate-summary', protect, aiLimiter, generateSummary);
+router.post('/generate-summary', protect, requireActiveSubscription, aiLimiter, generateSummary);
 
 /**
  * @swagger
@@ -56,7 +57,7 @@ router.post('/generate-summary', protect, aiLimiter, generateSummary);
  *               senderName: { type: string }
  *               senderCompany: { type: string }
  */
-router.post('/generate-email', protect, aiLimiter, generateEmail);
+router.post('/generate-email', protect, requireActiveSubscription, aiLimiter, generateEmail);
 
 /**
  * @swagger
@@ -76,7 +77,7 @@ router.post('/generate-email', protect, aiLimiter, generateEmail);
  *               opportunityId: { type: string }
  *               organizationId: { type: string }
  */
-router.post('/generate-application', protect, aiLimiter, generateApplication);
+router.post('/generate-application', protect, requireActiveSubscription, aiLimiter, generateApplication);
 
 /**
  * @swagger
@@ -96,6 +97,7 @@ router.post('/generate-application', protect, aiLimiter, generateApplication);
  *               opportunityId: { type: string }
  *               organizationId: { type: string }
  */
-router.post('/compute-match', protect, aiLimiter, computeMatch);
+// GATED: nightly match refresh uses match.service (deterministic), not this AI endpoint
+router.post('/compute-match', protect, requireActiveSubscription, aiLimiter, computeMatch);
 
 module.exports = router;

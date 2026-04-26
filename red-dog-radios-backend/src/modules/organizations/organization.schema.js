@@ -85,6 +85,15 @@ const organizationSchema = new mongoose.Schema(
     createdBy: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
     lastMatchRecomputedAt: { type: Date },
 
+    priorityFlags: {
+      isLongTermNoWin: { type: Boolean, default: false },
+      daysSinceSignup: { type: Number, default: 0 },
+      lastWinAt: { type: Date, default: null },
+      applicationsSubmittedCount: { type: Number, default: 0 },
+      awardsWonCount: { type: Number, default: 0 },
+      flaggedAt: { type: Date, default: null },
+    },
+
     subscription: {
       status: { 
         type: String, 

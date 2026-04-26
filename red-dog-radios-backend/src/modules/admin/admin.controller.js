@@ -24,6 +24,11 @@ const listAgencies = asyncHandler(async (req, res) => {
   return paginate(res, result.docs, result, 'Agencies retrieved');
 });
 
+const listPriorityAgencies = asyncHandler(async (req, res) => {
+  const rows = await adminService.listPriorityAgencies();
+  return success(res, rows, 'Priority agencies retrieved');
+});
+
 const getAgency = asyncHandler(async (req, res) => {
   const data = await adminService.getAgencyDetail(req.params.id);
   return success(res, data);
@@ -270,6 +275,7 @@ module.exports = {
   adminMe,
   dashboard,
   listAgencies,
+  listPriorityAgencies,
   getAgency,
   listOpportunities,
   createOpportunity,

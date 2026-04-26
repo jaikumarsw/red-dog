@@ -171,6 +171,15 @@ NUMBERS DISCIPLINE — CRITICAL
    • For costs: if the agency profile gives a budget range, work within 
      it. If it doesn't, use vendor-quote placeholders.
 
+BUDGET FIGURES — STRICT:
+   • Per-unit costs MUST come from one of:
+     (a) the agency profile,
+     (b) the opp.minAmount/maxAmount range, OR
+     (c) explicit placeholder text "[per-unit cost to be supplied by vendor quote]"
+   • Do NOT default to invented prices like "$500/radio" unless the profile explicitly provides equipment cost data
+   • If you must give example pricing for context, label it clearly:
+     "Typical P25 Phase II portable: $4,000–$8,000 per unit (vendor quote required for final figures)"
+
 FUNDER LANGUAGE ALIGNMENT — CRITICAL
    • Mirror the funder's mission statement language verbatim where 
      natural. The funder must recognize their own voice.
@@ -583,33 +592,61 @@ const createWithAI = async ({ opportunityId, funderId, organizationId, userId, a
   }).select('fitScore').lean();
   const agencyFitScore = matchDoc?.fitScore ?? null;
 
-  const app = await Application.create({
-    organization: organizationId,
-    opportunity: resolvedOppId,
-    funder: funderId || undefined,
-    submittedBy: userId || undefined,
-    status: 'drafting',
-    projectTitle: funder
-      ? `${org.name} — ${funder.name} Grant Application`
-      : opp
-        ? opp.title
-        : 'Grant Application',
-    contactName: org.name,
-    dateStarted: new Date(),
-    ...parsed,
-    communityImpact: parsed.communityImpact,
-    urgency: parsed.urgency,
-  });
+  const attachWarning = (doc) => {
+    const response = doc.toObject ? doc.toObject() : doc;
+    if (agencyFitScore !== null && agencyFitScore < 90) {
+      response.warning = "Agencies with a match score below 90% can still apply, but do not count toward the application limit for this opportunity.";
+    }
+    return response;
+  };
+
+  let app;
+  try {
+    app = await Application.create({
+      organization: organizationId,
+      opportunity: resolvedOppId,
+      funder: funderId || undefined,
+      submittedBy: userId || undefined,
+      status: 'drafting',
+      projectTitle: funder
+        ? `${org.name} — ${funder.name} Grant Application`
+        : opp
+          ? opp.title
+          : 'Grant Application',
+      contactName: org.name,
+      dateStarted: new Date(),
+      ...parsed,
+      communityImpact: parsed.communityImpact,
+      urgency: parsed.urgency,
+    });
+  } catch (err) {
+    const dupCode = err.code === 11000 || err.code === 11001;
+    const dupMsg = typeof err.message === 'string' && err.message.includes('E11000');
+    if (dupCode || dupMsg) {
+      const dupQ = { organization: organizationId };
+      if (opp) dupQ.opportunity = opp._id;
+      else if (funderId) dupQ.funder = funderId;
+      const existing = await Application.findOne(dupQ);
+      if (existing) return attachWarning(existing);
+    }
+    throw err;
+  }
+
+  // Communication log: AI drafted application
+  try {
+    const commService = require('../communication-log/communication-log.service');
+    await commService.logSystemEvent({
+      application: app._id,
+      organization: organizationId,
+      subject: 'AI application drafted',
+      body: `AI-generated grant application created for ${funder?.name || 'funder'}.`,
+    });
+  } catch (e) {}
 
   await bumpOpportunityCountAndMaybeLock(opp, agencyFitScore);
   await bumpFunderCountAndMaybeLock(funderId, funder?.maxApplicationsAllowed);
-  
-  const response = app.toObject ? app.toObject() : app;
-  if (agencyFitScore !== null && agencyFitScore < 90) {
-    response.warning = "Agencies with a match score below 90% can still apply, but do not count toward the application limit for this opportunity.";
-  }
-  
-  return response;
+
+  return attachWarning(app);
 };
 
 const getOne = async (id) => {
@@ -672,6 +709,26 @@ const updateStatus = async (id, { status, dateSubmitted, followUpDate, notes, in
   const afterLean = await Application.findById(id).lean();
   await ensureFollowUpsScheduled(before, afterLean, actorId);
 
+  // Communication log: status change system event (never blocks status updates)
+  try {
+    const commService = require('../communication-log/communication-log.service');
+    let body = `Status changed from "${before.status}" to "${status}".`;
+    if (status === 'waiting_on_information' && updateData.infoRequestedNote) {
+      body += ` Information requested: "${updateData.infoRequestedNote}"`;
+    }
+    if (status === 'rejected' && notes) {
+      body += ` Note: "${notes}"`;
+    }
+    await commService.logSystemEvent({
+      application: id,
+      organization: app.organization?._id || app.organization,
+      subject: `Status: ${status}`,
+      body,
+    });
+  } catch (e) {
+    // never block status update on logging
+  }
+
   if (status === 'awarded') {
     await Application.findByIdAndUpdate(id, { isWinner: true });
     try {
@@ -691,6 +748,66 @@ const updateStatus = async (id, { status, dateSubmitted, followUpDate, notes, in
         winFactors: deriveWinFactorsFromApp(app),
       });
     } catch (e) { logger.warn('[Application] Failed to create win record:', e.message); }
+
+    // Post-award email sequence (congrats now, follow-up scheduled 3 days later, admin notified)
+    try {
+      const alreadySent = app?.postAwardSequence?.congratsSentAt;
+      if (!alreadySent) {
+        const orgId = app?.organization?._id;
+        const users = orgId
+          ? await User.find({ organizationId: orgId }).select('email firstName fullName')
+          : [];
+        const primaryUser = users[0];
+        const funderName = app.funder?.name || app.opportunity?.funder || 'the funder';
+        const awardAmount = app.funder?.avgGrantMax || app.opportunity?.maxAmount || app.amountRequested;
+
+        const {
+          sendPostAwardCongratsEmail,
+          sendAdminAwardNotification,
+        } = require('../../config/email.config');
+
+        for (const u of users) {
+          if (!u?.email) continue;
+          await sendPostAwardCongratsEmail({
+            to: u.email,
+            name: u.firstName || u.fullName,
+            agencyName: app.organization?.name,
+            funderName,
+            awardAmount,
+            applicationId: id,
+          });
+        }
+
+        await sendAdminAwardNotification({
+          agencyName: app.organization?.name,
+          funderName,
+          awardAmount,
+          agencyEmail: primaryUser?.email,
+        });
+
+        const followUpDate = new Date();
+        followUpDate.setDate(followUpDate.getDate() + 3);
+
+        await Application.findByIdAndUpdate(id, {
+          $set: {
+            'postAwardSequence.congratsSentAt': new Date(),
+            'postAwardSequence.followUpScheduledFor': followUpDate,
+          },
+        });
+
+        try {
+          const commService = require('../communication-log/communication-log.service');
+          await commService.logSystemEvent({
+            application: id,
+            organization: orgId,
+            subject: 'Award congratulations sent',
+            body: `Congratulations email sent to agency. Follow-up with equipment recommendations scheduled for ${followUpDate.toDateString()}.`,
+          });
+        } catch (e) {}
+      }
+    } catch (e) {
+      logger.warn('[Application] Post-award sequence failed:', e.message);
+    }
   }
 
   if (['approved', 'awarded', 'rejected'].includes(status)) {
@@ -790,6 +907,18 @@ const submit = async (id, userId) => {
   });
   const afterLean = await Application.findById(id).lean();
   await ensureFollowUpsScheduled(before, afterLean, userId);
+
+  // Communication log: agency submitted application
+  try {
+    const commService = require('../communication-log/communication-log.service');
+    await commService.logSystemEvent({
+      application: id,
+      organization: afterLean.organization,
+      subject: 'Application submitted',
+      body: 'Application marked as submitted by the agency.',
+    });
+  } catch (e) {}
+
   return getOne(id);
 };
 

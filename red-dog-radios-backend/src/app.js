@@ -31,9 +31,7 @@ const trackerRoutes = require('./modules/tracker/tracker.route');
 const ashleenRoutes = require('./modules/ashleen/ashleen.route');
 const adminRoutes = require('./modules/admin/admin.route');
 const couponRoutes = require('./modules/coupons/coupon.routes');
-const billingRoutes = require('./modules/billing/billing.routes');
-const billingController = require('./modules/billing/billing.controller');
-
+const communicationLogRoutes = require('./modules/communication-log/communication-log.routes');
 const app = express();
 app.set('trust proxy', 1);
 
@@ -46,13 +44,15 @@ app.use(cors({
 }));
 app.use(morgan(process.env.NODE_ENV === 'production' ? 'combined' : 'dev'));
 
-// Stripe webhook (must be BEFORE express.json)
+// Stripe webhook (raw body) MUST be registered before express.json()
+const billingController = require('./modules/billing/billing.controller');
 app.post(
   '/api/billing/webhook',
   express.raw({ type: 'application/json' }),
   billingController.handleWebhook
 );
 
+// Body parsers (after webhook)
 app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ extended: true }));
 
@@ -117,7 +117,8 @@ app.use('/api/tracker', trackerRoutes);
 app.use('/api/ashleen', ashleenRoutes);
 app.use('/api/admin', adminRoutes);
 app.use('/api/coupons', couponRoutes);
-app.use('/api/billing', billingRoutes);
+app.use('/api/communication-log', communicationLogRoutes);
+app.use('/api/billing', require('./modules/billing/billing.routes'));
 
 if (process.env.NODE_ENV !== 'production') {
   app.get('/api/test-email', async (req, res) => {

@@ -6,7 +6,16 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import api from "@/lib/api";
 import { qk } from "@/lib/queryKeys";
 import { useToast } from "@/hooks/use-toast";
-import { ToastAction } from "@/components/ui/toast";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import { ArrowLeft, Globe, Mail, Phone, AlertCircle } from "lucide-react";
 
 interface Funder {
@@ -42,6 +51,8 @@ export const FunderDetail = () => {
   const queryClient = useQueryClient();
   const [notes, setNotes] = useState("");
   const [editingNotes, setEditingNotes] = useState(false);
+  const [paywallOpen, setPaywallOpen] = useState(false);
+  const [generatingFor, setGeneratingFor] = useState<string | null>(null);
 
   const { data: funder, isLoading, isError, refetch } = useQuery<Funder>({
     queryKey: qk.funder(id),
@@ -82,21 +93,15 @@ export const FunderDetail = () => {
       router.push(`/applications/${res.data.data._id}`);
     },
     onError: (err: unknown) => {
-      const status = (err as { response?: { status?: number } })?.response?.status;
-      const code = (err as any).response?.data?.code;
-      const msg = (err as { response?: { data?: { message?: string } } })?.response?.data?.message;
-      
+      const e = err as {
+        response?: { status?: number; data?: { code?: string; message?: string } };
+      };
+      const status = e?.response?.status;
+      const code = e?.response?.data?.code;
+      const msg = e?.response?.data?.message;
+
       if (status === 402 && code === "SUBSCRIPTION_REQUIRED") {
-        toast({
-          title: "Subscription Required",
-          description: "An active subscription is required to generate AI applications. Choose a plan to continue.",
-          variant: "destructive",
-          action: (
-            <ToastAction altText="View Plans" onClick={() => router.push("/pricing")}>
-              View Plans
-            </ToastAction>
-          ),
-        });
+        setPaywallOpen(true);
         return;
       }
 
@@ -168,7 +173,7 @@ export const FunderDetail = () => {
   const opps = oppsForFunder ?? [];
   const singleOppLocked = opps.length === 1 && !!opps[0].isLocked;
   const multipleOpps = opps.length > 1;
-  const generateDisabled = applyMutation.isPending || singleOppLocked;
+  const generateDisabled = applyMutation.isPending || singleOppLocked || generatingFor !== null;
 
   return (
     <div className="flex w-full min-w-0 flex-col gap-6 bg-neutral-50 p-4 pb-10 sm:p-6 lg:p-8">
@@ -381,8 +386,14 @@ export const FunderDetail = () => {
                   <button
                     key={opp._id}
                     type="button"
-                    onClick={() => applyMutation.mutate(opp._id)}
-                    disabled={applyMutation.isPending || !!opp.isLocked}
+                    onClick={() => {
+                      if (generatingFor) return;
+                      setGeneratingFor(opp._id);
+                      applyMutation.mutate(opp._id, {
+                        onSettled: () => setGeneratingFor(null),
+                      });
+                    }}
+                    disabled={generatingFor !== null || !!opp.isLocked}
                     className="w-full rounded-lg bg-[#ef3e34] px-4 py-2.5 text-sm font-bold text-white [font-family:'Montserrat',Helvetica] hover:bg-[#d63029] disabled:opacity-50 transition-colors text-left"
                   >
                     {opp.isLocked ? (
@@ -396,11 +407,17 @@ export const FunderDetail = () => {
             ) : (
               <button
                 type="button"
-                onClick={() => applyMutation.mutate(undefined)}
+                onClick={() => {
+                  if (generatingFor) return;
+                  setGeneratingFor("__single__");
+                  applyMutation.mutate(undefined, {
+                    onSettled: () => setGeneratingFor(null),
+                  });
+                }}
                 disabled={generateDisabled}
                 className="w-full rounded-lg bg-[#ef3e34] px-4 py-3 text-sm font-bold text-white [font-family:'Montserrat',Helvetica] hover:bg-[#d63029] disabled:opacity-50 transition-colors"
               >
-                {applyMutation.isPending ? "Generating Application..." : "Generate Application"}
+                {generatingFor === "__single__" || applyMutation.isPending ? "Generating Application..." : "Generate Application"}
               </button>
             )}
             <button
@@ -414,6 +431,27 @@ export const FunderDetail = () => {
           </div>
         </div>
       </div>
+
+      <AlertDialog open={paywallOpen} onOpenChange={setPaywallOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Subscription Required</AlertDialogTitle>
+            <AlertDialogDescription>
+              AI grant writing requires an active subscription. Plans start at $199/month and include unlimited AI applications, smart
+              funder matching, and weekly digests.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Maybe Later</AlertDialogCancel>
+            <AlertDialogAction
+              className="bg-[#ef3e34] hover:bg-[#d63530] text-white"
+              onClick={() => router.push("/pricing")}
+            >
+              View Plans
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 };

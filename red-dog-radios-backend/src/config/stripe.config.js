@@ -2,13 +2,22 @@ const Stripe = require('stripe');
 const logger = require('../utils/logger');
 
 let stripe = null;
-if (process.env.STRIPE_SECRET_KEY) {
-  stripe = new Stripe(process.env.STRIPE_SECRET_KEY, {
+const key = process.env.STRIPE_SECRET_KEY;
+const isPlaceholder = !key
+  || key.includes('REPLACE_ME')
+  || key === ''
+  || key.length < 20;
+
+if (!isPlaceholder) {
+  stripe = new Stripe(key, {
     apiVersion: '2024-11-20.acacia',
   });
-  logger.info('[Stripe] Initialized in test mode');
+  logger.info('[Stripe] Initialized');
 } else {
-  logger.warn('[Stripe] STRIPE_SECRET_KEY not set — billing disabled');
+  logger.warn(
+    '[Stripe] Not configured (key missing or placeholder) — ' +
+    'billing features will return 503 until configured'
+  );
 }
 
 const TIERS = {

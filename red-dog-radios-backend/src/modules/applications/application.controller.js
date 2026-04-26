@@ -3,7 +3,7 @@ const { success, created, paginate } = require('../../utils/apiResponse');
 const appService = require('./application.service');
 const Application = require('./application.schema');
 const activityLogService = require('../activityLogs/activityLog.service');
-const { resolveAgencyOrganizationId } = require('../../utils/resolveAgencyOrg');
+const { resolveAgencyOrganizationId } = require('../../utils/resolveOrganizationId');
 const { AppError } = require('../../middlewares/error.middleware');
 
 const assertAppInOrg = async (applicationId, organizationId) => {
@@ -117,4 +117,47 @@ const exportApplication = asyncHandler(async (req, res) => {
   return res.send(text);
 });
 
-module.exports = { getAll, getOne, create, generate, update, updateStatus, submit, remove, regenerate, alignToFunder, exportApplication };
+const respondToAward = asyncHandler(async (req, res) => {
+  const { response } = req.body;
+  const organizationId = await resolveAgencyOrganizationId(req.user);
+  await assertAppInOrg(req.params.id, organizationId);
+
+  const app = await Application.findByIdAndUpdate(
+    req.params.id,
+    {
+      $set: {
+        'postAwardSequence.agencyResponse': response,
+        'postAwardSequence.agencyResponseAt': new Date(),
+      },
+    },
+    { new: true }
+  );
+  if (!app) return res.status(404).json({ success: false });
+
+  try {
+    const commService = require('../communication-log/communication-log.service');
+    await commService.logSystemEvent({
+      application: req.params.id,
+      organization: app.organization,
+      subject: 'Agency responded to award follow-up',
+      body: `Equipment plans: "${response}"`,
+    });
+  } catch (e) {}
+
+  return success(res, app, 'Award response saved');
+});
+
+module.exports = {
+  getAll,
+  getOne,
+  create,
+  generate,
+  update,
+  updateStatus,
+  submit,
+  remove,
+  regenerate,
+  alignToFunder,
+  exportApplication,
+  respondToAward,
+};

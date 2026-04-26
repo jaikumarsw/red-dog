@@ -153,7 +153,10 @@ const SidebarContent = ({
                 )}
               >
                 {isActive && !collapsed && (
-                  <div className="absolute left-0 top-0 h-full w-1 rounded-[0px_33554400px_33554400px_0px] bg-[#ef3e34]" />
+                  <div
+                    className="absolute left-2 top-1/2 h-[65%] w-0.5 -translate-y-1/2 rounded-full bg-[#ef3e34]"
+                    aria-hidden
+                  />
                 )}
                 <div className="relative flex h-5 w-5 flex-shrink-0 items-center justify-center">
                   <SidebarNavIcon src={item.icon} isActive={isActive} />
@@ -222,9 +225,12 @@ const SidebarContent = ({
         <button
           type="button"
           onClick={() => {
-            onLogout();
-            router.push(signOutRedirectPath);
             onNavClick?.();
+            onLogout();
+            // Full navigation: middleware + AdminAuthProvider re-read cookies/storage (client router can leave stale sessions)
+            if (typeof window !== "undefined") {
+              window.location.assign(signOutRedirectPath);
+            }
           }}
           title={collapsed ? "Sign Out" : undefined}
           aria-label="Sign out"
