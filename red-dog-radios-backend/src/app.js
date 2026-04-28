@@ -121,17 +121,22 @@ app.use('/api/communication-log', communicationLogRoutes);
 app.use('/api/billing', require('./modules/billing/billing.routes'));
 
 if (process.env.NODE_ENV !== 'production') {
-  app.get('/api/test-email', async (req, res) => {
-    try {
-      const { sendEmail } = require('./config/resend.config');
+  const { protect, restrictTo } = require('./middlewares/auth.middleware');
+  app.get(
+    '/api/test-email',
+    protect,
+    restrictTo('admin'),
+    async (req, res) => {
+      try {
+        const { sendEmail } = require('./config/resend.config');
 
-      // Allow ?to=anyemail@gmail.com in URL for testing
-      const testTo = req.query.to || process.env.ADMIN_EMAIL;
+        // Allow ?to=anyemail@gmail.com in URL for testing
+        const testTo = req.query.to || process.env.ADMIN_EMAIL;
 
-      const result = await sendEmail({
-        to: testTo,
-        subject: 'Red Dog Email Test ' + new Date().toISOString(),
-        html: `
+        const result = await sendEmail({
+          to: testTo,
+          subject: 'Red Dog Email Test ' + new Date().toISOString(),
+          html: `
         <div style="font-family:Arial;padding:40px;max-width:500px;
           margin:0 auto;border:1px solid #e5e7eb;border-radius:12px;">
           <h1 style="color:#ef3e34;margin-top:0;">Email is working!</h1>
@@ -141,13 +146,14 @@ if (process.env.NODE_ENV !== 'production') {
           </p>
         </div>
       `,
-      });
+        });
 
-      res.json({ result, sentTo: testTo });
-    } catch (err) {
-      res.status(500).json({ error: err.message });
+        res.json({ result, sentTo: testTo });
+      } catch (err) {
+        res.status(500).json({ error: err.message });
+      }
     }
-  });
+  );
 }
 
 app.use(notFoundHandler);

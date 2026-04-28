@@ -2,6 +2,7 @@ const billingService = require('./billing.service');
 const { TIERS } = require('../../config/stripe.config');
 const { stripe } = require('../../config/stripe.config');
 const logger = require('../../utils/logger');
+const { resolveAgencyOrganizationId } = require('../../utils/resolveOrganizationId');
 
 // GET /api/billing/tiers — public, returns available tiers
 const getTiers = async (req, res, next) => {
@@ -19,11 +20,11 @@ const getTiers = async (req, res, next) => {
 // GET /api/billing/status — current org's subscription status
 const getStatus = async (req, res, next) => {
   try {
-    const orgId = req.user?.organizationId;
+    const orgId = await resolveAgencyOrganizationId(req.user);
     if (!orgId) {
-      return res.json({ 
-        success: true, 
-        data: { hasAccess: false, status: 'none', tier: 'none' } 
+      return res.json({
+        success: true,
+        data: { hasAccess: false, status: 'none', tier: 'none' },
       });
     }
     const status = await billingService.getSubscriptionStatus(orgId);
@@ -34,14 +35,18 @@ const getStatus = async (req, res, next) => {
 // POST /api/billing/checkout — create Stripe Checkout session
 const createCheckout = async (req, res, next) => {
   try {
-    const orgId = req.user?.organizationId;
+    const orgId = await resolveAgencyOrganizationId(req.user);
     const { tier } = req.body;
-    if (!orgId) return res.status(400).json({ 
-      success: false, message: 'Organization required' 
-    });
-    
-    const result = await billingService.createCheckoutSession({ 
-      orgId, tier 
+    if (!orgId) {
+      return res.status(400).json({
+        success: false,
+        message: 'Organization required',
+      });
+    }
+
+    const result = await billingService.createCheckoutSession({
+      orgId,
+      tier,
     });
     res.json({ success: true, data: result });
   } catch (err) { next(err); }
@@ -50,10 +55,13 @@ const createCheckout = async (req, res, next) => {
 // POST /api/billing/portal — create Stripe Billing Portal session
 const createPortal = async (req, res, next) => {
   try {
-    const orgId = req.user?.organizationId;
-    if (!orgId) return res.status(400).json({ 
-      success: false, message: 'Organization required' 
-    });
+    const orgId = await resolveAgencyOrganizationId(req.user);
+    if (!orgId) {
+      return res.status(400).json({
+        success: false,
+        message: 'Organization required',
+      });
+    }
     const result = await billingService.createPortalSession(orgId);
     res.json({ success: true, data: result });
   } catch (err) { next(err); }

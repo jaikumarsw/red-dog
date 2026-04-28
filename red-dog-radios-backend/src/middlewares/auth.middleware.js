@@ -19,12 +19,14 @@ const protect = asyncHandler(async (req, res, next) => {
   next();
 });
 
-const restrictTo = (...roles) => (req, res, next) => {
-  if (!req.user || !roles.includes(req.user.role)) {
-    throw new AppError('Access denied', 403);
-  }
-  next();
-};
+const restrictTo =
+  (...roles) =>
+  (req, res, next) => {
+    if (!req.user || !roles.includes(req.user.role)) {
+      return next(new AppError('Access denied', 403));
+    }
+    next();
+  };
 
 /** Agency members only (public safety app). Admins must use /api/admin. */
 const requireAgency = (req, res, next) => {

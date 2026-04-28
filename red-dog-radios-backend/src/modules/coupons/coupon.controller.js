@@ -1,4 +1,5 @@
 const couponService = require('./coupon.service');
+const { resolveAgencyOrganizationId } = require('../../utils/resolveOrganizationId');
 
 // Public: validate a code (used during onboarding UI)
 const validate = async (req, res, next) => {
@@ -13,11 +14,11 @@ const validate = async (req, res, next) => {
 const redeem = async (req, res, next) => {
   try {
     const { code } = req.body;
-    const organizationId = req.user?.organizationId;
+    const organizationId = await resolveAgencyOrganizationId(req.user);
     if (!organizationId) {
-      return res.status(400).json({ 
-        success: false, 
-        message: 'Organization not found' 
+      return res.status(400).json({
+        success: false,
+        message: 'Organization not found — please complete onboarding first',
       });
     }
     const result = await couponService.redeemCoupon(code, organizationId);
