@@ -10,7 +10,7 @@ const alertSchema = new mongoose.Schema(
     grantName: { type: String },
     type: {
       type: String,
-      enum: ['deadline', 'high_fit', 'deadline_updated', 'no_match', 'application_update'],
+      enum: ['deadline', 'high_fit', 'deadline_updated', 'no_match', 'application_update', 'reply_received'],
       required: true,
     },
     priority: { type: String, enum: ['high', 'medium', 'low'], default: 'medium' },

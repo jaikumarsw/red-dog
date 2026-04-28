@@ -1,6 +1,6 @@
 'use strict';
 
-const { sendEmail } = require('./resend.config');
+const { sendEmail } = require('./emailProvider.config');
 
 const sendOtpEmail = async ({ to, otp, name, type = 'signup' }) => {
   const isReset = type === 'reset';

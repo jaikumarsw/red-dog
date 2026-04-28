@@ -12,6 +12,9 @@ const ADMIN_MENU: ShellMenuItem[] = [
   { id: "admin-opportunities", label: "Opportunities", icon: "/figmaAssets/svg-14.svg", path: "/admin/opportunities" },
   { id: "admin-funders", label: "Funders", icon: "/figmaAssets/svg-12.svg", path: "/admin/funders" },
   { id: "admin-applications", label: "Applications", icon: "/figmaAssets/svg-11.svg", path: "/admin/applications" },
+  { id: "admin-pipeline", label: "Pipeline", icon: "/figmaAssets/svg-11.svg", path: "/admin/pipeline" },
+  { id: "admin-outbox", label: "Outbox", icon: "/figmaAssets/svg-9.svg", path: "/admin/outbox" },
+  { id: "admin-replies", label: "Replies", icon: "/figmaAssets/svg-4.svg", path: "/admin/replies" },
   { id: "admin-users", label: "Users", icon: "/figmaAssets/svg-5.svg", path: "/admin/users" },
   { id: "admin-coupons", label: "Coupons", icon: "/figmaAssets/svg-13.svg", path: "/admin/coupons" },
 ];

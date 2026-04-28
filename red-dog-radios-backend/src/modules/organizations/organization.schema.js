@@ -116,6 +116,17 @@ const organizationSchema = new mongoose.Schema(
       betaAccessCouponCode: { type: String, default: null },
       betaAccessGrantedAt: { type: Date, default: null },
     },
+
+    gmailOAuth: {
+      accessToken: { type: String },
+      refreshToken: { type: String },
+      tokenExpiry: { type: Date },
+      senderEmail: { type: String }, // the gmail address we send FROM
+      isConnected: { type: Boolean, default: false },
+      connectedAt: { type: Date },
+      watchExpiry: { type: Date },
+      historyId: { type: String },
+    },
   },
   { timestamps: true }
 );

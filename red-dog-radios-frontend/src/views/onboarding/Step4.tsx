@@ -47,9 +47,23 @@ const TYPE_LABELS: Record<string, string> = {
   "911_centers": "911 Center", emergency_management: "Emergency Management",
 };
 
-function buildSuggestions(step1: any, step2: any, step3: any): string[] {
+type Step1Saved = {
+  organizationName?: string;
+  organizationType?: string;
+};
+
+type Step2Saved = {
+  serviceArea?: string;
+};
+
+type Step3Saved = {
+  challenges?: string[];
+};
+
+function buildSuggestions(step1: Step1Saved, step2: Step2Saved, step3: Step3Saved): string[] {
   const orgName = (step1?.organizationName || "").trim();
-  const type = TYPE_LABELS[step1?.organizationType] || step1?.organizationType || "";
+  const typeKey = step1?.organizationType;
+  const type = typeKey ? (TYPE_LABELS[typeKey] || typeKey) : "";
   const challenges: string[] = step3?.challenges || [];
   const area = step2?.serviceArea || "";
   const areaLabel = { local: "Local", county: "County-Wide", regional: "Regional", statewide: "Statewide" }[area as string] || "";
@@ -167,7 +181,7 @@ export const OnboardingStep4 = () => {
         setCouponStatus("invalid");
         setCouponError(res.data?.data?.reason || "Invalid or expired code");
       }
-    } catch (err) {
+    } catch {
       setCouponStatus("invalid");
       setCouponError("Could not validate code");
     } finally {
@@ -223,8 +237,12 @@ export const OnboardingStep4 = () => {
       sessionStorage.setItem("rdg_onboarding_results", JSON.stringify(res));
 
       router.push("/onboarding/results");
-    } catch (err: any) {
-      setErrorMsg(err.message || "Failed to complete onboarding. Please try again.");
+    } catch (err: unknown) {
+      const msg =
+        typeof err === "object" && err && "message" in err && typeof (err as { message?: unknown }).message === "string"
+          ? (err as { message: string }).message
+          : null;
+      setErrorMsg(msg || "Failed to complete onboarding. Please try again.");
       setIsSubmitting(false);
     }
   };

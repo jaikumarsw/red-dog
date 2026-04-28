@@ -49,11 +49,11 @@ router.post('/generate-summary', protect, requireActiveSubscription, aiLimiter, 
  *         application/json:
  *           schema:
  *             type: object
- *             required: [opportunityId, organizationId]
+ *             required: [opportunityId, contactEmail]
  *             properties:
  *               opportunityId: { type: string }
- *               organizationId: { type: string }
  *               contactName: { type: string }
+ *               contactEmail: { type: string }
  *               senderName: { type: string }
  *               senderCompany: { type: string }
  */

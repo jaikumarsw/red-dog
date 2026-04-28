@@ -4,11 +4,13 @@ import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { ArrowLeft } from "lucide-react";
+import { useRouter, useSearchParams } from "next/navigation";
 import api from "@/lib/api";
 import { qk } from "@/lib/queryKeys";
 import { SettingsSectionCard } from "@/components/settings/SettingsPrimitives";
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/hooks/use-toast";
+import GmailConnectButton from "@/components/settings/GmailConnectButton.jsx";
 
 // ── Constants ──────────────────────────────────────────────────────────────
 
@@ -132,6 +134,16 @@ const helperCls =
 export function AgencyProfile() {
   const qc = useQueryClient();
   const { toast } = useToast();
+  const router = useRouter();
+  const searchParams = useSearchParams();
+
+  useEffect(() => {
+    const connected = searchParams.get("connected");
+    if (connected === "true") {
+      toast({ title: "Gmail connected successfully!" });
+      router.replace("/settings/agency");
+    }
+  }, [searchParams, toast, router]);
 
   const { data: settings } = useQuery<ApiSettings>({
     queryKey: qk.settings(),
@@ -301,6 +313,17 @@ export function AgencyProfile() {
 
       {!isLoading && !isError && org && (
         <div className="flex flex-col gap-6">
+
+          <SettingsSectionCard
+            icon={<span className="[font-family:'Montserrat',Helvetica] font-bold text-[#ef3e34] text-xs">E</span>}
+            title="Email Sending"
+            subtitle="Connect Gmail OAuth2 to send outreach emails from this agency"
+          >
+            <GmailConnectButton organizationId={orgId} />
+            <p className="mt-3 text-xs text-[#6b7280] [font-family:'Montserrat',Helvetica]">
+              This uses the admin-only Gmail OAuth endpoints. No tokens are ever exposed to the browser.
+            </p>
+          </SettingsSectionCard>
 
           {/* ── Overview ── */}
           <SettingsSectionCard

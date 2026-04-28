@@ -227,4 +227,11 @@ logger.info(
   '✅ Cron jobs registered: match refresh (2am), deadline alerts (2:30am), high-fit alerts (2:45am), follow-up backfill (8am), priority flags (8am), outbox (hourly), post-award follow-up (9am MT)'
 );
 
+// Gmail watch renewals (daily 00:00 UTC)
+try {
+  require('../jobs/gmailWatchRenew.job');
+} catch (e) {
+  logger.warn('[GmailWatch] renew job not loaded:', e.message);
+}
+
 module.exports = {};

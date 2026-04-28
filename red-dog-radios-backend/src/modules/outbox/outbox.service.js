@@ -2,6 +2,7 @@ const Outbox = require('./outbox.schema');
 const { sendEmail: sendEmailProvider } = require('../../config/email.config');
 const { AppError } = require('../../middlewares/error.middleware');
 const logger = require('../../utils/logger');
+const { advanceStage } = require('../grants/grant.pipeline.service');
 
 const getAll = async ({ page = 1, limit = 20, status, emailType, isTest, relatedOrganization }) => {
   const query = {};
@@ -17,8 +18,57 @@ const getAll = async ({ page = 1, limit = 20, status, emailType, isTest, related
   });
 };
 
+const getAllAdmin = async ({
+  page = 1,
+  limit = 20,
+  status,
+  emailType,
+  sentViaGmail,
+  organizationId,
+  search,
+}) => {
+  const query = {};
+  if (status) query.status = status;
+  if (emailType) query.emailType = emailType;
+  if (sentViaGmail !== undefined && sentViaGmail !== null && sentViaGmail !== '') {
+    query.sentViaGmail = sentViaGmail === 'true' || sentViaGmail === true;
+  }
+  if (organizationId) {
+    // Admin filter uses the "agency" linkage used for Gmail routing.
+    query.relatedAgency = organizationId;
+  }
+  if (search) {
+    const s = String(search).trim();
+    if (s) {
+      query.$or = [
+        { recipient: { $regex: s, $options: 'i' } },
+        { subject: { $regex: s, $options: 'i' } },
+      ];
+    }
+  }
+
+  return Outbox.paginate(query, {
+    page: parseInt(page),
+    limit: parseInt(limit),
+    sort: { createdAt: -1 },
+    populate: [
+      { path: 'relatedAgency', select: 'name' },
+      { path: 'relatedUser', select: 'fullName firstName lastName email' },
+    ],
+  });
+};
+
 const getOne = async (id) => {
   const record = await Outbox.findById(id);
+  if (!record) throw new AppError('Outbox record not found', 404);
+  return record;
+};
+
+const getOneAdmin = async (id) => {
+  const record = await Outbox.findById(id)
+    .populate({ path: 'relatedAgency' })
+    .populate({ path: 'relatedOrganization' })
+    .populate({ path: 'relatedUser', select: 'fullName firstName lastName email' });
   if (!record) throw new AppError('Outbox record not found', 404);
   return record;
 };
@@ -34,22 +84,52 @@ const queueEmail = async ({
   isTest,
   emailKey,
   relatedOrganization,
+  relatedAgency,
   relatedUser,
+  relatedGrant,
   scheduledFor,
 }) => {
-  return Outbox.create({
-    recipient,
-    recipientName,
-    subject,
-    htmlBody,
-    emailType: emailType || 'manual',
-    isTest: isTest || false,
-    emailKey,
-    relatedOrganization,
-    relatedUser,
-    scheduledFor: scheduledFor || undefined,
-    status: 'pending',
-  });
+  try {
+    const record = new Outbox({
+      recipient,
+      recipientName,
+      subject,
+      htmlBody,
+      emailType: emailType || 'manual',
+      isTest: isTest || false,
+      emailKey,
+      relatedOrganization,
+      relatedAgency,
+      relatedUser,
+      relatedGrant,
+      scheduledFor: scheduledFor || undefined,
+      status: 'pending',
+    });
+
+    // replyTo must ALWAYS be injected server-side
+    const isGrantReply = record.emailType === 'outreach' || record.emailType === 'followup_reminder';
+    record.replyTo = isGrantReply
+      ? `grant-${record._id}@reddogradios.com`
+      : (process.env.ADMIN_REPLY_EMAIL || undefined);
+
+    await record.save();
+
+    if (record.relatedGrant) {
+      try {
+        await advanceStage(record.relatedGrant, 'outreach_sent', {
+          changedBy: 'system',
+          note: `Outreach email queued to ${record.recipient}`,
+        });
+      } catch (e) {
+        logger.warn('[Outbox] pipeline advance skipped:', e.message);
+      }
+    }
+
+    return record;
+  } catch (err) {
+    logger.error('[Outbox] queueEmail failed:', err.message);
+    throw err;
+  }
 };
 
 const sendEmail = async (outboxId) => {
@@ -61,6 +141,8 @@ const sendEmail = async (outboxId) => {
       to: record.recipient,
       subject: record.subject,
       html: record.htmlBody,
+      replyTo: record.replyTo,
+      organizationId: record.relatedAgency || undefined,
     });
 
     if (!result.success && !result.stub) {
@@ -70,6 +152,8 @@ const sendEmail = async (outboxId) => {
     record.status = 'sent';
     record.sentAt = new Date();
     record.providerMessageId = result.id || `resend-${Date.now()}`;
+    record.sentViaGmail = !!result.sentViaGmail;
+    record.senderEmail = result.senderEmail || record.senderEmail;
     await record.save();
     return { success: true, stubbed: !!result.stub, messageId: record.providerMessageId };
   } catch (err) {
@@ -111,4 +195,43 @@ const retryFailed = async (outboxId) => {
   return record;
 };
 
-module.exports = { getAll, getOne, create, queueEmail, sendEmail, processQueue, retryFailed };
+const retryNowAdmin = async (outboxId) => {
+  try {
+    const record = await Outbox.findById(outboxId);
+    if (!record) throw new AppError('Outbox record not found', 404);
+    if (record.status !== 'failed') {
+      throw new AppError('Only failed emails can be retried', 400);
+    }
+
+    record.status = 'pending';
+    record.retryCount += 1;
+    record.errorMessage = undefined;
+    await record.save();
+
+    await sendEmail(outboxId);
+    return await getOneAdmin(outboxId);
+  } catch (err) {
+    logger.error('[Outbox] retryNowAdmin failed:', err.message);
+    throw err;
+  }
+};
+
+const deleteOneAdmin = async (outboxId) => {
+  const record = await Outbox.findByIdAndDelete(outboxId);
+  if (!record) throw new AppError('Outbox record not found', 404);
+  return record;
+};
+
+module.exports = {
+  getAll,
+  getAllAdmin,
+  getOne,
+  getOneAdmin,
+  create,
+  queueEmail,
+  sendEmail,
+  processQueue,
+  retryFailed,
+  retryNowAdmin,
+  deleteOneAdmin,
+};

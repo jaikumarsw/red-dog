@@ -32,6 +32,9 @@ const ashleenRoutes = require('./modules/ashleen/ashleen.route');
 const adminRoutes = require('./modules/admin/admin.route');
 const couponRoutes = require('./modules/coupons/coupon.routes');
 const communicationLogRoutes = require('./modules/communication-log/communication-log.routes');
+const gmailRoutes = require('./modules/gmail/gmail.route');
+const replyRoutes = require('./modules/replies/reply.route');
+const grantPipelineRoutes = require('./modules/grants/grant.pipeline.route');
 const app = express();
 app.set('trust proxy', 1);
 
@@ -116,6 +119,9 @@ app.use('/api/followups', followupRoutes);
 app.use('/api/tracker', trackerRoutes);
 app.use('/api/ashleen', ashleenRoutes);
 app.use('/api/admin', adminRoutes);
+app.use('/api/gmail', gmailRoutes);
+app.use('/api/replies', replyRoutes);
+app.use('/api/grants', grantPipelineRoutes);
 app.use('/api/coupons', couponRoutes);
 app.use('/api/communication-log', communicationLogRoutes);
 app.use('/api/billing', require('./modules/billing/billing.routes'));
@@ -128,7 +134,7 @@ if (process.env.NODE_ENV !== 'production') {
     restrictTo('admin'),
     async (req, res) => {
       try {
-        const { sendEmail } = require('./config/resend.config');
+        const { sendEmail } = require('./config/emailProvider.config');
 
         // Allow ?to=anyemail@gmail.com in URL for testing
         const testTo = req.query.to || process.env.ADMIN_EMAIL;

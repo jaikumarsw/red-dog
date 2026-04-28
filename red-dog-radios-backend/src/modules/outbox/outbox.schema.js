@@ -7,6 +7,9 @@ const outboxSchema = new mongoose.Schema(
     recipientName: { type: String },
     subject: { type: String, required: true },
     htmlBody: { type: String, required: true },
+    replyTo: { type: String }, // grant-{id}@reddogradios.com alias
+    senderEmail: { type: String }, // which gmail account sent this
+    sentViaGmail: { type: Boolean, default: false },
     emailType: {
       type: String,
       enum: ['weekly_digest', 'alert_digest', 'outreach', 'manual', 'followup_reminder'],
@@ -22,7 +25,9 @@ const outboxSchema = new mongoose.Schema(
     isTest: { type: Boolean, default: false },
     emailKey: { type: String },
     relatedOrganization: { type: mongoose.Schema.Types.ObjectId, ref: 'Organization' },
+    relatedAgency: { type: mongoose.Schema.Types.ObjectId, ref: 'Organization' },
     relatedUser: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
+    relatedGrant: { type: mongoose.Schema.Types.ObjectId, ref: 'Grant' },
   },
   { timestamps: true }
 );

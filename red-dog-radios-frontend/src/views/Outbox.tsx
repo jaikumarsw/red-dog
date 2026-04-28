@@ -1,11 +1,12 @@
 "use client";
 
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Clock, X, Zap, RefreshCw } from "lucide-react";
 import api from "@/lib/api";
 import { useToast } from "@/hooks/use-toast";
 import { qk } from "@/lib/queryKeys";
+import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 
 type Email = {
   id: string;
@@ -15,6 +16,9 @@ type Email = {
   created: string;
   sentAt: string;
   body: string;
+  replyTo?: string;
+  senderEmail?: string;
+  sentViaGmail?: boolean;
 };
 
 type ApiEmail = {
@@ -30,6 +34,9 @@ type ApiEmail = {
   htmlBody?: string;
   htmlContent?: string;
   retryCount?: number;
+  replyTo?: string;
+  senderEmail?: string;
+  sentViaGmail?: boolean;
 };
 
 const fmtDate = (s: string | undefined) => {
@@ -49,6 +56,9 @@ const mapEmail = (e: ApiEmail): Email => ({
   created: fmtDate(e.createdAt),
   sentAt: fmtDate(e.sentAt),
   body: e.htmlBody ?? e.body ?? e.htmlContent ?? "",
+  replyTo: e.replyTo,
+  senderEmail: e.senderEmail,
+  sentViaGmail: e.sentViaGmail,
 });
 
 const statusBadge = (s: string) => {
@@ -57,11 +67,70 @@ const statusBadge = (s: string) => {
   return "bg-[#fef9c3] text-[#b45309]";
 };
 
-const EmailDetailsModal = ({ email, onClose }: { email: Email; onClose: () => void }) => {
+type ReplyRow = {
+  _id: string;
+  from?: string;
+  subject?: string;
+  body?: string;
+  htmlBody?: string | null;
+  receivedAt?: string;
+  isRead?: boolean;
+  outboxId?: { _id: string; subject?: string; recipient?: string; recipientName?: string; htmlBody?: string } | string;
+};
+
+const EmailDetailsModal = ({
+  email,
+  onClose,
+  initialTab = "detail",
+}: {
+  email: Email;
+  onClose: () => void;
+  initialTab?: "detail" | "replies";
+}) => {
+  const { toast } = useToast();
+  const qc = useQueryClient();
+  const [tab, setTab] = useState<"detail" | "replies">(initialTab);
+  const [selectedReply, setSelectedReply] = useState<ReplyRow | null>(null);
+
+  const { data: repliesData, isLoading: repliesLoading, isError: repliesError, refetch: refetchReplies } =
+    useQuery<{ data: ReplyRow[] }>({
+      queryKey: ["replies", "my", "outbox", email.id],
+      queryFn: async () => {
+        const res = await api.get("/replies/my", { params: { outboxId: email.id, limit: 50, page: 1 } });
+        return res.data as { data: ReplyRow[] };
+      },
+      enabled: tab === "replies",
+      retry: false,
+    });
+
+  const replies = repliesData?.data ?? [];
+
+  const markReadMutation = useMutation({
+    mutationFn: async (id: string) => {
+      const res = await api.patch(`/replies/${id}/read`);
+      return res.data.data as ReplyRow;
+    },
+    onSuccess: async () => {
+      await qc.invalidateQueries({ queryKey: qk.repliesMyUnread() });
+      await qc.invalidateQueries({ queryKey: ["replies", "my"] });
+      await qc.invalidateQueries({ queryKey: ["replies", "my", "outbox", email.id] });
+    },
+    onError: (err: unknown) => {
+      const msg =
+        (err as { response?: { data?: { message?: string } } })?.response?.data?.message ?? "Could not mark reply as read.";
+      toast({ title: "Error", description: msg, variant: "destructive" });
+    },
+  });
+
+  const openReply = (r: ReplyRow) => {
+    setSelectedReply({ ...r, isRead: true }); // optimistic
+    if (!r.isRead) markReadMutation.mutate(r._id);
+  };
+
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40"
       onClick={(e) => e.target === e.currentTarget && onClose()}>
-      <div className="bg-white rounded-2xl shadow-[0_8px_40px_rgba(0,0,0,0.18)] w-full max-w-[500px] mx-4 flex flex-col">
+      <div className="bg-white rounded-2xl shadow-[0_8px_40px_rgba(0,0,0,0.18)] w-full max-w-[920px] mx-4 flex flex-col">
         <div className="flex items-center justify-between px-7 pt-7 pb-5 border-b border-[#f3f4f6]">
           <h2 className="[font-family:'Oswald',Helvetica] font-bold text-black text-xl tracking-[0.5px] uppercase">Email Details</h2>
           <button onClick={onClose} className="w-7 h-7 flex items-center justify-center rounded-lg border border-[#e5e7eb] hover:bg-[#f3f4f6] transition-colors">
@@ -70,37 +139,166 @@ const EmailDetailsModal = ({ email, onClose }: { email: Email; onClose: () => vo
         </div>
 
         <div className="px-7 py-6 flex flex-col gap-5">
-          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-            <div className="flex flex-col gap-1">
-              <span className="[font-family:'Montserrat',Helvetica] font-normal text-[#9ca3af] text-xs">To</span>
-              <span className="[font-family:'Montserrat',Helvetica] font-bold text-[#111827] text-sm">{email.to}</span>
-            </div>
-            <div className="flex flex-col gap-1">
-              <span className="[font-family:'Montserrat',Helvetica] font-normal text-[#9ca3af] text-xs">Status</span>
-              <span className={`inline-flex w-fit items-center px-2.5 py-0.5 rounded-full [font-family:'Montserrat',Helvetica] font-semibold text-xs capitalize ${statusBadge(email.status)}`}>
-                {email.status.charAt(0).toUpperCase() + email.status.slice(1)}
-              </span>
-            </div>
-          </div>
+          <Tabs value={tab} onValueChange={(v) => setTab(v as "detail" | "replies")} className="w-full">
+            <TabsList className="bg-[#f3f4f6]">
+              <TabsTrigger value="detail">Email</TabsTrigger>
+              <TabsTrigger value="replies">
+                Replies{replies.length > 0 ? ` (${replies.length})` : ""}
+              </TabsTrigger>
+            </TabsList>
 
-          <div className="flex flex-col gap-1">
-            <span className="[font-family:'Montserrat',Helvetica] font-normal text-[#9ca3af] text-xs">Sent At</span>
-            <span className="[font-family:'Montserrat',Helvetica] font-bold text-[#111827] text-sm">{email.sentAt}</span>
-          </div>
+            <TabsContent value="detail" className="mt-4">
+              <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+                <div className="flex flex-col gap-1">
+                  <span className="[font-family:'Montserrat',Helvetica] font-normal text-[#9ca3af] text-xs">To</span>
+                  <span className="[font-family:'Montserrat',Helvetica] font-bold text-[#111827] text-sm">{email.to}</span>
+                </div>
+                <div className="flex flex-col gap-1">
+                  <span className="[font-family:'Montserrat',Helvetica] font-normal text-[#9ca3af] text-xs">Status</span>
+                  <span className={`inline-flex w-fit items-center px-2.5 py-0.5 rounded-full [font-family:'Montserrat',Helvetica] font-semibold text-xs capitalize ${statusBadge(email.status)}`}>
+                    {email.status.charAt(0).toUpperCase() + email.status.slice(1)}
+                  </span>
+                </div>
+              </div>
 
-          <div className="flex flex-col gap-1">
-            <span className="[font-family:'Montserrat',Helvetica] font-normal text-[#9ca3af] text-xs">Subject</span>
-            <span className="[font-family:'Montserrat',Helvetica] font-bold text-[#111827] text-sm">{email.subject}</span>
-          </div>
+              <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 mt-4">
+                <div className="flex flex-col gap-1">
+                  <span className="[font-family:'Montserrat',Helvetica] font-normal text-[#9ca3af] text-xs">Sent Via</span>
+                  <span className="[font-family:'Montserrat',Helvetica] font-bold text-[#111827] text-sm">
+                    {email.sentViaGmail ? "Gmail (OAuth2)" : "SMTP"}
+                  </span>
+                </div>
+                <div className="flex flex-col gap-1">
+                  <span className="[font-family:'Montserrat',Helvetica] font-normal text-[#9ca3af] text-xs">Sender Email</span>
+                  <span className="[font-family:'Montserrat',Helvetica] font-bold text-[#111827] text-sm break-all">
+                    {email.senderEmail || "—"}
+                  </span>
+                </div>
+              </div>
 
-          <div className="flex flex-col gap-1.5">
-            <span className="[font-family:'Montserrat',Helvetica] font-normal text-[#9ca3af] text-xs">Email Body</span>
-            <div className="border border-[#e5e7eb] rounded-xl p-4 bg-[#fafafa] max-h-48 overflow-y-auto">
-              <pre className="[font-family:'Montserrat',Helvetica] font-normal text-[#374151] text-xs leading-5 whitespace-pre-wrap">
-                {email.body}
-              </pre>
-            </div>
-          </div>
+              <div className="flex flex-col gap-1 mt-4">
+                <span className="[font-family:'Montserrat',Helvetica] font-normal text-[#9ca3af] text-xs">Reply-To</span>
+                <span className="[font-family:'Montserrat',Helvetica] font-bold text-[#111827] text-sm break-all">
+                  {email.replyTo || "—"}
+                </span>
+              </div>
+
+              <div className="flex flex-col gap-1 mt-4">
+                <span className="[font-family:'Montserrat',Helvetica] font-normal text-[#9ca3af] text-xs">Sent At</span>
+                <span className="[font-family:'Montserrat',Helvetica] font-bold text-[#111827] text-sm">{email.sentAt}</span>
+              </div>
+
+              <div className="flex flex-col gap-1 mt-4">
+                <span className="[font-family:'Montserrat',Helvetica] font-normal text-[#9ca3af] text-xs">Subject</span>
+                <span className="[font-family:'Montserrat',Helvetica] font-bold text-[#111827] text-sm">{email.subject}</span>
+              </div>
+
+              <div className="flex flex-col gap-1.5 mt-4">
+                <span className="[font-family:'Montserrat',Helvetica] font-normal text-[#9ca3af] text-xs">Email Body</span>
+                <iframe
+                  title="outreach-preview"
+                  sandbox="allow-same-origin"
+                  srcDoc={email.body || "<p>(empty)</p>"}
+                  className="border border-[#e5e7eb] rounded-xl bg-white h-[320px] w-full"
+                />
+              </div>
+            </TabsContent>
+
+            <TabsContent value="replies" className="mt-4">
+              {repliesLoading ? (
+                <p className="text-sm text-[#6b7280]">Loading replies…</p>
+              ) : repliesError ? (
+                <div className="flex items-center justify-between rounded-lg border border-red-200 bg-red-50 p-3">
+                  <p className="text-sm text-red-700">Failed to load replies.</p>
+                  <button
+                    className="text-sm font-semibold text-red-700 underline"
+                    onClick={() => refetchReplies()}
+                  >
+                    Retry
+                  </button>
+                </div>
+              ) : replies.length === 0 ? (
+                <p className="text-sm text-[#6b7280]">No replies yet.</p>
+              ) : (
+                <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
+                  <div className="rounded-lg border border-[#e5e7eb] bg-white overflow-hidden">
+                    <div className="border-b border-[#f0f0f0] px-4 py-3">
+                      <div className="text-xs font-semibold uppercase tracking-wide text-[#6b7280]">Replies</div>
+                    </div>
+                    <div className="divide-y divide-[#f9fafb]">
+                      {replies.map((r) => (
+                        <button
+                          key={r._id}
+                          type="button"
+                          onClick={() => openReply(r)}
+                          className="w-full text-left px-4 py-3 hover:bg-[#fafafa]"
+                        >
+                          <div className="flex items-center justify-between gap-2">
+                            <div className="flex items-center gap-2 min-w-0">
+                              {!r.isRead && <span className="h-2 w-2 rounded-full bg-blue-600 flex-shrink-0" />}
+                              <span className="text-sm font-semibold text-[#111827] truncate">{r.from || "—"}</span>
+                            </div>
+                            <span className="text-xs text-[#9ca3af]">{r.receivedAt ? fmtDate(r.receivedAt) : "—"}</span>
+                          </div>
+                          <div className="mt-1 text-xs text-[#6b7280] truncate">
+                            {r.subject || "(no subject)"}
+                          </div>
+                          <div className="mt-1 text-xs text-[#9ca3af] truncate">
+                            {String(r.body || "").slice(0, 120)}
+                          </div>
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+
+                  <div className="rounded-lg border border-[#e5e7eb] bg-white overflow-hidden">
+                    <div className="border-b border-[#f0f0f0] px-4 py-3">
+                      <div className="text-xs font-semibold uppercase tracking-wide text-[#6b7280]">
+                        Thread view
+                      </div>
+                    </div>
+                    {selectedReply ? (
+                      <div className="p-4 space-y-4">
+                        <div className="rounded-lg border border-[#e5e7eb] overflow-hidden">
+                          <div className="bg-[#f9fafb] px-3 py-2 text-xs font-semibold text-[#6b7280] uppercase">
+                            Original outreach
+                          </div>
+                          <iframe
+                            title="thread-original"
+                            sandbox="allow-same-origin"
+                            srcDoc={email.body || "<p>(empty)</p>"}
+                            className="h-[200px] w-full bg-white"
+                          />
+                        </div>
+
+                        <div className="rounded-lg border border-[#e5e7eb] overflow-hidden">
+                          <div className="bg-[#f9fafb] px-3 py-2 text-xs font-semibold text-[#6b7280] uppercase">
+                            Funder reply
+                          </div>
+                          <div className="px-3 py-2 text-xs text-[#6b7280]">
+                            From: <span className="font-semibold text-[#111827]">{selectedReply.from || "—"}</span>{" "}
+                            · Received:{" "}
+                            <span className="font-semibold text-[#111827]">{selectedReply.receivedAt ? fmtDate(selectedReply.receivedAt) : "—"}</span>
+                          </div>
+                          <iframe
+                            title="thread-reply"
+                            sandbox="allow-same-origin"
+                            srcDoc={
+                              selectedReply.htmlBody ||
+                              `<pre style="font-family:Arial;white-space:pre-wrap;padding:16px;">${String(selectedReply.body || "").replace(/</g, "&lt;")}</pre>`
+                            }
+                            className="h-[200px] w-full bg-white"
+                          />
+                        </div>
+                      </div>
+                    ) : (
+                      <div className="p-4 text-sm text-[#6b7280]">Select a reply to view the thread.</div>
+                    )}
+                  </div>
+                </div>
+              )}
+            </TabsContent>
+          </Tabs>
         </div>
 
         <div className="flex items-center justify-end px-7 py-5 border-t border-[#f3f4f6]">
@@ -115,6 +313,7 @@ const EmailDetailsModal = ({ email, onClose }: { email: Email; onClose: () => vo
 
 export const Outbox = () => {
   const [previewEmail, setPreviewEmail] = useState<Email | null>(null);
+  const [previewTab, setPreviewTab] = useState<"detail" | "replies">("detail");
   const { toast } = useToast();
   const queryClient = useQueryClient();
 
@@ -125,6 +324,20 @@ export const Outbox = () => {
       const raw: ApiEmail[] = res.data.data ?? [];
       return raw.map(mapEmail);
     },
+  });
+
+  const outboxIds = useMemo(() => emails.map((e) => e.id), [emails]);
+  const { data: replyCounts } = useQuery<Record<string, number>>({
+    queryKey: ["replies", "count-by-outbox", outboxIds.join(",")],
+    queryFn: async () => {
+      if (outboxIds.length === 0) return {};
+      const res = await api.get("/replies/count-by-outbox", {
+        params: { outboxIds: outboxIds.join(",") },
+      });
+      return res.data.data as Record<string, number>;
+    },
+    enabled: outboxIds.length > 0,
+    retry: false,
   });
 
   const retryMutation = useMutation({
@@ -202,12 +415,35 @@ export const Outbox = () => {
                         <span className={`inline-flex items-center px-2 py-0.5 rounded-full [font-family:'Montserrat',Helvetica] font-semibold text-xs flex-shrink-0 ${statusBadge(email.status)}`}>
                           {email.status.charAt(0).toUpperCase() + email.status.slice(1)}
                         </span>
+                        {email.sentViaGmail && (
+                          <span className="inline-flex items-center rounded-full bg-blue-50 px-2 py-0.5 text-xs font-semibold text-blue-700">
+                            Gmail
+                          </span>
+                        )}
                       </div>
                       <span className="[font-family:'Montserrat',Helvetica] font-normal text-[#9ca3af] text-xs">To: {email.to}</span>
+                      {email.replyTo && (
+                        <span className="[font-family:'Montserrat',Helvetica] font-normal text-[#9ca3af] text-xs truncate max-w-[340px]">
+                          Reply-To: {email.replyTo}
+                        </span>
+                      )}
                       <span className="[font-family:'Montserrat',Helvetica] font-normal text-[#9ca3af] text-xs">Created: {email.created}</span>
                     </div>
 
                     <div className="flex flex-shrink-0 items-center gap-2">
+                      {replyCounts && (replyCounts[email.id] || 0) > 0 && (
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setPreviewEmail(email);
+                            setPreviewTab("replies");
+                          }}
+                          className="flex items-center gap-1 h-8 px-3 rounded-lg border border-[#e5e7eb] bg-white hover:bg-[#f3f4f6] [font-family:'Montserrat',Helvetica] font-semibold text-xs text-[#111827] transition-colors"
+                          title="View replies"
+                        >
+                          💬 {replyCounts[email.id]}
+                        </button>
+                      )}
                       {email.status === "failed" && (
                         <button
                           onClick={() => retryMutation.mutate(email.id)}
@@ -219,7 +455,10 @@ export const Outbox = () => {
                         </button>
                       )}
                       <button
-                        onClick={() => setPreviewEmail(email)}
+                        onClick={() => {
+                          setPreviewEmail(email);
+                          setPreviewTab("detail");
+                        }}
                         className="h-8 px-3 rounded-lg bg-[#ef3e34] hover:bg-[#d63530] text-white [font-family:'Montserrat',Helvetica] font-semibold text-xs transition-colors"
                       >
                         View
@@ -234,7 +473,14 @@ export const Outbox = () => {
       </div>
 
       {previewEmail && (
-        <EmailDetailsModal email={previewEmail} onClose={() => setPreviewEmail(null)} />
+        <EmailDetailsModal
+          email={previewEmail}
+          initialTab={previewTab}
+          onClose={() => {
+            setPreviewEmail(null);
+            setPreviewTab("detail");
+          }}
+        />
       )}
     </>
   );

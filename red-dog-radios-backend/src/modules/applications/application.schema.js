@@ -89,6 +89,30 @@ const applicationSchema = new mongoose.Schema(
 
     // User who created/submitted this application (best-effort; may be null for legacy records)
     submittedBy: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
+
+    pipelineStage: {
+      type: String,
+      enum: [
+        'discovered',
+        'researching',
+        'outreach_sent',
+        'reply_received',
+        'applying',
+        'submitted',
+        'won',
+        'lost',
+        'archived',
+      ],
+      default: 'discovered',
+    },
+    pipelineHistory: [
+      {
+        stage: { type: String },
+        changedAt: { type: Date, default: Date.now },
+        changedBy: { type: String, enum: ['system', 'user'], default: 'system' },
+        note: { type: String },
+      },
+    ],
   },
   { timestamps: true }
 );

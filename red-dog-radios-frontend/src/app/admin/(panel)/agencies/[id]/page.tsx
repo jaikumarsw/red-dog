@@ -38,6 +38,12 @@ import { cn } from "@/lib/utils";
 type OppOpt = { _id: string; title: string; funder: string };
 type FunderOpt = { _id: string; name: string };
 
+type GmailStatus = {
+  isConnected: boolean;
+  senderEmail?: string;
+  connectedAt?: string;
+};
+
 const BUDGET_LABELS: Record<string, string> = {
   under_25k: "Under $25K",
   "25k_150k": "$25K – $150K",
@@ -70,6 +76,52 @@ export default function AdminAgencyDetailPage() {
     queryFn: async () => {
       const res = await adminApi.get(`admin/agencies/${id}`);
       return res.data.data;
+    },
+  });
+
+  const { data: gmailStatus, isLoading: gmailLoading } = useQuery<GmailStatus>({
+    queryKey: ["admin", "gmail", "status", id],
+    queryFn: async () => {
+      const res = await adminApi.get(`gmail/oauth/status/${id}`);
+      return res.data.data as GmailStatus;
+    },
+    enabled: !!id,
+    retry: false,
+  });
+
+  const connectGmailMutation = useMutation({
+    mutationFn: async () => {
+      const res = await adminApi.get("gmail/oauth/connect", { params: { organizationId: id } });
+      return res.data.data as { url: string };
+    },
+    onSuccess: (d) => {
+      const url = d?.url;
+      if (!url) {
+        toast({ title: "Error", description: "No OAuth URL returned", variant: "destructive" });
+        return;
+      }
+      toast({ title: "Opening Google consent screen…" });
+      window.location.href = url;
+    },
+    onError: (err: unknown) => {
+      const msg =
+        (err as { response?: { data?: { message?: string } } })?.response?.data?.message ??
+        "Could not generate Google consent URL";
+      toast({ title: "Error", description: msg, variant: "destructive" });
+    },
+  });
+
+  const disconnectGmailMutation = useMutation({
+    mutationFn: async () => adminApi.delete(`gmail/oauth/disconnect/${id}`),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["admin", "gmail", "status", id] });
+      toast({ title: "Gmail disconnected" });
+    },
+    onError: (err: unknown) => {
+      const msg =
+        (err as { response?: { data?: { message?: string } } })?.response?.data?.message ??
+        "Disconnect failed";
+      toast({ title: "Error", description: msg, variant: "destructive" });
     },
   });
 
@@ -169,6 +221,64 @@ export default function AdminAgencyDetailPage() {
     <div className="max-w-6xl space-y-6">
       <AdminBackLink href="/admin/agencies">Back to agencies</AdminBackLink>
       <h1 className="[font-family:'Montserrat',Helvetica] text-2xl font-bold text-[#111827]">{profile.name}</h1>
+
+      <div className="rounded-xl border border-gray-200 bg-white p-6">
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+          <div>
+            <h2 className="text-lg font-bold text-gray-900">Gmail Sending (OAuth2)</h2>
+            <p className="text-sm text-gray-500">
+              Connect a Gmail account so this agency’s outbox emails can send via Gmail API (SMTP fallback remains).
+            </p>
+          </div>
+          <div className="flex items-center gap-2">
+            {gmailStatus?.isConnected ? (
+              <>
+                <Button
+                  variant="outline"
+                  className="border-red-200 text-red-700 hover:bg-red-50"
+                  onClick={() => disconnectGmailMutation.mutate()}
+                  disabled={disconnectGmailMutation.isPending}
+                >
+                  {disconnectGmailMutation.isPending ? "Disconnecting…" : "Disconnect"}
+                </Button>
+              </>
+            ) : (
+              <Button
+                className="bg-[#ef3e34] hover:bg-[#d63530] text-white"
+                onClick={() => connectGmailMutation.mutate()}
+                disabled={connectGmailMutation.isPending}
+              >
+                {connectGmailMutation.isPending ? "Generating URL…" : "Connect Gmail"}
+              </Button>
+            )}
+          </div>
+        </div>
+
+        <div className="mt-4 grid grid-cols-1 gap-3 sm:grid-cols-3">
+          <div className="rounded-lg bg-gray-50 p-3">
+            <p className="text-xs text-gray-500 font-medium">Status</p>
+            <p className="text-sm font-semibold text-gray-900 mt-0.5">
+              {gmailLoading ? "Loading…" : gmailStatus?.isConnected ? "Connected" : "Not connected"}
+            </p>
+          </div>
+          <div className="rounded-lg bg-gray-50 p-3">
+            <p className="text-xs text-gray-500 font-medium">Sender Email</p>
+            <p className="text-sm font-semibold text-gray-900 mt-0.5">
+              {gmailStatus?.senderEmail ? gmailStatus.senderEmail : "—"}
+            </p>
+          </div>
+          <div className="rounded-lg bg-gray-50 p-3">
+            <p className="text-xs text-gray-500 font-medium">Connected At</p>
+            <p className="text-sm font-semibold text-gray-900 mt-0.5">
+              {gmailStatus?.connectedAt ? new Date(gmailStatus.connectedAt).toLocaleString() : "—"}
+            </p>
+          </div>
+        </div>
+
+        <p className="mt-3 text-xs text-gray-500">
+          After completing Google consent, you’ll be redirected back to the app. Refresh this page to see updated status.
+        </p>
+      </div>
 
       <div className="rounded-xl border border-gray-200 bg-white p-6 mb-6">
         <div className="flex items-center justify-between mb-6">

@@ -26,6 +26,15 @@ import { cn } from "@/lib/utils";
 
 type Tier = { key: string; name: string; price: number; features: string[] };
 
+type BillingStatus = {
+  betaAccess?: boolean;
+  hasAccess?: boolean;
+  status?: string;
+  tier?: string;
+  currentPeriodEnd?: string | number | Date;
+  cancelAtPeriodEnd?: boolean;
+};
+
 const UNLOCK_ITEMS = [
   {
     icon: Sparkles,
@@ -51,7 +60,7 @@ const UNLOCK_ITEMS = [
 
 export default function BillingPage() {
   const router = useRouter();
-  const [status, setStatus] = useState<any>(null);
+  const [status, setStatus] = useState<BillingStatus | null>(null);
   const [tiers, setTiers] = useState<Tier[]>([]);
   const [loading, setLoading] = useState(true);
   const [portalLoading, setPortalLoading] = useState(false);

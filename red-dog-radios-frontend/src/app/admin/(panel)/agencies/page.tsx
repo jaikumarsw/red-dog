@@ -4,6 +4,7 @@ import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import adminApi from "@/lib/adminApi";
 import { AdminTableViewLink } from "@/components/admin/AdminTableViewLink";
+import { GmailStatusBadge } from "@/components/admin/GmailStatusBadge";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 
@@ -55,6 +56,7 @@ export default function AdminAgenciesPage() {
                 <th className="p-3">Agency Types</th>
                 <th className="p-3">Location</th>
                 <th className="p-3">Budget Range</th>
+                <th className="p-3">Email Sending</th>
                 <th className="p-3">Status</th>
                 <th className="w-14 p-3 text-center" aria-label="View details" />
               </tr>
@@ -87,6 +89,9 @@ export default function AdminAgenciesPage() {
                   <td className="p-3 text-[#6b7280]">{String(r.location || "—")}</td>
                   <td className="p-3 text-[#6b7280]">
                     {r.budgetRange ? (BUDGET_LABELS[String(r.budgetRange)] || String(r.budgetRange)) : "—"}
+                  </td>
+                  <td className="p-3">
+                    <GmailStatusBadge organizationId={String(r._id)} />
                   </td>
                   <td className="p-3">
                     {String(r.status || "").toLowerCase() === "active" ? (

@@ -5,16 +5,24 @@ import { useRouter } from "next/navigation";
 import api from "@/lib/api";
 import { useAuth } from "@/lib/AuthContext";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { RedDogLogo } from "@/components/RedDogLogo";
 import { Check, Loader2, Star } from "lucide-react";
 import { cn } from "@/lib/utils";
 
+type Tier = { key: string; name: string; price: number; features: string[] };
+
+type BillingStatus = {
+  hasAccess?: boolean;
+  betaAccess?: boolean;
+  tier?: string;
+};
+
 export default function PricingPage() {
   const router = useRouter();
   const { user } = useAuth();
-  const [tiers, setTiers] = useState<any[]>([]);
-  const [status, setStatus] = useState<any>(null);
+  const [tiers, setTiers] = useState<Tier[]>([]);
+  const [status, setStatus] = useState<BillingStatus | null>(null);
   const [loading, setLoading] = useState(true);
   const [submittingTier, setSubmittingTier] = useState<string | null>(null);
 

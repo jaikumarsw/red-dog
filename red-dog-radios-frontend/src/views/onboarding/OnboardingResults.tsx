@@ -13,10 +13,22 @@ interface Match {
   awardAmount: string | number;
 }
 
+type OnboardingResultsPayload = {
+  organization?: {
+    name?: string;
+    agencyTypes?: string[];
+    populationServed?: string;
+    location?: string;
+    challenges?: string[];
+  };
+  matches?: Match[];
+  matchCount?: number;
+};
+
 export const OnboardingResults = () => {
   const router = useRouter();
   const { user, updateUser } = useAuth();
-  const [data, setData] = useState<any>(null);
+  const [data, setData] = useState<OnboardingResultsPayload | null>(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -25,7 +37,7 @@ export const OnboardingResults = () => {
       const savedResults = sessionStorage.getItem("rdg_onboarding_results");
       if (savedResults) {
         const parsed = JSON.parse(savedResults);
-        setData(parsed.data || parsed);
+        setData((parsed?.data || parsed) as OnboardingResultsPayload);
       }
 
       // Clear onboarding form data

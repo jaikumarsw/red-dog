@@ -34,8 +34,22 @@ import {
 import { Checkbox } from "@/components/ui/checkbox";
 import { format } from "date-fns";
 
+type CouponUsageRow = { organizationId: string };
+
+type CouponRow = {
+  _id: string;
+  code: string;
+  description?: string;
+  isActive?: boolean;
+  currentUses?: number;
+  maxUses?: number | null;
+  grantFullAccess?: boolean;
+  expiresAt?: string | null;
+  usedBy?: CouponUsageRow[];
+};
+
 export default function AdminCouponsPage() {
-  const [coupons, setCoupons] = useState<any[]>([]);
+  const [coupons, setCoupons] = useState<CouponRow[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState("");
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -257,14 +271,18 @@ export default function AdminCouponsPage() {
                     <td className="px-6 py-4">
                       <div className="flex flex-col gap-1">
                         <div className="flex items-center justify-between text-[10px] font-bold uppercase text-gray-400">
-                          <span>{coupon.currentUses} Uses</span>
+                          <span>{coupon.currentUses ?? 0} Uses</span>
                           {coupon.maxUses && <span>Limit {coupon.maxUses}</span>}
                         </div>
                         <div className="h-1.5 w-24 overflow-hidden rounded-full bg-gray-100">
                           <div
                             className="h-full bg-[#ef3e34]"
                             style={{
-                              width: `${coupon.maxUses ? Math.min((coupon.currentUses / coupon.maxUses) * 100, 100) : 0}%`,
+                              width: `${
+                                coupon.maxUses
+                                  ? Math.min((((coupon.currentUses ?? 0) / coupon.maxUses) * 100) || 0, 100)
+                                  : 0
+                              }%`,
                             }}
                           />
                         </div>
@@ -306,8 +324,9 @@ export default function AdminCouponsPage() {
                           )}
                           <DropdownMenuItem
                             onClick={() => {
-                              if (coupon.usedBy?.length > 0) {
-                                alert(`Used by: ${coupon.usedBy.map((u: any) => u.organizationId).join(", ")}`);
+                              const usedBy = coupon.usedBy ?? [];
+                              if (usedBy.length > 0) {
+                                alert(`Used by: ${usedBy.map((u) => u.organizationId).join(", ")}`);
                               } else {
                                 alert("No usage recorded yet.");
                               }

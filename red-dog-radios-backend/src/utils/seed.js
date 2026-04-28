@@ -743,7 +743,7 @@ async function testDeadlineAlerts() {
 }
 
 async function testEmailSend() {
-  const { sendEmail } = require('../config/resend.config.js');
+  const { sendEmail } = require('../config/emailProvider.config.js');
   try {
     const result = await sendEmail({
       to: 'admin@reddogradios.com',

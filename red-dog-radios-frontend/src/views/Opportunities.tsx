@@ -3,7 +3,7 @@
 import { useMemo, useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useRouter } from "next/navigation";
-import { Search, X, ExternalLink, Loader2, Calendar, DollarSign, Tag, ChevronRight, RefreshCw, Sparkles, Filter, ArrowRight } from "lucide-react";
+import { Search, X, ExternalLink, Loader2, Calendar, DollarSign, Tag, RefreshCw, Sparkles, Filter, ArrowRight } from "lucide-react";
 import api from "@/lib/api";
 import { qk } from "@/lib/queryKeys";
 import { useToast } from "@/hooks/use-toast";
@@ -301,7 +301,7 @@ export const Opportunities = () => {
           <select
             className={cn(inputCls, "h-10 w-full sm:w-[150px] cursor-pointer")}
             value={matchFilter}
-            onChange={(e) => setMatchFilter(e.target.value as any)}
+            onChange={(e) => setMatchFilter(e.target.value as typeof matchFilter)}
           >
             <option value="all">Any Fit Score</option>
             <option value="high">High Fit (80+)</option>
@@ -510,11 +510,13 @@ const OppDetailModal = ({
   onClose,
   onApply,
   applying,
+  applyLocked,
 }: {
   opp: RankedOpportunity;
   onClose: () => void;
   onApply: () => void;
   applying: boolean;
+  applyLocked: boolean;
 }) => {
   const days = daysLeft(opp.deadline);
   const urgentDeadline = days !== null && days >= 0 && days <= 14;
