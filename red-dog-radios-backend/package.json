@@ -6,7 +6,10 @@
   "scripts": {
     "dev": "nodemon src/server.js",
     "start": "node src/server.js",
-    "seed": "node src/utils/seed.js"
+    "seed": "node src/utils/seed.js",
+    "e2e:seed": "node scripts/e2e/seed.js",
+    "e2e:teardown": "node scripts/e2e/teardown.js",
+    "e2e:reset": "npm run e2e:teardown && npm run e2e:seed"
   },
   "dependencies": {
     "bcryptjs": "^2.4.3",

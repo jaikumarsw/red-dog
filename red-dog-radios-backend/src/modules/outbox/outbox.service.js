@@ -2,7 +2,6 @@ const Outbox = require('./outbox.schema');
 const { sendEmail: sendEmailProvider } = require('../../config/email.config');
 const { AppError } = require('../../middlewares/error.middleware');
 const logger = require('../../utils/logger');
-const { advanceStage } = require('../grants/grant.pipeline.service');
 
 const getAll = async ({ page = 1, limit = 20, status, emailType, isTest, relatedOrganization }) => {
   const query = {};
@@ -107,23 +106,9 @@ const queueEmail = async ({
     });
 
     // replyTo must ALWAYS be injected server-side
-    const isGrantReply = record.emailType === 'outreach' || record.emailType === 'followup_reminder';
-    record.replyTo = isGrantReply
-      ? `grant-${record._id}@reddogradios.com`
-      : (process.env.ADMIN_REPLY_EMAIL || undefined);
+    record.replyTo = process.env.ADMIN_REPLY_EMAIL || process.env.ADMIN_EMAIL || undefined;
 
     await record.save();
-
-    if (record.relatedGrant) {
-      try {
-        await advanceStage(record.relatedGrant, 'outreach_sent', {
-          changedBy: 'system',
-          note: `Outreach email queued to ${record.recipient}`,
-        });
-      } catch (e) {
-        logger.warn('[Outbox] pipeline advance skipped:', e.message);
-      }
-    }
 
     return record;
   } catch (err) {

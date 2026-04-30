@@ -24,6 +24,7 @@ interface Application {
   _id: string;
   projectTitle?: string;
   projectSummary?: string;
+  executiveSummary?: string;
   status: string;
   problemStatement?: string;
   communityImpact?: string;
@@ -31,13 +32,23 @@ interface Application {
   measurableOutcomes?: string;
   urgency?: string;
   budgetSummary?: string;
+  projectDescription?: string;
+  missionAlignment?: string;
+  budgetJustification?: string;
+  organizationalCapacity?: string;
+  outcomesAndImpact?: string;
+  evaluationPlan?: string;
+  sustainabilityPlan?: string;
   alignedVersion?: {
+    executiveSummary?: string;
     problemStatement?: string;
-    communityImpact?: string;
-    proposedSolution?: string;
-    measurableOutcomes?: string;
-    urgency?: string;
-    budgetSummary?: string;
+    projectDescription?: string;
+    missionAlignment?: string;
+    budgetJustification?: string;
+    organizationalCapacity?: string;
+    outcomesAndImpact?: string;
+    evaluationPlan?: string;
+    sustainabilityPlan?: string;
     generatedAt?: string;
   };
   notes?: string;
@@ -59,44 +70,7 @@ type GrantOutbox = {
   replyTo?: string;
   sentViaGmail?: boolean;
   senderEmail?: string;
-  replyCount?: number;
-  hasUnread?: boolean;
   relatedUser?: { fullName?: string; firstName?: string; lastName?: string; email?: string };
-};
-
-type ThreadReply = {
-  _id: string;
-  from?: string;
-  subject?: string;
-  body?: string;
-  htmlBody?: string | null;
-  receivedAt?: string;
-  isRead?: boolean;
-  gmailMessageId?: string;
-};
-
-type PipelineStage =
-  | "discovered"
-  | "researching"
-  | "outreach_sent"
-  | "reply_received"
-  | "applying"
-  | "submitted"
-  | "won"
-  | "lost"
-  | "archived";
-
-type PipelineEntry = {
-  stage?: PipelineStage;
-  changedAt?: string;
-  changedBy?: "system" | "user";
-  note?: string;
-};
-
-type PipelinePayload = {
-  pipelineStage: PipelineStage;
-  pipelineHistory: PipelineEntry[];
-  updatedAt?: string;
 };
 
 const fmtDateTime = (s?: string) => {
@@ -120,51 +94,44 @@ const statusPill = (s?: string) => {
   return { label: "🕐 Queued", cls: "bg-[#fef9c3] text-[#b45309]" };
 };
 
-const PIPELINE_STAGES: PipelineStage[] = [
-  "discovered",
-  "researching",
-  "outreach_sent",
-  "reply_received",
-  "applying",
-  "submitted",
-  "won",
-  "lost",
-];
-
-const STAGE_LABEL: Record<PipelineStage, string> = {
-  discovered: "Discovered",
-  researching: "Researching",
-  outreach_sent: "Outreach Sent",
-  reply_received: "Reply Received",
-  applying: "Applying",
-  submitted: "Submitted",
-  won: "Won 🏆",
-  lost: "Lost",
-  archived: "Archived",
-};
-
-const stageIndex = (s?: string) => PIPELINE_STAGES.indexOf((s || "") as PipelineStage);
-
-const stageDotClass = (state: "done" | "current" | "future") => {
-  if (state === "done") return "bg-[#ef3e34] border-[#ef3e34]";
-  if (state === "current") return "bg-[#ef3e34] border-[#ef3e34]";
-  return "bg-white border-[#d1d5db]";
-};
-
-const stageLineClass = (state: "done" | "future") => {
-  if (state === "done") return "bg-[#ef3e34]";
-  return "bg-[#e5e7eb]";
-};
-
 const SECTIONS = [
-  { key: "projectSummary", label: "Project Summary" },
+  { key: "executiveSummary", label: "Executive Summary" },
   { key: "problemStatement", label: "Problem Statement" },
-  { key: "communityImpact", label: "Community Impact" },
-  { key: "proposedSolution", label: "Proposed Solution" },
-  { key: "measurableOutcomes", label: "Measurable Outcomes" },
-  { key: "urgency", label: "Urgency" },
-  { key: "budgetSummary", label: "Budget Summary" },
+  { key: "projectDescription", label: "Project Description" },
+  { key: "missionAlignment", label: "Mission Alignment" },
+  { key: "budgetJustification", label: "Budget Justification" },
+  { key: "organizationalCapacity", label: "Organizational Capacity" },
+  { key: "outcomesAndImpact", label: "Outcomes and Impact" },
+  { key: "evaluationPlan", label: "Evaluation Plan" },
+  { key: "sustainabilityPlan", label: "Sustainability Plan" },
 ] as const;
+
+type SectionKey = (typeof SECTIONS)[number]["key"];
+
+const legacyFallback = (app: Application, key: SectionKey): string | undefined => {
+  switch (key) {
+    case "executiveSummary":
+      return app.executiveSummary ?? app.projectSummary;
+    case "problemStatement":
+      return app.problemStatement;
+    case "projectDescription":
+      return app.projectDescription ?? app.proposedSolution;
+    case "missionAlignment":
+      return app.missionAlignment;
+    case "budgetJustification":
+      return app.budgetJustification ?? app.budgetSummary;
+    case "organizationalCapacity":
+      return app.organizationalCapacity;
+    case "outcomesAndImpact":
+      return app.outcomesAndImpact ?? app.communityImpact ?? app.measurableOutcomes;
+    case "evaluationPlan":
+      return app.evaluationPlan;
+    case "sustainabilityPlan":
+      return app.sustainabilityPlan;
+    default:
+      return undefined;
+  }
+};
 
 type ViewMode = "original" | "aligned" | "compare";
 
@@ -197,40 +164,6 @@ const ThreadModal = ({
   outbox: GrantOutbox;
   onClose: () => void;
 }) => {
-  const qc = useQueryClient();
-
-  const { data, isLoading, isError, refetch } = useQuery<ThreadReply[]>({
-    queryKey: ["replies", "thread", outbox._id],
-    queryFn: async () => {
-      const res = await api.get(`/replies/by-outbox/${outbox._id}`);
-      return (res.data.data || []) as ThreadReply[];
-    },
-    enabled: !!outbox?._id,
-    retry: false,
-  });
-
-  const replies = data || [];
-
-  const markReadMutation = useMutation({
-    mutationFn: async (id: string) => {
-      const res = await api.patch(`/replies/${id}/read`);
-      return res.data.data as ThreadReply;
-    },
-    onSuccess: async () => {
-      await qc.invalidateQueries({ queryKey: qk.repliesMyUnread() });
-      await qc.invalidateQueries({ queryKey: ["replies", "thread", outbox._id] });
-      await qc.invalidateQueries({ queryKey: ["outbox", "grant"] });
-    },
-  });
-
-  useEffect(() => {
-    if (!replies.length) return;
-    const unread = replies.filter((r) => r && r._id && r.isRead === false);
-    if (unread.length === 0) return;
-    for (const r of unread) markReadMutation.mutate(r._id);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [replies?.length]);
-
   const originalHtml = outbox.htmlBody || "";
 
   return (
@@ -242,7 +175,7 @@ const ThreadModal = ({
         <div className="flex items-center justify-between px-7 pt-7 pb-5 border-b border-[#f3f4f6]">
           <div className="min-w-0">
             <h2 className="[font-family:'Oswald',Helvetica] font-bold text-black text-xl tracking-[0.5px] uppercase">
-              Email Thread
+              Outreach Email
             </h2>
             <p className="mt-1 text-xs text-[#6b7280] [font-family:'Montserrat',Helvetica] truncate">
               {outbox.subject || "—"} · To: {outbox.recipient || "—"}
@@ -284,59 +217,6 @@ const ThreadModal = ({
               />
             </div>
           </div>
-
-          <div className="rounded-xl border border-[#e5e7eb] bg-white p-5">
-            <div className="flex items-center justify-between">
-              <p className="[font-family:'Montserrat',Helvetica] text-xs font-bold text-[#111827] uppercase tracking-wide">
-                Replies
-              </p>
-              <button
-                onClick={() => refetch()}
-                className="text-xs font-semibold [font-family:'Montserrat',Helvetica] text-[#ef3e34] hover:underline"
-              >
-                Refresh
-              </button>
-            </div>
-
-            {isLoading ? (
-              <p className="mt-3 text-sm text-[#6b7280] [font-family:'Montserrat',Helvetica]">Loading…</p>
-            ) : isError ? (
-              <p className="mt-3 text-sm text-red-600 [font-family:'Montserrat',Helvetica]">
-                Failed to load replies.
-              </p>
-            ) : replies.length === 0 ? (
-              <p className="mt-3 text-sm text-[#6b7280] [font-family:'Montserrat',Helvetica]">No replies yet.</p>
-            ) : (
-              <div className="mt-4 space-y-4">
-                {replies.map((r) => (
-                  <div key={r._id} className="rounded-lg border border-[#f0f0f0] bg-[#fafafa] p-4">
-                    <div className="flex items-start justify-between gap-3">
-                      <div className="min-w-0">
-                        <p className="[font-family:'Montserrat',Helvetica] text-sm font-semibold text-[#111827] truncate">
-                          Reply from {r.from || "Unknown"}
-                          {r.isRead === false ? (
-                            <span className="ml-2 inline-block w-2 h-2 rounded-full bg-[#3b82f6] align-middle" />
-                          ) : null}
-                        </p>
-                        <p className="mt-1 text-xs text-[#6b7280] [font-family:'Montserrat',Helvetica]">
-                          {fmtDateTime(r.receivedAt)}
-                        </p>
-                      </div>
-                    </div>
-
-                    <div className="mt-3 rounded-lg overflow-hidden border border-[#eef2f7] bg-white">
-                      <iframe
-                        title={`reply-${r._id}`}
-                        sandbox="allow-same-origin"
-                        className="w-full h-[220px] bg-white"
-                        srcDoc={r.htmlBody || `<pre style="white-space:pre-wrap">${String(r.body || "")}</pre>`}
-                      />
-                    </div>
-                  </div>
-                ))}
-              </div>
-            )}
-          </div>
         </div>
       </div>
     </div>
@@ -363,10 +243,6 @@ export const ApplicationBuilder = () => {
   const [composeContactName, setComposeContactName] = useState("");
   const [composeSenderName, setComposeSenderName] = useState("");
   const [composeSenderCompany, setComposeSenderCompany] = useState("");
-  const [historyOpen, setHistoryOpen] = useState(false);
-  const [confirmStage, setConfirmStage] = useState<PipelineStage | null>(null);
-  const [confirmOpen, setConfirmOpen] = useState(false);
-  const [burst, setBurst] = useState<{ at: number; seed: number } | null>(null);
 
   const { data: app, isLoading, isError, refetch } = useQuery<Application>({
     queryKey: qk.application(id),
@@ -375,45 +251,6 @@ export const ApplicationBuilder = () => {
       return res.data.data as Application;
     },
     enabled: !!id,
-  });
-
-  const pipelineQuery = useQuery<PipelinePayload>({
-    queryKey: ["grants", "pipeline", id],
-    queryFn: async () => {
-      const res = await api.get(`/grants/${id}/pipeline`);
-      return res.data.data as PipelinePayload;
-    },
-    enabled: !!id,
-    retry: false,
-  });
-
-  const setStageMutation = useMutation({
-    mutationFn: async ({ stage, note }: { stage: PipelineStage; note?: string }) => {
-      const res = await api.patch(`/grants/${id}/pipeline`, { stage, note: note || "" });
-      return res.data.data as PipelinePayload;
-    },
-    onSuccess: async (data, vars) => {
-      const label = STAGE_LABEL[vars.stage] || vars.stage;
-      if (vars.stage === "lost") {
-        toast({ title: "Grant moved to Lost", description: "Sorry to hear that — keep going." });
-      } else {
-        toast({ title: `Grant moved to ${label}` });
-      }
-      if (vars.stage === "won") {
-        setBurst({ at: Date.now(), seed: Math.floor(Math.random() * 1_000_000) });
-      }
-      setConfirmOpen(false);
-      setConfirmStage(null);
-      await queryClient.invalidateQueries({ queryKey: ["grants", "pipeline", id] });
-      await queryClient.invalidateQueries({ queryKey: qk.application(id) });
-    },
-    onError: (err: unknown) => {
-      const msg =
-        (err as { response?: { data?: { message?: string } } })?.response?.data?.message ??
-        (err as Error)?.message ??
-        "Could not update pipeline stage.";
-      toast({ title: "Error", description: msg, variant: "destructive" });
-    },
   });
 
   useEffect(() => {
@@ -593,50 +430,6 @@ export const ApplicationBuilder = () => {
     },
   });
 
-  const pipelineStage: PipelineStage =
-    (pipelineQuery.data?.pipelineStage as PipelineStage) || "discovered";
-  const pipelineHistory = pipelineQuery.data?.pipelineHistory || [];
-  const lastEntry = pipelineHistory.length ? pipelineHistory[pipelineHistory.length - 1] : null;
-  const lastUpdatedLabel = fmtDateTime(lastEntry?.changedAt || pipelineQuery.data?.updatedAt || app?.dateSubmitted);
-
-  const manualMoves: Array<{ stage: PipelineStage; label: string }> = [
-    { stage: "applying", label: "Mark as Applying" },
-    { stage: "submitted", label: "Mark as Submitted" },
-    { stage: "won", label: "Mark as Won" },
-    { stage: "lost", label: "Mark as Lost" },
-    { stage: "archived", label: "Archive" },
-  ];
-
-  const startConfirm = (stage: PipelineStage) => {
-    setConfirmStage(stage);
-    setConfirmOpen(true);
-  };
-
-  const burstDots = useMemo(() => {
-    if (!burst) return [];
-    const rng = (seed: number) => {
-      let s = seed;
-      return () => {
-        s = (s * 1664525 + 1013904223) % 4294967296;
-        return s / 4294967296;
-      };
-    };
-    const r = rng(burst.seed);
-    return Array.from({ length: 22 }).map((_, i) => ({
-      id: `${burst.at}-${i}`,
-      left: Math.floor(r() * 90) + 5,
-      top: Math.floor(r() * 40) + 8,
-      delay: Math.floor(r() * 120),
-      size: Math.floor(r() * 10) + 6,
-    }));
-  }, [burst]);
-
-  useEffect(() => {
-    if (!burst) return;
-    const t = window.setTimeout(() => setBurst(null), 1400);
-    return () => window.clearTimeout(t);
-  }, [burst]);
-
   if (isLoading) {
     return (
       <div className="flex w-full flex-col gap-6 bg-neutral-50 p-8">
@@ -673,155 +466,16 @@ export const ApplicationBuilder = () => {
   const action = searchParams.get("action");
   const showAwardRespondBanner = action === "respond" && app.status === "awarded" && !awardResponseSubmitted;
 
-  const appRecord = app as unknown as Record<string, unknown>;
   const alignedRecord = app.alignedVersion as unknown as Record<string, unknown> | undefined;
 
   return (
     <div className="flex w-full min-w-0 flex-col gap-6 bg-neutral-50 p-4 pb-10 sm:p-6 lg:p-8">
-      {burst ? (
-        <div className="pointer-events-none fixed inset-0 z-[60]">
-          {burstDots.map((d) => (
-            <div
-              key={d.id}
-              className="absolute rounded-full animate-ping"
-              style={{
-                left: `${d.left}%`,
-                top: `${d.top}%`,
-                width: d.size,
-                height: d.size,
-                background: ["#ef3e34", "#22c55e", "#3b82f6", "#f59e0b"][Number(d.id.split("-").pop() || 0) % 4],
-                animationDelay: `${d.delay}ms`,
-              }}
-            />
-          ))}
-        </div>
-      ) : null}
-
       <button
         onClick={() => router.back()}
         className="flex items-center gap-2 text-[#6b7280] hover:text-[#111827] transition-colors w-fit [font-family:'Montserrat',Helvetica] text-sm"
       >
         <ArrowLeft size={16} /> Back
       </button>
-
-      {/* Pipeline */}
-      <div className="rounded-xl border border-[#e5e7eb] bg-white p-5">
-        <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
-          <div>
-            <p className="[font-family:'Montserrat',Helvetica] text-xs font-bold text-[#111827] uppercase tracking-wide">
-              Pipeline Stage
-            </p>
-            <p className="mt-1 [font-family:'Montserrat',Helvetica] text-sm text-[#6b7280]">
-              Last updated: {pipelineQuery.isLoading ? "Loading…" : lastUpdatedLabel}
-            </p>
-            {pipelineQuery.isError ? (
-              <p className="mt-1 [font-family:'Montserrat',Helvetica] text-xs text-red-600">
-                Failed to load pipeline.{" "}
-                <button onClick={() => pipelineQuery.refetch()} className="font-semibold underline">
-                  Retry
-                </button>
-              </p>
-            ) : null}
-          </div>
-
-          <div className="flex items-center gap-2">
-            <select
-              value=""
-              onChange={(e) => {
-                const stage = e.target.value as PipelineStage;
-                if (stage) startConfirm(stage);
-              }}
-              className="h-10 rounded-lg border border-[#e5e7eb] bg-white px-3 text-sm font-semibold [font-family:'Montserrat',Helvetica] text-[#374151] focus:border-[#ef3e34] focus:outline-none"
-              disabled={setStageMutation.isPending || pipelineQuery.isLoading || pipelineQuery.isError}
-            >
-              <option value="">Move to Stage…</option>
-              {manualMoves.map((m) => (
-                <option key={m.stage} value={m.stage}>
-                  {m.label}
-                </option>
-              ))}
-            </select>
-          </div>
-        </div>
-
-        <div className="mt-4">
-          <div className="flex items-center gap-0">
-            {PIPELINE_STAGES.filter((s) => s !== "archived").map((s, idx, arr) => {
-              const curIdx = stageIndex(pipelineStage);
-              const i = stageIndex(s);
-              const state: "done" | "current" | "future" =
-                curIdx === -1 ? "future" : i < curIdx ? "done" : i === curIdx ? "current" : "future";
-              const lineState: "done" | "future" = i < curIdx ? "done" : "future";
-              return (
-                <div key={s} className="flex items-center min-w-0 flex-1">
-                  <div className="flex flex-col items-center min-w-0">
-                    <div className="relative">
-                      <div className={cn("h-4 w-4 rounded-full border-2", stageDotClass(state))} />
-                      {state === "current" ? (
-                        <div className="absolute inset-0 rounded-full border-2 border-[#ef3e34] animate-ping opacity-50" />
-                      ) : null}
-                    </div>
-                    <span className="mt-2 text-[11px] text-[#6b7280] [font-family:'Montserrat',Helvetica] text-center px-1">
-                      {STAGE_LABEL[s]}
-                    </span>
-                  </div>
-
-                  {idx < arr.length - 1 ? (
-                    <div className={cn("h-1 flex-1 mx-2 rounded-full", stageLineClass(lineState))} />
-                  ) : null}
-                </div>
-              );
-            })}
-          </div>
-        </div>
-
-        <div className="mt-4">
-          <button
-            onClick={() => setHistoryOpen((v) => !v)}
-            className="text-sm font-semibold [font-family:'Montserrat',Helvetica] text-[#ef3e34] hover:underline"
-          >
-            {historyOpen ? "Hide history" : "Show history"}
-          </button>
-
-          {historyOpen ? (
-            <div className="mt-3 space-y-2">
-              {pipelineQuery.isLoading ? (
-                <p className="text-sm text-[#6b7280] [font-family:'Montserrat',Helvetica]">Loading…</p>
-              ) : pipelineHistory.length === 0 ? (
-                <p className="text-sm text-[#6b7280] [font-family:'Montserrat',Helvetica]">No pipeline history yet.</p>
-              ) : (
-                [...pipelineHistory]
-                  .slice()
-                  .reverse()
-                  .map((h, idx) => {
-                    const isSystem = h.changedBy !== "user";
-                    const icon = isSystem ? "🤖" : "👤";
-                    const who = isSystem ? "System" : "User";
-                    return (
-                      <div key={`${h.stage || "stage"}-${idx}`} className="rounded-lg border border-[#f0f0f0] bg-[#fafafa] p-3">
-                        <div className="flex items-start justify-between gap-3">
-                          <div className="min-w-0">
-                            <p className="[font-family:'Montserrat',Helvetica] text-sm font-semibold text-[#111827]">
-                              {icon} {who} · {STAGE_LABEL[(h.stage || "discovered") as PipelineStage] || h.stage}
-                            </p>
-                            {h.note ? (
-                              <p className="mt-1 text-sm text-[#374151] [font-family:'Montserrat',Helvetica] whitespace-pre-wrap">
-                                “{h.note}”
-                              </p>
-                            ) : null}
-                          </div>
-                          <span className="text-xs text-[#6b7280] [font-family:'Montserrat',Helvetica]">
-                            {fmtDateTime(h.changedAt)}
-                          </span>
-                        </div>
-                      </div>
-                    );
-                  })
-              )}
-            </div>
-          ) : null}
-        </div>
-      </div>
 
       {/* Header */}
       <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
@@ -1008,15 +662,15 @@ export const ApplicationBuilder = () => {
 
       {/* Sections */}
       <div className="flex flex-col gap-4">
-        {/* Email History */}
+        {/* Outreach Emails */}
         <div className="rounded-xl border border-[#e5e7eb] bg-white p-5 flex flex-col gap-3">
           <div className="flex items-start justify-between gap-3">
             <div>
               <h3 className="[font-family:'Montserrat',Helvetica] font-bold text-[#111827] text-sm uppercase tracking-wide">
-                Email History
+                Outreach Emails
               </h3>
               <p className="[font-family:'Montserrat',Helvetica] text-xs text-[#6b7280]">
-                Outreach and replies tied to this application
+                Outreach emails queued and sent for this application
               </p>
             </div>
             <button
@@ -1080,7 +734,6 @@ export const ApplicationBuilder = () => {
                           <span className={`rounded-full px-2 py-0.5 text-[11px] font-semibold [font-family:'Montserrat',Helvetica] ${pill.cls}`}>
                             {pill.label}
                           </span>
-                          {o.hasUnread ? <span className="inline-block w-2 h-2 rounded-full bg-[#3b82f6]" /> : null}
                         </div>
                         <p className="mt-2 [font-family:'Montserrat',Helvetica] text-sm text-[#374151] truncate">
                           <span className="font-semibold">To:</span> {o.recipient || "—"}
@@ -1091,23 +744,15 @@ export const ApplicationBuilder = () => {
                         <p className="mt-1 [font-family:'Montserrat',Helvetica] text-xs text-[#6b7280]">
                           {sentLabel} · {via}
                         </p>
-                        {o.replyTo ? (
-                          <p className="mt-1 [font-family:'Montserrat',Helvetica] text-xs text-[#6b7280] truncate">
-                            <span className="font-semibold">Reply-To:</span> {o.replyTo}
-                          </p>
-                        ) : null}
                       </div>
 
                       <div className="shrink-0 flex flex-col items-end gap-2">
-                        <div className="text-xs text-[#6b7280] [font-family:'Montserrat',Helvetica]">
-                          💬 {o.replyCount || 0} replies
-                        </div>
                         <button
                           onClick={() => setThreadOutbox(o)}
-                          disabled={(o.replyCount || 0) === 0 && !o.htmlBody}
+                          disabled={!o.htmlBody}
                           className="rounded-lg border border-[#e5e7eb] bg-white px-3 py-1.5 text-xs font-semibold [font-family:'Montserrat',Helvetica] text-[#374151] hover:bg-[#f9fafb] disabled:opacity-60"
                         >
-                          View Thread ›
+                          View Email ›
                         </button>
                       </div>
                     </div>
@@ -1119,8 +764,8 @@ export const ApplicationBuilder = () => {
         </div>
 
         {SECTIONS.map(({ key, label }) => {
-          const originalContent = appRecord[key] as string | undefined;
-          const alignedContent = alignedRecord?.[key] as string | undefined;
+          const originalContent = legacyFallback(app, key);
+          const alignedContent = (alignedRecord?.[key] as string | undefined) || undefined;
           const displayContent = viewMode === "aligned" && alignedContent ? alignedContent : originalContent;
 
           if (viewMode === "compare" && hasAligned) {
@@ -1318,33 +963,6 @@ export const ApplicationBuilder = () => {
       {/* Thread Modal */}
       {threadOutbox ? <ThreadModal outbox={threadOutbox} onClose={() => setThreadOutbox(null)} /> : null}
 
-      <AlertDialog
-        open={confirmOpen}
-        onOpenChange={(v) => {
-          setConfirmOpen(v);
-          if (!v) setConfirmStage(null);
-        }}
-      >
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle>Move this grant to {confirmStage ? STAGE_LABEL[confirmStage] : "this stage"}?</AlertDialogTitle>
-            <AlertDialogDescription>
-              This will update the pipeline stage and add a history entry.
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel disabled={setStageMutation.isPending}>Cancel</AlertDialogCancel>
-            <AlertDialogAction
-              disabled={!confirmStage || setStageMutation.isPending}
-              className="bg-[#ef3e34] hover:bg-[#d63530] text-white"
-              onClick={() => confirmStage && setStageMutation.mutate({ stage: confirmStage })}
-            >
-              {setStageMutation.isPending ? "Updating…" : "Confirm"}
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
-
       {/* Compose (Generate Outreach) Modal */}
       {composeOpen ? (
         <div
@@ -1358,7 +976,8 @@ export const ApplicationBuilder = () => {
                   Generate Outreach Email
                 </h2>
                 <p className="mt-1 text-xs text-[#6b7280] [font-family:'Montserrat',Helvetica]">
-                  This will queue an email in your Outbox and link it to this application.
+                  This will queue an email in your Outbox and link it to this application. <br />
+                  This emails the funder. Use for inquiries and follow-ups. Federal grants like FEMA AFG must be submitted through Grants.gov.
                 </p>
               </div>
               <button

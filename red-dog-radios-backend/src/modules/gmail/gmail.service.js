@@ -4,7 +4,6 @@ const Organization = require('../organizations/organization.schema');
 const logger = require('../../utils/logger');
 const { AppError } = require('../../middlewares/error.middleware');
 const { getAuthUrl, exchangeCodeForTokens } = require('../../config/gmail.config');
-const { setupGmailWatch } = require('./gmail.watch');
 
 const getConnectUrl = async (organizationId) => {
   try {
@@ -50,13 +49,6 @@ const handleOAuthCallback = async ({ organizationId, code }) => {
     };
 
     await org.save();
-
-    // Setup Gmail watch immediately after connect (push notifications expire ~7 days)
-    try {
-      await setupGmailWatch(org);
-    } catch (watchErr) {
-      logger.error('[GmailService] setupGmailWatch failed:', watchErr.message);
-    }
 
     return {
       isConnected: true,

@@ -35,7 +35,17 @@ const applicationSchema = new mongoose.Schema(
     infoRequestedNote: { type: String },
 
     // AI-generated structured sections
+    executiveSummary: { type: String },
     problemStatement: { type: String },
+    projectDescription: { type: String },
+    missionAlignment: { type: String },
+    budgetJustification: { type: String },
+    organizationalCapacity: { type: String },
+    outcomesAndImpact: { type: String },
+    evaluationPlan: { type: String },
+    sustainabilityPlan: { type: String },
+
+    // Legacy AI-generated structured sections (kept for backwards compatibility)
     proposedSolution: { type: String },
     measurableOutcomes: { type: String },
     urgency: { type: String },
@@ -43,12 +53,15 @@ const applicationSchema = new mongoose.Schema(
 
     // Funder-aligned version (AI rewrite)
     alignedVersion: {
+      executiveSummary: String,
       problemStatement: String,
-      communityImpact: String,
-      proposedSolution: String,
-      measurableOutcomes: String,
-      urgency: String,
-      budgetSummary: String,
+      projectDescription: String,
+      missionAlignment: String,
+      budgetJustification: String,
+      organizationalCapacity: String,
+      outcomesAndImpact: String,
+      evaluationPlan: String,
+      sustainabilityPlan: String,
       generatedAt: Date,
     },
 

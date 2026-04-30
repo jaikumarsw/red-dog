@@ -124,8 +124,6 @@ const organizationSchema = new mongoose.Schema(
       senderEmail: { type: String }, // the gmail address we send FROM
       isConnected: { type: Boolean, default: false },
       connectedAt: { type: Date },
-      watchExpiry: { type: Date },
-      historyId: { type: String },
     },
   },
   { timestamps: true }

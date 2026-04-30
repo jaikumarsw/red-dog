@@ -1,6 +1,7 @@
 const Match = require('./match.schema');
 const Organization = require('../organizations/organization.schema');
 const Opportunity = require('../opportunities/opportunity.schema');
+const Application = require('../applications/application.schema');
 const { AppError } = require('../../middlewares/error.middleware');
 
 const buildRecommendedAction = (fitScore, disqualifiers) => {
@@ -228,6 +229,128 @@ const computeMatchScore = (organization, opportunity) => {
   return result;
 };
 
+const clamp = (n, min, max) => Math.max(min, Math.min(max, n));
+
+const rubricTierFrom = (normalizedScore) => {
+  if (normalizedScore >= 90) return 'priority';
+  if (normalizedScore >= 80) return 'strong';
+  if (normalizedScore >= 70) return 'borderline';
+  return 'block';
+};
+
+const competitionFromCount = (highFitCount) => {
+  if (highFitCount <= 0) return { level: 0.2, label: 'Low' };
+  if (highFitCount === 1) return { level: 0.5, label: 'Medium' };
+  if (highFitCount === 2) return { level: 0.75, label: 'High' };
+  return { level: 1.0, label: 'Saturated' };
+};
+
+const computeRubricScores = ({ organization, opportunity, breakdown, pastSuccessFactor = 0.5 }) => {
+  const orgChallenges = Array.isArray(organization?.challenges) ? organization.challenges.map(String) : [];
+  const orgPriorities = Array.isArray(organization?.fundingPriorities) ? organization.fundingPriorities.map(String) : [];
+  const orgPrograms = Array.isArray(organization?.programAreas) ? organization.programAreas.map(String).map((s) => s.toLowerCase()) : [];
+  const oppKeywords = Array.isArray(opportunity?.keywords) ? opportunity.keywords.map(String).map((s) => s.toLowerCase()) : [];
+
+  const overlap = (a, b) => {
+    const setB = new Set(b);
+    return a.filter((x) => setB.has(x)).length;
+  };
+
+  const priorityOverlap = overlap(orgPriorities.map((s) => s.toLowerCase()), oppKeywords);
+  const programOverlap = orgPrograms.filter((p) => oppKeywords.some((k) => k.includes(p) || p.includes(k))).length;
+
+  const needBase = clamp(orgChallenges.length * 5, 0, 15);
+  const needScore = clamp(needBase + clamp(priorityOverlap * 2, 0, 10), 0, 25);
+
+  const designFields = [
+    opportunity?.description,
+    opportunity?.deadline,
+    opportunity?.maxAmount,
+    opportunity?.minAmount,
+    Array.isArray(opportunity?.keywords) && opportunity.keywords.length ? true : null,
+    Array.isArray(opportunity?.agencyTypes) && opportunity.agencyTypes.length ? true : null,
+    opportunity?.locationFocus,
+  ];
+  const designPresent = designFields.filter((v) => v !== undefined && v !== null && v !== '' && v !== false).length;
+  const projectDesignScore = clamp(Math.round((designPresent / designFields.length) * 25), 0, 25);
+
+  const budgetScore = clamp(Math.round((breakdown?.awardSizeFit || 0) * 1.5), 0, 15);
+
+  const staff = Number(organization?.numberOfStaff || 0);
+  const staffBase = staff >= 50 ? 10 : staff >= 25 ? 8 : staff >= 10 ? 6 : staff > 0 ? 4 : 3;
+  const capacityScore = clamp(Math.round(staffBase + pastSuccessFactor * 5), 0, 15);
+
+  const pop = Number(organization?.populationServed || 0);
+  const popBase = pop >= 50000 ? 10 : pop >= 20000 ? 8 : pop >= 5000 ? 6 : pop > 0 ? 4 : 2;
+  const impactScore = clamp(popBase + clamp(programOverlap * 2, 0, 10), 0, 20);
+
+  const evaluationScore = clamp(Math.round((breakdown?.dataCompleteness || 0) * 2), 0, 10);
+
+  const sustainabilityScore = clamp(
+    (organization?.canMeetLocalMatch === true ? 3 : 0) +
+      (organization?.budgetRange ? 3 : 0) +
+      (organization?.currentEquipment ? 2 : 0) +
+      (organization?.numberOfStaff != null ? 2 : 0),
+    0,
+    10
+  );
+
+  const alignmentRaw = (breakdown?.agencyType || 0) + (breakdown?.geography || 0) + (breakdown?.programKeyword || 0);
+  const alignmentScore = clamp(Math.round((alignmentRaw / 65) * 15), 0, 15);
+
+  const totalScore =
+    needScore +
+    projectDesignScore +
+    budgetScore +
+    capacityScore +
+    impactScore +
+    evaluationScore +
+    sustainabilityScore +
+    alignmentScore;
+  const normalizedScore = clamp(Math.round((totalScore / 135) * 100), 0, 100);
+
+  return {
+    needScore,
+    projectDesignScore,
+    budgetScore,
+    capacityScore,
+    impactScore,
+    evaluationScore,
+    sustainabilityScore,
+    alignmentScore,
+    totalScore,
+    normalizedScore,
+  };
+};
+
+const computePastSuccessFactor = async (organizationId) => {
+  const submittedStatuses = ['submitted', 'in_review', 'approved', 'awarded', 'rejected', 'denied'];
+  const [submittedCount, winCount] = await Promise.all([
+    Application.countDocuments({ organization: organizationId, status: { $in: submittedStatuses } }),
+    Application.countDocuments({ organization: organizationId, status: 'awarded' }),
+  ]);
+  if (!submittedCount) return { submittedCount: 0, winCount, pastSuccessFactor: 0.5 };
+  return {
+    submittedCount,
+    winCount,
+    pastSuccessFactor: clamp(winCount / submittedCount, 0, 1),
+  };
+};
+
+const computeCompetition = async (opportunityId) => {
+  const highFitCount = await Match.countDocuments({ opportunity: opportunityId, fitScore: { $gte: 90 } });
+  const { level, label } = competitionFromCount(highFitCount);
+  return { highFitCount, competitionLevel: level, competitionLabel: label };
+};
+
+const computeWinProbability = ({ fitScore, competitionLevel, pastSuccessFactor }) => {
+  const win =
+    (fitScore || 0) * 0.5 +
+    (1 - (competitionLevel ?? 0.5)) * 100 * 0.3 +
+    (pastSuccessFactor ?? 0.5) * 100 * 0.2;
+  return clamp(Math.round(win), 0, 100);
+};
+
 const getAll = async ({ page = 1, limit = 20, organizationId, oppId, status, minScore, maxScore, search }) => {
   const query = {};
   if (organizationId) query.organization = organizationId;
@@ -269,9 +392,32 @@ const computeAndSave = async (opportunityId, organizationId) => {
 
   const scored = computeMatchScore(org, opp);
 
+  const { pastSuccessFactor } = await computePastSuccessFactor(organizationId);
+  const rubricScores = computeRubricScores({
+    organization: org,
+    opportunity: opp,
+    breakdown: scored.breakdown,
+    pastSuccessFactor,
+  });
+  const rubricTier = rubricTierFrom(rubricScores.normalizedScore);
+
+  const { competitionLevel, competitionLabel } = await computeCompetition(opportunityId);
+  const winProbability = computeWinProbability({ fitScore: scored.fitScore, competitionLevel, pastSuccessFactor });
+
   const match = await Match.findOneAndUpdate(
     { organization: organizationId, opportunity: opportunityId },
-    { ...scored, lastUpdated: new Date(), status: 'pending' },
+    {
+      ...scored,
+      rubricScores,
+      rubricTier,
+      competitionLevel,
+      competitionLabel,
+      pastSuccessFactor,
+      winProbability,
+      lastUpdated: new Date(),
+      status: 'pending',
+      scoreVersion: 'v3',
+    },
     { new: true, upsert: true, setDefaultsOnInsert: true }
   ).populate(['organization', 'opportunity']);
 
@@ -297,12 +443,34 @@ const computeAllForOrganization = async (organizationId) => {
   const opportunities = await Opportunity.find({ status: { $in: ['open', 'closing'] } });
   let processed = 0, upserted = 0, errors = 0;
 
+  const { pastSuccessFactor } = await computePastSuccessFactor(organizationId);
+
   for (const opp of opportunities) {
     try {
       const scored = computeMatchScore(org, opp);
+      const rubricScores = computeRubricScores({
+        organization: org,
+        opportunity: opp,
+        breakdown: scored.breakdown,
+        pastSuccessFactor,
+      });
+      const rubricTier = rubricTierFrom(rubricScores.normalizedScore);
+      const { competitionLevel, competitionLabel } = await computeCompetition(opp._id);
+      const winProbability = computeWinProbability({ fitScore: scored.fitScore, competitionLevel, pastSuccessFactor });
+
       await Match.findOneAndUpdate(
         { organization: organizationId, opportunity: opp._id },
-        { ...scored, lastUpdated: new Date() },
+        {
+          ...scored,
+          rubricScores,
+          rubricTier,
+          competitionLevel,
+          competitionLabel,
+          pastSuccessFactor,
+          winProbability,
+          lastUpdated: new Date(),
+          scoreVersion: 'v3',
+        },
         { upsert: true, new: true, setDefaultsOnInsert: true }
       );
       processed++;

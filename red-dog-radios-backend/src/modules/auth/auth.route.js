@@ -16,7 +16,9 @@ const router = express.Router();
 
 const loginLimiter = rateLimit({
   windowMs: 15 * 60 * 1000,
-  max: 5,
+  // In development we often run automated/local E2E flows that re-login frequently.
+  // Keep production tight, but avoid blocking local testing.
+  max: process.env.NODE_ENV === 'development' ? 50 : 5,
   message: { success: false, message: 'Too many login attempts. Try again in 15 minutes.' },
   standardHeaders: true,
   legacyHeaders: false,

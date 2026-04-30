@@ -3,7 +3,6 @@ const { success, created, paginate } = require('../../utils/apiResponse');
 const outboxService = require('./outbox.service');
 const { resolveAgencyOrganizationId } = require('../../utils/resolveAgencyOrg');
 const { AppError } = require('../../middlewares/error.middleware');
-const Reply = require('../replies/reply.schema');
 const Outbox = require('./outbox.schema');
 
 const getAll = asyncHandler(async (req, res) => {
@@ -35,28 +34,7 @@ const getGrantHistory = asyncHandler(async (req, res) => {
     .populate({ path: 'relatedUser', select: 'fullName firstName lastName email' })
     .lean();
 
-  const outboxIds = outbox.map((o) => o._id);
-  const replyAgg = await Reply.aggregate([
-    { $match: { userId: req.user._id, outboxId: { $in: outboxIds } } },
-    {
-      $group: {
-        _id: '$outboxId',
-        count: { $sum: 1 },
-        unread: { $sum: { $cond: [{ $eq: ['$isRead', false] }, 1, 0] } },
-      },
-    },
-  ]);
-  const map = {};
-  for (const r of replyAgg) {
-    map[String(r._id)] = { replyCount: r.count, hasUnread: r.unread > 0 };
-  }
-
-  const result = outbox.map((o) => {
-    const stats = map[String(o._id)] || { replyCount: 0, hasUnread: false };
-    return { ...o, ...stats };
-  });
-
-  return success(res, result, 'Grant email history retrieved');
+  return success(res, outbox, 'Grant email history retrieved');
 });
 
 // ── Admin endpoints ─────────────────────────────────────────────────────────

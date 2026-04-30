@@ -4,13 +4,11 @@ import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { ArrowLeft } from "lucide-react";
-import { useRouter, useSearchParams } from "next/navigation";
 import api from "@/lib/api";
 import { qk } from "@/lib/queryKeys";
 import { SettingsSectionCard } from "@/components/settings/SettingsPrimitives";
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/hooks/use-toast";
-import GmailConnectButton from "@/components/settings/GmailConnectButton.jsx";
 
 // ── Constants ──────────────────────────────────────────────────────────────
 
@@ -134,23 +132,20 @@ const helperCls =
 export function AgencyProfile() {
   const qc = useQueryClient();
   const { toast } = useToast();
-  const router = useRouter();
-  const searchParams = useSearchParams();
 
-  useEffect(() => {
-    const connected = searchParams.get("connected");
-    if (connected === "true") {
-      toast({ title: "Gmail connected successfully!" });
-      router.replace("/settings/agency");
-    }
-  }, [searchParams, toast, router]);
-
-  const { data: settings } = useQuery<ApiSettings>({
+  const {
+    data: settings,
+    isLoading: isSettingsLoading,
+    isError: isSettingsError,
+    error: settingsError,
+    refetch: refetchSettings,
+  } = useQuery<ApiSettings>({
     queryKey: qk.settings(),
     queryFn: async () => {
       const res = await api.get("/settings");
       return res.data.data as ApiSettings;
     },
+    retry: false,
   });
 
   const orgId = useMemo(() => {
@@ -160,13 +155,18 @@ export function AgencyProfile() {
     return v._id ?? "";
   }, [settings?.organizationId]);
 
-  const { data: org, isLoading, isError } = useQuery<Org>({
+  const {
+    data: org,
+    isLoading: isOrgLoading,
+    isError: isOrgError,
+  } = useQuery<Org>({
     queryKey: ["organization", orgId],
     queryFn: async () => {
       const res = await api.get(`/organizations/${orgId}`);
       return res.data.data as Org;
     },
     enabled: Boolean(orgId),
+    retry: false,
   });
 
   const [editing, setEditing] = useState(false);
@@ -304,26 +304,44 @@ export function AgencyProfile() {
         </div>
       </div>
 
-      {isLoading && <p className="text-sm text-[#6b7280] [font-family:'Montserrat',Helvetica]">Loading\u2026</p>}
-      {isError && (
+      {isSettingsLoading && (
+        <p className="text-sm text-[#6b7280] [font-family:'Montserrat',Helvetica]">Loading\u2026</p>
+      )}
+      {isSettingsError && (
+        <div className="rounded-lg border border-red-200 bg-red-50 p-4">
+          <p className="text-sm font-semibold text-red-700 [font-family:'Montserrat',Helvetica]">
+            Could not load settings
+          </p>
+          <p className="mt-1 text-sm text-red-700/90 [font-family:'Montserrat',Helvetica]">
+            {(settingsError as { response?: { data?: { message?: string } } })?.response?.data?.message ||
+              (settingsError as { message?: string })?.message ||
+              "Please try again."}
+          </p>
+          <div className="mt-3">
+            <Button variant="outline" className="border-red-200 text-red-700 hover:bg-red-100" onClick={() => refetchSettings()}>
+              Retry
+            </Button>
+          </div>
+        </div>
+      )}
+
+      {!isSettingsLoading && !isSettingsError && !orgId && (
+        <p className="text-sm text-red-600 [font-family:'Montserrat',Helvetica]">
+          No organization is linked to your account.
+        </p>
+      )}
+
+      {!isSettingsLoading && !isSettingsError && orgId && isOrgLoading && (
+        <p className="text-sm text-[#6b7280] [font-family:'Montserrat',Helvetica]">Loading\u2026</p>
+      )}
+      {!isSettingsLoading && !isSettingsError && orgId && isOrgError && (
         <p className="text-sm text-red-600 [font-family:'Montserrat',Helvetica]">
           Could not load your agency profile.
         </p>
       )}
 
-      {!isLoading && !isError && org && (
+      {!isSettingsLoading && !isSettingsError && org && (
         <div className="flex flex-col gap-6">
-
-          <SettingsSectionCard
-            icon={<span className="[font-family:'Montserrat',Helvetica] font-bold text-[#ef3e34] text-xs">E</span>}
-            title="Email Sending"
-            subtitle="Connect Gmail OAuth2 to send outreach emails from this agency"
-          >
-            <GmailConnectButton organizationId={orgId} />
-            <p className="mt-3 text-xs text-[#6b7280] [font-family:'Montserrat',Helvetica]">
-              This uses the admin-only Gmail OAuth endpoints. No tokens are ever exposed to the browser.
-            </p>
-          </SettingsSectionCard>
 
           {/* ── Overview ── */}
           <SettingsSectionCard

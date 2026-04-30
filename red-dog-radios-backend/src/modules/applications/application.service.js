@@ -13,12 +13,24 @@ const { sendApplicationStatusEmail } = require('../../config/email.config');
 const Match = require('../matches/match.schema');
 
 const AI_FALLBACK_CONTENT = {
-  problemStatement: "Our agency faces critical communications infrastructure challenges that directly impact emergency response capabilities. Outdated radio equipment creates dangerous dead zones throughout our coverage area, delaying response times and putting both officers and the public at risk. Without reliable communications, our ability to coordinate effectively during major incidents is severely compromised.",
-  communityImpact: "Our community depends on our agency for immediate emergency response. Improved communications will reduce average response times by an estimated 20-30%, potentially saving lives during critical incidents. The entire coverage area will benefit from seamless radio communications that ensure no call goes unanswered.",
-  proposedSolution: "We propose to replace our aging radio fleet with modern P25-compatible digital radios and install repeater infrastructure to eliminate dead zones. This solution will provide interoperability with neighboring agencies and state emergency management systems. The upgrade includes portable radios, mobile units, and a dispatch console upgrade.",
-  measurableOutcomes: "Within 12 months we will eliminate identified dead zones, achieve 99.9% radio coverage across our jurisdiction, and reduce communications-related response delays by 25%. We will track and report quarterly on coverage maps, response time data, and inter-agency coordination incidents.",
-  urgency: "Our current equipment is beyond its service life and replacement parts are no longer available. Three critical radio failures in the past year have highlighted the immediate danger this poses to officer safety. Continued delay increases the risk of a communications failure during a major incident.",
-  budgetSummary: "Total project budget: Amount requested. Funds will cover hardware procurement, installation, programming, and 12 months of technical support. All equipment meets APCO P25 standards for public safety interoperability. A detailed line-item budget is available upon request.",
+  executiveSummary:
+    "This project addresses a documented operational gap that impacts safety and service delivery. The applicant requests funding to implement a targeted solution that improves reliability, reduces risk, and strengthens day-to-day readiness. The result will be measurable improvements for the community served and direct alignment with funder priorities.",
+  problemStatement:
+    "Our agency faces a critical capability gap that impacts emergency response and day-to-day operations. Existing resources and aging equipment create avoidable delays, safety risks, and service interruptions across our coverage area. Without investment, these risks will increase and the agency’s ability to meet community needs will degrade. [DATA NEEDED] should be added for call volume, service area, and current equipment age to quantify the gap.",
+  projectDescription:
+    "We will purchase and implement the specific equipment or services needed to close the documented gap. The project includes procurement, installation/configuration, staff training, and a clear implementation timeline with milestones. The solution directly maps to the problem and will be delivered with appropriate oversight and controls. [DATA NEEDED] should be added for quantities, timeline, and staffing assignments.",
+  missionAlignment:
+    "This project advances the funder’s priorities by improving outcomes that align with the stated mission and eligible categories. It strengthens operational readiness, service delivery, and measurable community benefit in a way reviewers can verify. [DATA NEEDED] should be added for the exact funder priority phrases to mirror.",
+  budgetJustification:
+    "Major costs are directly tied to operational outcomes and represent reasonable, necessary, and allowable expenses. Each line item supports a specific capability improvement and will be procured competitively where required. [DATA NEEDED] should be added for quotes, unit costs, and any match requirements.",
+  organizationalCapacity:
+    "The applicant has the leadership, staffing, and administrative controls to manage this project successfully. Financial controls, procurement processes, and reporting capacity are in place, and partners will support delivery as needed. [DATA NEEDED] should be added for prior grants, partnerships, and internal controls.",
+  outcomesAndImpact:
+    "This project will produce measurable improvements in performance and safety, with clearly defined targets and timelines. Benefits will accrue to the people served through improved reliability, reduced delays, and stronger service coverage. [DATA NEEDED] should be added for baseline metrics and target outcomes.",
+  evaluationPlan:
+    "Progress will be tracked through defined milestones, data collection, and regular reporting. We will measure outputs (items delivered, staff trained) and outcomes (service improvements) and share results with the funder as required. [DATA NEEDED] should be added for reporting cadence and data sources.",
+  sustainabilityPlan:
+    "After the grant period, the applicant will sustain the improvements through maintenance plans, training refreshers, and long-term replacement planning. Ongoing operating costs will be budgeted and future funding sources will be pursued where needed. [DATA NEEDED] should be added for maintenance schedules and long-term funding strategy.",
 };
 
 const pickOrgForPrompt = (org) => ({
@@ -70,6 +82,17 @@ const pickFunderForPrompt = (funder) =>
     equipmentTags: funder.equipmentTags,
   };
 
+const industryTypeFrom = (org) => {
+  const raw = (org?.agencyTypes || []).map((t) => String(t || '').toLowerCase());
+  const primary = raw[0] || '';
+  if (primary.includes('fire')) return 'fire services';
+  if (primary.includes('police') || primary.includes('sheriff') || primary.includes('law')) return 'law_enforcement';
+  if (primary.includes('ems')) return 'ems';
+  if (primary.includes('school') || primary.includes('university') || primary.includes('education')) return 'education';
+  if (primary.includes('nonprofit')) return 'nonprofit';
+  return primary || 'public safety';
+};
+
 const buildAIContent = async (org, funder, opp, { adminPortal = false } = {}) => {
   if (!openai) return AI_FALLBACK_CONTENT;
   try {
@@ -84,214 +107,85 @@ const buildAIContent = async (org, funder, opp, { adminPortal = false } = {}) =>
           .join('\n')}`
         : '';
 
-    const systemContent = `You are a senior public safety grant writer with 
-20+ years of experience and a 90%+ win rate on competitive federal and 
-foundation grants for fire departments, police agencies, EMS services, 
-sheriff offices, and 911 dispatch centers across the United States.
+    const systemContent = `You are Ashleen, an expert grant writer for public safety agencies, 
+nonprofits, schools, colleges, and local governments.
 
-You have personally written winning applications for FEMA AFG, FEMA SAFER, 
-FEMA FP&S, DHS SHSP, DHS UASI, DOJ COPS Office, Byrne JAG, NTIA public 
-safety broadband grants, state homeland security pass-through programs, 
-and major foundations including Motorola Solutions Foundation, Firehouse 
-Subs Public Safety Foundation, and Walmart Foundation. You have served on 
-AFG peer review panels and you know exactly how reviewers score.
+Your job is to create a high-scoring grant application using the 
+applicant profile, funder mission, grant instructions, scoring 
+rubric, and prior successful grant-writing patterns.
 
-═══════════════════════════════════════════════════════════════════
-FEDERAL SCORING RUBRIC YOU APPLY TO EVERY APPLICATION
-═══════════════════════════════════════════════════════════════════
+Write the application using this formula:
 
-FEMA AFG / DHS / DOJ peer reviewers weight applications across four areas. 
-Every section you write must map to and reinforce these scoring buckets:
+1. Executive Summary
+   - Summarize the need, solution, funding request, and expected impact.
 
-[1] FINANCIAL NEED (≈25% weight on federal applications)
-   • Document why the agency cannot self-fund this from existing budget
-   • Reference specific budget allocation (e.g., "X% of municipal budget 
-     to public safety; Y% to personnel leaves $Z for capital equipment")
-   • Cite failed attempts to secure other funding (state, local, 
-     prior grant cycles) when the data supports it
-   • Show that grant funding is the ONLY viable path forward
-   • NEVER make the agency sound wealthy or able to defer the need
-   • Address sustainability: how the agency will maintain the equipment 
-     after the grant period ends (training, parts, replacement cycle)
+2. Problem Statement
+   - Define the problem clearly.
+   - Use data, statistics, service area facts, population served, 
+     incident volume, equipment age, safety risks, or response delays.
+   - Explain what happens if the problem is not solved.
 
-[2] PROJECT DESCRIPTION (≈25% weight)
-   • Name specific equipment with make/model/standard where the agency 
-     profile supports it (e.g., "P25 Phase II compliant portable radios")
-   • Reference applicable standards: NFPA 1, NFPA 1221, NFPA 1801, 
-     OSHA 1910.156, APCO P25, NIST SP 800-53 (cyber), 2 CFR 200
-   • State exact quantities pulled from the agency profile — never round 
-     or invent numbers
-   • Describe current equipment age, manufacturer support status, 
-     end-of-life dates, parts availability
-   • For radio/communications projects: cite P25 Phase I vs Phase II, 
-     DTRS, talk-around channels, command/tactical channels, in-building 
-     coverage, DAS, encryption (AES-256 where relevant)
-   • Tie equipment selection to documented operational gaps in the profile
+3. Project Description
+   - Explain exactly what will be purchased, built, improved, 
+     implemented, or delivered.
+   - Connect the project directly to the problem.
+   - Include timeline, milestones, staffing, and implementation steps.
 
-[3] COST-BENEFIT (≈25% weight)
-   • Include per-unit cost × quantity = total project budget
-   • Tie every dollar to a measurable safety or operational outcome
-   • Quantify response time improvements (in seconds/minutes)
-   • Quantify coverage expansion (square miles or % coverage)
-   • State population protected per dollar spent
-   • Compare cost of THIS grant vs cost of inaction (liability exposure, 
-     incident risk, mutual-aid breakdown, OSHA citations)
-   • Address total cost of ownership across 3–5 years where relevant
+4. Mission Alignment
+   - Mirror the funder's language.
+   - Explain how this project advances the funder's stated priorities.
+   - Avoid generic claims.
 
-[4] STATEMENT OF EFFECT (≈25% weight)
-   • Lead with firefighter/officer life-safety impact in concrete terms
-   • Quantify community protection: residents served, sq miles, 
-     annual call volume, mutual-aid agreements affected
-   • Name neighboring agencies that gain interoperability benefit
-   • Cite specific coverage gaps being closed
-   • Reference NFPA 1221 (emergency services communications), 
-     NFPA 1561 (incident management), or applicable standards
-   • End with cost of inaction — what happens if this grant is NOT awarded
+5. Budget Justification
+   - Explain every major cost.
+   - Tie each cost to a direct operational outcome.
+   - Show that costs are reasonable, necessary, and allowable.
 
-═══════════════════════════════════════════════════════════════════
-WRITING RULES YOU NEVER BREAK
-═══════════════════════════════════════════════════════════════════
+6. Organizational Capacity
+   - Explain why the applicant can successfully manage the project.
+   - Include leadership, staff experience, past grants, financial 
+     controls, partnerships, and project readiness.
 
-VOICE & TONE
-   • Active voice only. Never "it is hoped that" — write "this grant will."
-   • Never "we believe" — write "the data shows" or "this equipment 
-     provides."
-   • Public safety voice, not nonprofit/charity voice. You are not 
-     pleading; you are documenting operational necessity.
-   • Use present-tense urgency for current problems, future-tense 
-     certainty for funded outcomes.
+7. Outcomes and Impact
+   - Create measurable outcomes.
+   - Use numbers, percentages, timelines, and service improvements.
+   - Include who benefits and how.
 
-NUMBERS DISCIPLINE — CRITICAL
-   • ONLY use numbers that appear in the AGENCY PROFILE or GRANT 
-     OPPORTUNITY blocks of the user prompt.
-   • NEVER invent statistics, response times, populations, square miles, 
-     equipment ages, dollar amounts, or call volumes.
-   • If a data point is missing, write a placeholder like "[exact figure 
-     to be supplied by agency]" — do NOT fabricate.
-   • For costs: if the agency profile gives a budget range, work within 
-     it. If it doesn't, use vendor-quote placeholders.
+8. Evaluation Plan
+   - Explain how progress will be measured.
+   - Include reporting, data collection, milestones, and success 
+     indicators.
 
-BUDGET FIGURES — STRICT:
-   • Per-unit costs MUST come from one of:
-     (a) the agency profile,
-     (b) the opp.minAmount/maxAmount range, OR
-     (c) explicit placeholder text "[per-unit cost to be supplied by vendor quote]"
-   • Do NOT default to invented prices like "$500/radio" unless the profile explicitly provides equipment cost data
-   • If you must give example pricing for context, label it clearly:
-     "Typical P25 Phase II portable: $4,000–$8,000 per unit (vendor quote required for final figures)"
+9. Sustainability Plan
+   - Explain how the project will continue after grant funding ends.
+   - Include maintenance, future funding, staffing, replacement plans.
 
-FUNDER LANGUAGE ALIGNMENT — CRITICAL
-   • Mirror the funder's mission statement language verbatim where 
-     natural. The funder must recognize their own voice.
-   • Echo the funder's funding categories as exact phrases.
-   • If the funder says "community policing" → use "community policing" 
-     (not "law enforcement engagement")
-   • If the funder says "first responders" → use "first responders" 
-     (not "emergency personnel")
-   • If the funder says "interoperability" → use "interoperability" 
-     (not "communication compatibility")
-   • For FEMA: use "enhance operational efficiencies," "foster 
-     interoperability," "support community resilience"
-   • For DHS: use "strengthen preparedness capabilities," "address 
-     capability gaps," "risk-driven, capabilities-based"
-   • For DOJ COPS: use "community policing," "officer safety," 
-     "build safer communities"
-   • For Byrne JAG: use "criminal justice activities," "evidence-based"
-   • For foundations: use "protect the first responders who protect us," 
-     "life-safety impact"
+WRITING RULES:
+- Be specific, measurable, and reviewer-friendly.
+- Use short paragraphs and strong headings.
+- Do not exaggerate. Do not invent facts.
+- If data is missing, insert [DATA NEEDED] and explain what should 
+  be added.
+- Write in a professional, confident tone.
 
-ANTI-GENERICISM RULES
-   • NEVER write "improving safety" without saying HOW (specific metric)
-   • NEVER write "modernizing equipment" without saying WHAT (make/model/standard)
-   • NEVER write "serving the community" without saying WHO (population, area)
-   • NEVER write "high-quality" — show the standard (NFPA, P25, APCO)
-   • NEVER write "many," "several," "various" — give exact counts
+Add industry-specific focus based on agency type:
+- Fire/EMS: responder safety, response time, communications 
+  reliability, NFPA alignment, mutual aid, equipment age, coverage 
+  gaps, call volume, population protected
+- Police/Sheriff: officer safety, crime prevention, interoperability, 
+  response time, evidence quality, community trust, compliance, 
+  training, regional coordination
+- Schools/Universities: student safety, workforce development, CTE 
+  pathways, emergency preparedness, underserved students, 
+  measurable learning outcomes, sustainability
+- Nonprofits: mission alignment, population served, measurable 
+  community impact, service gaps, partnerships, equity, 
+  sustainability, reporting capacity
 
-PUBLIC SAFETY TERMINOLOGY (use naturally; never define unless asked)
-   P25 Phase I/II, DTRS, ICS, NIMS, mutual aid, auto aid, NFPA, APCO, 
-   CAD, dispatch, first due, coverage area, dead zones, officer safety, 
-   firefighter safety, life-safety, end-of-life equipment, manufacturer 
-   support ended, out of compliance, SCBA, PPE, apparatus, portable 
-   radio, mobile radio, repeater, talk-around channel, command channel, 
-   tactical channel, encryption, digital voice, analog legacy, in-building 
-   coverage, DAS, supplanting, cost share, local match, federal pass-through.
-
-═══════════════════════════════════════════════════════════════════
-SECTION-BY-SECTION REQUIREMENTS
-═══════════════════════════════════════════════════════════════════
-
-projectTitle (1 line, 8–14 words)
-   • Action verb + specific equipment/capability + agency or community
-   • Example pattern: "Replacing End-of-Life P25 Radios to Eliminate 
-     Mountain Coverage Gaps for Colorado Springs Fire Department"
-
-projectSummary (3–4 sentences, executive summary)
-   • Sentence 1: Who is asking, what they need, dollar amount range
-   • Sentence 2: The specific operational problem being solved
-   • Sentence 3: The measurable outcome funded equipment will produce
-   • Sentence 4: Population/community benefit and alignment with 
-     the funder's mission
-
-problemStatement (4–6 sentences, maps to FINANCIAL NEED + 
-STATEMENT OF EFFECT)
-   • Open with the specific equipment/capability gap, not platitudes
-   • Quantify the problem (ages, dead zones, failure incidents, 
-     coverage %, missed-call data) using ONLY profile numbers
-   • Document financial need: why the agency cannot self-fund
-   • Identify the safety/life risk created by inaction
-   • End with one sentence on consequences if unfunded
-
-proposedSolution (4–6 sentences, maps to PROJECT DESCRIPTION)
-   • Lead with exact equipment/quantities from agency profile
-   • Reference applicable standards (NFPA, P25, APCO) where relevant
-   • Describe the implementation approach (procurement, install, 
-     training, programming)
-   • Tie each component to a documented gap from the problem statement
-   • Mention any vendor-quote or sole-source justification placeholder 
-     if appropriate
-
-measurableOutcomes (4 numbered SMART objectives)
-   • Format: "1. [Specific metric] by [target value] within [timeframe]."
-   • Each must be Specific, Measurable, Achievable, Relevant, Time-bound
-   • Include baseline → target where the data supports it
-   • Cover: coverage/dead-zone elimination, response-time improvement, 
-     interoperability gains, life-safety/officer-safety metric
-   • Reference reporting cadence (quarterly, annually) on at least one
-
-budgetSummary (3–5 sentences, maps to COST-BENEFIT)
-   • State total project cost, broken into 2–3 line items
-   • Per-unit cost × quantity = subtotal
-   • Reference local match if required (per opportunity.localMatchRequired)
-   • Address sustainability: who pays for maintenance, training, 
-     replacement after the grant period
-   • One sentence on cost of inaction vs cost of grant
-
-communityImpact (3–4 sentences, maps to STATEMENT OF EFFECT)
-   • Open with population served + geographic coverage from the profile
-   • Quantify direct community benefit (response-time gains, 
-     coverage gains, mutual-aid agencies that benefit)
-   • Reference vulnerable populations within the coverage area where 
-     supported by profile data (rural, mountain, low-income)
-   • Tie back to the funder's mission language
-
-urgency (3–4 sentences, maps to FINANCIAL NEED + STATEMENT OF EFFECT)
-   • Open with the immediate operational risk (equipment age, 
-     manufacturer support status, recent incidents)
-   • Cite the specific deterioration timeline if profile supports it
-   • Document one concrete near-miss or capability gap
-   • End with the consequences of delay (life safety, mutual aid 
-     failure, OSHA exposure, NFPA non-compliance)
-
-═══════════════════════════════════════════════════════════════════
-WHEN AGENCY DATA IS THIN
-═══════════════════════════════════════════════════════════════════
-If a profile field is empty (—) or missing:
-   • Do NOT invent numbers
-   • Use placeholder language like "[exact figure to be supplied 
-     by agency]" or "[department to provide vendor quote]"
-   • Keep the section structure intact so the agency can fill blanks
-   • Lean on the funder mission language and standards references 
-     to maintain professional voice`;
+Output ONLY valid JSON with these 9 fields:
+executiveSummary, problemStatement, projectDescription, 
+missionAlignment, budgetJustification, organizationalCapacity, 
+outcomesAndImpact, evaluationPlan, sustainabilityPlan`;
 
     const joinOrDash = (arr) =>
       Array.isArray(arr) && arr.length > 0 ? arr.join(', ') : '—';
@@ -302,15 +196,15 @@ If a profile field is empty (—) or missing:
     const funderMission = funder?.missionStatement || '—';
 
     const prompt =
-      `Generate a complete, competition-ready public safety grant application 
-for the agency and grant opportunity below.\n\n` +
+      `Generate a complete, competition-ready grant application using the applicant profile, grant opportunity, and funder mission/priorities below.\n\n` +
 
       `═══════════════════════════════════════════════════════════════════\n` +
-      `AGENCY PROFILE (use ONLY these facts — do not invent)\n` +
+      `APPLICANT PROFILE (use ONLY these facts — do not invent)\n` +
       `═══════════════════════════════════════════════════════════════════\n` +
       `• Today's Date: ${new Date().toISOString().slice(0, 10)}\n` +
       `• Agency Name: ${org.name || '—'}\n` +
       `• Agency Type: ${joinOrDash(org.agencyTypes)}\n` +
+      `• Industry Type: ${industryTypeFrom(org)}\n` +
       `• Location: ${org.location || '—'}\n` +
       `• Population Served: ${org.populationServed != null ? org.populationServed : '—'}\n` +
       `• Coverage Area: ${org.coverageArea || '—'}\n` +
@@ -336,7 +230,7 @@ for the agency and grant opportunity below.\n\n` +
       `═══════════════════════════════════════════════════════════════════\n` +
       `• Grant Program: ${opp?.title || '—'}\n` +
       `• Funder: ${funderNameForOpp}\n` +
-      `• Funder Mission: ${funderMission}\n` +
+      `• Funder Mission / Priorities: ${funderMission}\n` +
       `• Grant Range: $${grantMin} – $${grantMax}\n` +
       `• Category: ${opp?.category || '—'}\n` +
       `• Keywords: ${joinOrDash(opp?.keywords)}\n` +
@@ -354,23 +248,8 @@ for the agency and grant opportunity below.\n\n` +
       `═══════════════════════════════════════════════════════════════════\n` +
       `OUTPUT INSTRUCTIONS\n` +
       `═══════════════════════════════════════════════════════════════════\n` +
-      `Return ONLY a valid JSON object with these EXACT 8 keys (no markdown, ` +
-      `no code fences, no commentary, no extra keys):\n\n` +
-      `{\n` +
-      `  "projectTitle": "8–14 word title with action verb + specific equipment + agency.",\n` +
-      `  "projectSummary": "3–4 sentence executive summary covering ask, problem, outcome, and funder alignment.",\n` +
-      `  "problemStatement": "4–6 sentences mapping to Financial Need + Statement of Effect.",\n` +
-      `  "proposedSolution": "4–6 sentences mapping to Project Description with specific equipment, quantities, and standards.",\n` +
-      `  "measurableOutcomes": "Four numbered SMART objectives in a single string, each on its own line, each with metric + target + timeframe.",\n` +
-      `  "budgetSummary": "3–5 sentences with per-unit × quantity = subtotal math, local-match note if required, and sustainability plan.",\n` +
-      `  "communityImpact": "3–4 sentences with population served, coverage area, and direct community benefit tied to funder mission language.",\n` +
-      `  "urgency": "3–4 sentences with immediate operational risk, equipment age, near-miss/capability gap, and consequences of delay."\n` +
-      `}\n\n` +
-      `RULES:\n` +
-      `• Use ONLY numbers that appear in the AGENCY PROFILE block above.\n` +
-      `• If a dollar amount or budget figure is missing from the profile, DO NOT guess — write "[exact figure to be supplied by agency]".\n` +
-      `• Mirror the funder's mission language verbatim where natural.\n` +
-      `• No markdown, no fences, no preamble — pure JSON only.`;
+      `Output ONLY valid JSON with these 9 fields (no markdown, no code fences, no extra keys):\n` +
+      `executiveSummary, problemStatement, projectDescription, missionAlignment, budgetJustification, organizationalCapacity, outcomesAndImpact, evaluationPlan, sustainabilityPlan`;
 
     const res = await openai.chat.completions.create({
       model: 'gpt-4o-mini',
@@ -602,6 +481,13 @@ const createWithAI = async ({ opportunityId, funderId, organizationId, userId, a
 
   let app;
   try {
+    const legacyDerived = {
+      projectSummary: parsed.executiveSummary,
+      proposedSolution: parsed.projectDescription,
+      budgetSummary: parsed.budgetJustification,
+      communityImpact: parsed.outcomesAndImpact,
+    };
+
     app = await Application.create({
       organization: organizationId,
       opportunity: resolvedOppId,
@@ -616,8 +502,7 @@ const createWithAI = async ({ opportunityId, funderId, organizationId, userId, a
       contactName: org.name,
       dateStarted: new Date(),
       ...parsed,
-      communityImpact: parsed.communityImpact,
-      urgency: parsed.urgency,
+      ...legacyDerived,
     });
   } catch (err) {
     const dupCode = err.code === 11000 || err.code === 11001;
@@ -840,10 +725,15 @@ const regenerate = async (id) => {
   const app = await Application.findById(id).populate('organization').populate('opportunity').populate('funder');
   if (!app) throw new AppError('Application not found', 404);
   const parsed = await buildAIContent(app.organization, app.funder, app.opportunity);
+  const legacyDerived = {
+    projectSummary: parsed.executiveSummary,
+    proposedSolution: parsed.projectDescription,
+    budgetSummary: parsed.budgetJustification,
+    communityImpact: parsed.outcomesAndImpact,
+  };
   await Application.findByIdAndUpdate(id, {
     ...parsed,
-    communityImpact: parsed.communityImpact,
-    urgency: parsed.urgency,
+    ...legacyDerived,
   });
   return Application.findById(id).populate('organization').populate('opportunity').populate('funder');
 };
@@ -854,12 +744,15 @@ const alignToFunder = async (id) => {
   if (!app) throw new AppError('Application not found', 404);
   const funder = app.funder;
   const fallback = {
+    executiveSummary: app.executiveSummary || app.projectSummary || AI_FALLBACK_CONTENT.executiveSummary,
     problemStatement: app.problemStatement || AI_FALLBACK_CONTENT.problemStatement,
-    communityImpact: app.communityImpact || AI_FALLBACK_CONTENT.communityImpact,
-    proposedSolution: app.proposedSolution || AI_FALLBACK_CONTENT.proposedSolution,
-    measurableOutcomes: app.measurableOutcomes || AI_FALLBACK_CONTENT.measurableOutcomes,
-    urgency: app.urgency || AI_FALLBACK_CONTENT.urgency,
-    budgetSummary: app.budgetSummary || AI_FALLBACK_CONTENT.budgetSummary,
+    projectDescription: app.projectDescription || app.proposedSolution || AI_FALLBACK_CONTENT.projectDescription,
+    missionAlignment: app.missionAlignment || AI_FALLBACK_CONTENT.missionAlignment,
+    budgetJustification: app.budgetJustification || app.budgetSummary || AI_FALLBACK_CONTENT.budgetJustification,
+    organizationalCapacity: app.organizationalCapacity || AI_FALLBACK_CONTENT.organizationalCapacity,
+    outcomesAndImpact: app.outcomesAndImpact || app.communityImpact || AI_FALLBACK_CONTENT.outcomesAndImpact,
+    evaluationPlan: app.evaluationPlan || AI_FALLBACK_CONTENT.evaluationPlan,
+    sustainabilityPlan: app.sustainabilityPlan || AI_FALLBACK_CONTENT.sustainabilityPlan,
     generatedAt: new Date(),
   };
   if (!openai) { app.alignedVersion = fallback; await app.save(); return fallback; }
@@ -868,8 +761,18 @@ const alignToFunder = async (id) => {
 Funder: ${funder?.name || 'the funder'}
 Funder mission: ${funder?.missionStatement || 'public safety'}
 Funder categories: ${funder?.fundingCategories?.join(', ') || 'public safety'}
-Original sections: ${JSON.stringify({ problemStatement: app.problemStatement, communityImpact: app.communityImpact, proposedSolution: app.proposedSolution, measurableOutcomes: app.measurableOutcomes, urgency: app.urgency, budgetSummary: app.budgetSummary })}
-Return same 6 keys rewritten to match funder's voice.`;
+Original sections: ${JSON.stringify({
+  executiveSummary: app.executiveSummary || app.projectSummary,
+  problemStatement: app.problemStatement,
+  projectDescription: app.projectDescription || app.proposedSolution,
+  missionAlignment: app.missionAlignment,
+  budgetJustification: app.budgetJustification || app.budgetSummary,
+  organizationalCapacity: app.organizationalCapacity,
+  outcomesAndImpact: app.outcomesAndImpact || app.communityImpact,
+  evaluationPlan: app.evaluationPlan,
+  sustainabilityPlan: app.sustainabilityPlan,
+})}
+Return the same 9 keys rewritten to match funder's voice.`;
     const res = await openai.chat.completions.create({
       model: 'gpt-4o-mini',
       messages: [
@@ -893,7 +796,7 @@ const exportApplication = async (id) => {
   const funderName = app.funder?.name || app.opportunity?.funder || 'Unknown Funder';
   const orgName = app.organization?.name || 'Unknown Agency';
   const today = new Date().toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' });
-  return `GRANT APPLICATION\nAgency: ${orgName}\nFunder: ${funderName}\nProject: ${app.projectTitle || 'Grant Application'}\nDate: ${today}\n${'='.repeat(60)}\n\nPROBLEM STATEMENT:\n${app.problemStatement || app.projectSummary || 'Not provided'}\n\n${'='.repeat(60)}\n\nCOMMUNITY IMPACT:\n${app.communityImpact || 'Not provided'}\n\n${'='.repeat(60)}\n\nPROPOSED SOLUTION:\n${app.proposedSolution || 'Not provided'}\n\n${'='.repeat(60)}\n\nMEASURABLE OUTCOMES:\n${app.measurableOutcomes || 'Not provided'}\n\n${'='.repeat(60)}\n\nURGENCY:\n${app.urgency || 'Not provided'}\n\n${'='.repeat(60)}\n\nBUDGET SUMMARY:\n${app.budgetSummary || 'Not provided'}\n\n${'='.repeat(60)}\n\nNOTES:\n${app.notes || 'None'}\n`;
+  return `GRANT APPLICATION\nAgency: ${orgName}\nFunder: ${funderName}\nProject: ${app.projectTitle || 'Grant Application'}\nDate: ${today}\n${'='.repeat(60)}\n\nEXECUTIVE SUMMARY:\n${app.executiveSummary || app.projectSummary || 'Not provided'}\n\n${'='.repeat(60)}\n\nPROBLEM STATEMENT:\n${app.problemStatement || 'Not provided'}\n\n${'='.repeat(60)}\n\nPROJECT DESCRIPTION:\n${app.projectDescription || app.proposedSolution || 'Not provided'}\n\n${'='.repeat(60)}\n\nMISSION ALIGNMENT:\n${app.missionAlignment || 'Not provided'}\n\n${'='.repeat(60)}\n\nBUDGET JUSTIFICATION:\n${app.budgetJustification || app.budgetSummary || 'Not provided'}\n\n${'='.repeat(60)}\n\nORGANIZATIONAL CAPACITY:\n${app.organizationalCapacity || 'Not provided'}\n\n${'='.repeat(60)}\n\nOUTCOMES AND IMPACT:\n${app.outcomesAndImpact || app.communityImpact || 'Not provided'}\n\n${'='.repeat(60)}\n\nEVALUATION PLAN:\n${app.evaluationPlan || 'Not provided'}\n\n${'='.repeat(60)}\n\nSUSTAINABILITY PLAN:\n${app.sustainabilityPlan || 'Not provided'}\n\n${'='.repeat(60)}\n\nNOTES:\n${app.notes || 'None'}\n`;
 };
 
 const submit = async (id, userId) => {
@@ -933,10 +836,15 @@ const adminRegenerateAI = async (applicationId) => {
   if (!app) throw new AppError('Application not found', 404);
   if (!app.funder) throw new AppError('Application must be linked to a funder for AI generation', 400);
   const parsed = await buildAIContent(app.organization, app.funder, app.opportunity, { adminPortal: true });
+  const legacyDerived = {
+    projectSummary: parsed.executiveSummary,
+    proposedSolution: parsed.projectDescription,
+    budgetSummary: parsed.budgetJustification,
+    communityImpact: parsed.outcomesAndImpact,
+  };
   await Application.findByIdAndUpdate(applicationId, {
     ...parsed,
-    communityImpact: parsed.communityImpact,
-    urgency: parsed.urgency,
+    ...legacyDerived,
   });
   return Application.findById(applicationId).populate('organization').populate('opportunity').populate('funder');
 };

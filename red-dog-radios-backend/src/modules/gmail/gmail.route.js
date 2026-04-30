@@ -1,35 +1,27 @@
 'use strict';
 
 const express = require('express');
-const { protect, restrictTo } = require('../../middlewares/auth.middleware');
+const { protect } = require('../../middlewares/auth.middleware');
 const {
   oauthConnect,
   oauthCallback,
   oauthStatus,
   oauthDisconnect,
-  replyWebhook,
-  gmailPushWebhook,
 } = require('./gmail.controller');
 
 const router = express.Router();
 
-// OAuth connect (admin only)
-router.get('/oauth/connect', protect, restrictTo('admin'), oauthConnect);
+// OAuth connect (agency/admin; controller enforces org access)
+router.get('/oauth/connect', protect, oauthConnect);
 
 // OAuth callback (Google redirect)
 router.get('/oauth/callback', oauthCallback);
 
-// Status (admin only)
-router.get('/oauth/status/:organizationId', protect, restrictTo('admin'), oauthStatus);
+// Status (agency/admin; controller enforces org access)
+router.get('/oauth/status/:organizationId', protect, oauthStatus);
 
-// Disconnect (admin only)
-router.delete('/oauth/disconnect/:organizationId', protect, restrictTo('admin'), oauthDisconnect);
-
-// Webhook stub for inbound replies (no auth)
-router.post('/webhook/reply', replyWebhook);
-
-// Real Pub/Sub push endpoint (no auth)
-router.post('/webhook/push', gmailPushWebhook);
+// Disconnect (agency/admin; controller enforces org access)
+router.delete('/oauth/disconnect/:organizationId', protect, oauthDisconnect);
 
 module.exports = router;
 

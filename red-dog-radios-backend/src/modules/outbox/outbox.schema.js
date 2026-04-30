@@ -27,7 +27,7 @@ const outboxSchema = new mongoose.Schema(
     relatedOrganization: { type: mongoose.Schema.Types.ObjectId, ref: 'Organization' },
     relatedAgency: { type: mongoose.Schema.Types.ObjectId, ref: 'Organization' },
     relatedUser: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
-    relatedGrant: { type: mongoose.Schema.Types.ObjectId, ref: 'Grant' },
+    relatedGrant: { type: mongoose.Schema.Types.ObjectId, ref: 'Application' },
   },
   { timestamps: true }
 );

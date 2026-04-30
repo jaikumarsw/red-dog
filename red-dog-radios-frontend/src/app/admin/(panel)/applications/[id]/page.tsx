@@ -79,15 +79,32 @@ const formatMemberSince = (d?: string) => {
   }
 };
 
-const KEYS = [
-  "projectSummary",
-  "problemStatement",
-  "communityImpact",
-  "proposedSolution",
-  "measurableOutcomes",
-  "urgency",
-  "budgetSummary",
+const SECTIONS = [
+  { key: "executiveSummary", label: "Executive Summary" },
+  { key: "problemStatement", label: "Problem Statement" },
+  { key: "projectDescription", label: "Project Description" },
+  { key: "missionAlignment", label: "Mission Alignment" },
+  { key: "budgetJustification", label: "Budget Justification" },
+  { key: "organizationalCapacity", label: "Organizational Capacity" },
+  { key: "outcomesAndImpact", label: "Outcomes and Impact" },
+  { key: "evaluationPlan", label: "Evaluation Plan" },
+  { key: "sustainabilityPlan", label: "Sustainability Plan" },
 ] as const;
+
+type SectionKey = (typeof SECTIONS)[number]["key"];
+
+function sectionValue(data: Record<string, unknown>, key: SectionKey): string {
+  const v = data[key];
+  if (typeof v === "string" && v.trim()) return v;
+
+  // Backwards compatibility for legacy 8-key applications
+  if (key === "executiveSummary") return String(data.projectSummary || "—");
+  if (key === "projectDescription") return String(data.proposedSolution || "—");
+  if (key === "budgetJustification") return String(data.budgetSummary || "—");
+  if (key === "outcomesAndImpact") return String(data.communityImpact || data.measurableOutcomes || "—");
+
+  return "—";
+}
 
 type Breakdown = Record<string, number> | undefined;
 
@@ -666,14 +683,12 @@ export default function AdminApplicationDetailPage() {
         </Button>
       </div>
 
-      {KEYS.map((k) => (
-        <div key={k} className="rounded-lg border border-[#e5e7eb] bg-white p-4 shadow-sm">
-          <h2 className="mb-2 text-sm font-semibold capitalize text-[#ef3e34] [font-family:'Montserrat',Helvetica]">
-            {k === "projectSummary"
-              ? "Project Summary"
-              : k.replace(/([A-Z])/g, " $1").replace(/^./, (c) => c.toUpperCase())}
+      {SECTIONS.map((s) => (
+        <div key={s.key} className="rounded-lg border border-[#e5e7eb] bg-white p-4 shadow-sm">
+          <h2 className="mb-2 text-sm font-semibold text-[#ef3e34] [font-family:'Montserrat',Helvetica]">
+            {s.label}
           </h2>
-          <p className="whitespace-pre-wrap text-sm text-[#374151]">{String(data[k] || "—")}</p>
+          <p className="whitespace-pre-wrap text-sm text-[#374151]">{sectionValue(data, s.key)}</p>
         </div>
       ))}
 

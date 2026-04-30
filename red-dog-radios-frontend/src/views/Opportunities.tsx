@@ -8,6 +8,13 @@ import api from "@/lib/api";
 import { qk } from "@/lib/queryKeys";
 import { useToast } from "@/hooks/use-toast";
 import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import {
   AlertDialog,
   AlertDialogAction,
   AlertDialogCancel,
@@ -38,9 +45,25 @@ interface Opportunity {
   createdAt?: string;
 }
 
+type RubricScores = {
+  needScore?: number;
+  projectDesignScore?: number;
+  budgetScore?: number;
+  capacityScore?: number;
+  impactScore?: number;
+  evaluationScore?: number;
+  sustainabilityScore?: number;
+  alignmentScore?: number;
+  totalScore?: number;
+  normalizedScore?: number;
+};
+
 type ApiMatchRow = {
   _id: string;
   fitScore?: number;
+  winProbability?: number;
+  rubricScores?: RubricScores;
+  rubricTier?: "priority" | "strong" | "borderline" | "block";
   status?: string;
   state?: string;
   updatedAt?: string;
@@ -54,6 +77,9 @@ type ApiMatchRow = {
 
 type RankedOpportunity = Opportunity & {
   fitScore: number | null;
+  winProbability?: number | null;
+  rubricScores?: RubricScores | null;
+  rubricTier?: "priority" | "strong" | "borderline" | "block";
   matchId?: string;
   matchReasons: string[];
   matchStatus?: string;
@@ -104,6 +130,19 @@ const scoreColor = (n: number | null) => {
   return { border: "border-[#ef4444]", text: "text-[#ef4444]", bg: "bg-[#fff1f0]" };
 };
 
+const winBadge = (n: number | null | undefined) => {
+  if (n == null) return null;
+  if (n >= 90) return { label: "🎯 Strong Win", cls: "bg-green-100 text-green-700 border-green-200" };
+  if (n >= 70) return { label: "✓ Likely Win", cls: "bg-blue-100 text-blue-700 border-blue-200" };
+  if (n >= 50) return { label: "△ Possible", cls: "bg-yellow-100 text-yellow-700 border-yellow-200" };
+  return { label: `${n}%`, cls: "bg-gray-100 text-gray-600 border-gray-200" };
+};
+
+const barPct = (value: number | undefined, max: number) => {
+  const v = Math.max(0, Math.min(max, Number(value || 0)));
+  return Math.round((v / max) * 100);
+};
+
 const reasoningFrom = (m: ApiMatchRow) => {
   const fromLists = [...(m.fitReasons || []), ...(m.reasons || [])].filter((r) => typeof r === "string" && r.trim().length > 0);
   if (fromLists.length) return fromLists.join(" ");
@@ -126,6 +165,9 @@ function mergeRankedOpportunities(matches: ApiMatchRow[], opportunities: Opportu
       ...opp,
       _id: oid,
       fitScore: m.fitScore ?? null,
+      winProbability: m.winProbability ?? null,
+      rubricScores: m.rubricScores ?? null,
+      rubricTier: m.rubricTier,
       matchId: String(m._id),
       matchReasons: reasons,
       matchStatus: m.state ?? m.status ?? "pending",
@@ -166,6 +208,7 @@ export const Opportunities = () => {
 
   // Selected Items
   const [selectedOpp, setSelectedOpp] = useState<RankedOpportunity | null>(null);
+  const [scoreOpp, setScoreOpp] = useState<RankedOpportunity | null>(null);
   const [paywallOpen, setPaywallOpen] = useState(false);
   const [generatingFor, setGeneratingFor] = useState<string | null>(null);
 
@@ -371,6 +414,7 @@ export const Opportunities = () => {
             const urgentDeadline = days !== null && days >= 0 && days <= 14;
             const deadlineStr = fmtDate(opp.deadline);
             const sc = scoreColor(opp.fitScore);
+            const wb = winBadge(opp.winProbability ?? null);
 
             return (
               <div
@@ -389,6 +433,11 @@ export const Opportunities = () => {
                           {opp.fitScore === null ? "—" : `${opp.fitScore}`}
                         </span>
                       </div>
+                      {wb ? (
+                        <span className={cn("rounded-full border px-2 py-0.5 text-[10px] font-bold [font-family:'Montserrat',Helvetica] uppercase tracking-wide", wb.cls)}>
+                          {wb.label}
+                        </span>
+                      ) : null}
                     </div>
                     <h3 className="[font-family:'Montserrat',Helvetica] font-bold text-[#111827] text-[15px] leading-snug group-hover:text-[#ef3e34] transition-colors pt-1 line-clamp-2 pr-4">
                       {opp.title}
@@ -430,6 +479,19 @@ export const Opportunities = () => {
                     </span>
                     <ArrowRight size={14} className="transform group-hover:translate-x-1 transition-transform" />
                   </div>
+
+                  {opp.rubricScores?.totalScore != null && opp.winProbability != null ? (
+                    <button
+                      type="button"
+                      className="text-left text-[11px] font-bold uppercase tracking-wider [font-family:'Montserrat',Helvetica] text-[#6b7280] hover:text-[#ef3e34] hover:underline"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setScoreOpp(opp);
+                      }}
+                    >
+                      View Score Breakdown
+                    </button>
+                  ) : null}
 
                   <button
                     className="w-full rounded-lg bg-[#ef3e34]/10 text-[#ef3e34] border border-[#ef3e34]/20 px-4 py-2.5 text-xs font-bold [font-family:'Montserrat',Helvetica] hover:bg-[#ef3e34] hover:text-white transition-all flex items-center justify-center gap-2 disabled:opacity-50 disabled:hover:bg-[#ef3e34]/10 disabled:hover:text-[#ef3e34]"
@@ -479,6 +541,67 @@ export const Opportunities = () => {
         />
       )}
 
+      <Dialog open={!!scoreOpp} onOpenChange={(v) => !v && setScoreOpp(null)}>
+        <DialogContent className="max-w-[820px]">
+          <DialogHeader>
+            <DialogTitle>Score Breakdown</DialogTitle>
+            <DialogDescription>
+              Rubric total (out of 135) is normalized to 100 for tiering. Win Probability is derived per spec.
+            </DialogDescription>
+          </DialogHeader>
+
+          {scoreOpp ? (
+            <div className="space-y-4">
+              <div className="rounded-lg border border-[#e5e7eb] bg-[#fafafa] p-3">
+                <div className="flex flex-wrap items-center justify-between gap-2">
+                  <div className="min-w-0">
+                    <div className="text-sm font-semibold text-[#111827] line-clamp-1">{scoreOpp.title}</div>
+                    <div className="text-xs text-[#6b7280] line-clamp-1">{scoreOpp.funder}</div>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <span className="rounded-full border border-[#e5e7eb] bg-white px-2.5 py-1 text-xs font-semibold text-[#111827]">
+                      Total: {scoreOpp.rubricScores?.totalScore ?? "—"}/135 ({scoreOpp.rubricScores?.normalizedScore ?? "—"}%)
+                    </span>
+                    <span className="rounded-full border border-[#e5e7eb] bg-white px-2.5 py-1 text-xs font-semibold text-[#111827]">
+                      Win Probability: {scoreOpp.winProbability ?? "—"}%
+                    </span>
+                  </div>
+                </div>
+              </div>
+
+              {[
+                { label: "Need / Problem", key: "needScore", max: 25 },
+                { label: "Project Design", key: "projectDesignScore", max: 25 },
+                { label: "Budget Justification", key: "budgetScore", max: 15 },
+                { label: "Organizational Capacity", key: "capacityScore", max: 15 },
+                { label: "Impact / Outcomes", key: "impactScore", max: 20 },
+                { label: "Evaluation", key: "evaluationScore", max: 10 },
+                { label: "Sustainability", key: "sustainabilityScore", max: 10 },
+                { label: "Mission Alignment", key: "alignmentScore", max: 15 },
+              ].map((row) => {
+                const v = Number((scoreOpp.rubricScores as Record<string, unknown> | null)?.[row.key] || 0);
+                const pct = barPct(v, row.max);
+                return (
+                  <div key={row.key} className="grid grid-cols-[1fr_auto] gap-3 items-center">
+                    <div className="min-w-0">
+                      <div className="flex items-center justify-between gap-3">
+                        <div className="text-sm font-semibold text-[#111827]">{row.label}</div>
+                        <div className="text-sm font-semibold text-[#111827] tabular-nums">
+                          {v}/{row.max}
+                        </div>
+                      </div>
+                      <div className="mt-2 h-2 w-full rounded-full bg-[#e5e7eb] overflow-hidden">
+                        <div className="h-full bg-[#ef3e34]" style={{ width: `${pct}%` }} />
+                      </div>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          ) : null}
+        </DialogContent>
+      </Dialog>
+
       <AlertDialog open={paywallOpen} onOpenChange={setPaywallOpen}>
         <AlertDialogContent>
           <AlertDialogHeader>
@@ -525,6 +648,10 @@ const OppDetailModal = ({
   const cleanReasons = (opp.matchReasons || []).filter(r => typeof r === "string" && r.trim().length > 0 && !NEGATIVE_PATTERNS.test(r));
   const cleanAiReasoning = typeof opp.aiReasoning === "string" && opp.aiReasoning.trim().length > 0 ? opp.aiReasoning : null;
   const hasAnyAnalysis = cleanReasons.length > 0 || cleanAiReasoning;
+
+  const isPortalOnly =
+    opp.funder &&
+    /fema|doj|dhs|grants\.gov|department of justice|department of homeland security/i.test(opp.funder);
 
   return (
     <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/60 p-4 transition-opacity animate-in fade-in" onClick={onClose}>
@@ -634,6 +761,12 @@ const OppDetailModal = ({
 
         {/* Sticky Footer */}
         <div className="flex flex-col gap-4 border-t border-[#e5e7eb] p-5 bg-[#fafafa]">
+          {isPortalOnly && (
+            <div className="rounded-lg border border-yellow-200 bg-yellow-50 p-3 text-sm text-yellow-800 [font-family:'Montserrat',Helvetica]">
+              ⚠️ This funder requires submission through Grants.gov. Use the email feature for inquiries only.
+              <a href="https://www.grants.gov" target="_blank" rel="noopener noreferrer" className="ml-1 font-bold underline hover:text-yellow-900">Open Grants.gov ↗</a>
+            </div>
+          )}
           {opp.sourceUrl && opp.sourceUrl !== "#" && (
             <a
               href={opp.sourceUrl}

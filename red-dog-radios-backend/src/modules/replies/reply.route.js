@@ -1,30 +1,15 @@
-'use strict';
-
 const express = require('express');
-const { protect, restrictTo } = require('../../middlewares/auth.middleware');
-const {
-  adminGetAll,
-  adminGetOne,
-  adminMarkRead,
-  myReplies,
-  myUnreadCount,
-  myMarkRead,
-  myCountByOutbox,
-  myThreadByOutbox,
-} = require('./reply.controller');
-
 const router = express.Router();
+const { protect } = require('../../middlewares/auth.middleware');
+const { restrictTo } = require('../../middlewares/auth.middleware');
+const ctrl = require('./reply.controller');
 
-// Admin inbox
-router.get('/', protect, restrictTo('admin'), adminGetAll);
-router.get('/:id', protect, restrictTo('admin'), adminGetOne);
-router.patch('/:id/read', protect, restrictTo('admin'), adminMarkRead);
-
-// Agency user inbox
-router.get('/count-by-outbox', protect, myCountByOutbox);
-router.get('/by-outbox/:outboxId', protect, myThreadByOutbox);
-router.get('/my', protect, myReplies);
-router.get('/my/unread-count', protect, myUnreadCount);
-router.patch('/:id/read', protect, myMarkRead);
+// All admin-only — agency does NOT have an inbox in our app, 
+// they read replies in their own Gmail
+router.get('/', protect, restrictTo('admin'), ctrl.adminListReplies);
+router.get('/communications', protect, restrictTo('admin'), ctrl.adminCommunications);
+router.post('/poll-now', protect, restrictTo('admin'), ctrl.triggerPoll);
+router.get('/by-outbox/:outboxId', protect, restrictTo('admin'), ctrl.adminRepliesByOutbox);
+router.get('/:id', protect, restrictTo('admin'), ctrl.adminGetReply);
 
 module.exports = router;

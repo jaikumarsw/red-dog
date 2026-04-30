@@ -9,12 +9,28 @@ const callOpenAI = async (prompt, parseJson = false) => {
     logger.info('[STUB] OpenAI not configured — returning stub response');
     return null;
   }
-  const response = await openai.chat.completions.create({
-    model: 'gpt-4o-mini',
-    messages: [{ role: 'user', content: prompt }],
-    max_tokens: 800,
-  });
-  const text = response.choices[0]?.message?.content?.trim() || '';
+  let text = '';
+  try {
+    const response = await openai.chat.completions.create({
+      model: 'gpt-4o-mini',
+      messages: [{ role: 'user', content: prompt }],
+      max_tokens: 800,
+    });
+    text = response.choices[0]?.message?.content?.trim() || '';
+  } catch (err) {
+    const e = err || {};
+    const status = e.status || e.statusCode || e.response?.status;
+    const code = e.code || e.error?.code || e.response?.data?.error?.code;
+    const message = e.message || e.response?.data?.error?.message || '';
+
+    // OpenAI quota / rate-limit should not surface as a 500.
+    if (status === 429 || code === 'insufficient_quota') {
+      throw new AppError('AI service temporarily unavailable. Please try again later.', 503);
+    }
+
+    logger.error('[OpenAI] request failed:', message || String(err));
+    throw err;
+  }
   if (parseJson) {
     try {
       const cleaned = text.replace(/^```json?\n?/, '').replace(/\n?```$/, '').trim();

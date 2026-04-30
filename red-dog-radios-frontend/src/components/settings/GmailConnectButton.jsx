@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import adminApi from "@/lib/adminApi";
+import api from "@/lib/api";
 import { useToast } from "@/hooks/use-toast";
 import { Button } from "@/components/ui/button";
 import {
@@ -35,7 +35,7 @@ export default function GmailConnectButton({ organizationId }) {
   } = useQuery({
     queryKey: statusKey,
     queryFn: async () => {
-      const res = await adminApi.get(`gmail/oauth/status/${organizationId}`);
+      const res = await api.get(`gmail/oauth/status/${organizationId}`);
       return res.data.data;
     },
     enabled: !!organizationId,
@@ -44,7 +44,7 @@ export default function GmailConnectButton({ organizationId }) {
 
   const connectMutation = useMutation({
     mutationFn: async () => {
-      const res = await adminApi.get("gmail/oauth/connect", {
+      const res = await api.get("gmail/oauth/connect", {
         params: { organizationId },
       });
       return res.data.data;
@@ -65,14 +65,14 @@ export default function GmailConnectButton({ organizationId }) {
     onError: (err) => {
       const msg =
         err?.response?.data?.message ||
-        "Could not start Gmail connection. Make sure you are logged in as admin.";
+        "Could not start Gmail connection. Please try again.";
       toast({ title: "Error", description: msg, variant: "destructive" });
     },
   });
 
   const disconnectMutation = useMutation({
     mutationFn: async () => {
-      await adminApi.delete(`gmail/oauth/disconnect/${organizationId}`);
+      await api.delete(`gmail/oauth/disconnect/${organizationId}`);
     },
     onSuccess: async () => {
       toast({ title: "Gmail disconnected" });
@@ -83,7 +83,7 @@ export default function GmailConnectButton({ organizationId }) {
     onError: (err) => {
       const msg =
         err?.response?.data?.message ||
-        "Disconnect failed. Make sure you are logged in as admin.";
+        "Disconnect failed. Please try again.";
       toast({ title: "Error", description: msg, variant: "destructive" });
       setConfirmOpen(false);
     },
