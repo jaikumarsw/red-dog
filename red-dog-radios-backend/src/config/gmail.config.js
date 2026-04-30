@@ -19,14 +19,14 @@ const assertConfigured = () => {
   }
 };
 
-const getAuthUrl = (organizationId) => {
+const getAuthUrl = (organizationId, source) => {
   try {
     assertConfigured();
     return oauth2Client.generateAuthUrl({
       access_type: 'offline',
       prompt: 'consent',
       scope: ['https://www.googleapis.com/auth/gmail.send', 'https://www.googleapis.com/auth/gmail.readonly'],
-      state: String(organizationId),
+      state: source ? `${organizationId}|${source}` : String(organizationId),
     });
   } catch (err) {
     logger.error('[GmailOAuth] getAuthUrl failed:', err.message);

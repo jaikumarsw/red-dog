@@ -150,7 +150,7 @@ export const OnboardingStep1 = () => {
               {...register("organizationName", {
                 onChange: (e) => setCharCount(e.target.value.length),
               })}
-              placeholder="e.g. Jamshoro Fire Department"
+              placeholder="e.g. Austin Fire Department"
               className={inputCls(!!errors.organizationName)}
             />
             <span className="absolute right-3 top-1/2 -translate-y-1/2 text-xs text-[#9ca3af]">

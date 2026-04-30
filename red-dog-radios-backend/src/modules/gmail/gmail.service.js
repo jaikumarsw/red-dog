@@ -5,12 +5,12 @@ const logger = require('../../utils/logger');
 const { AppError } = require('../../middlewares/error.middleware');
 const { getAuthUrl, exchangeCodeForTokens } = require('../../config/gmail.config');
 
-const getConnectUrl = async (organizationId) => {
+const getConnectUrl = async (organizationId, source) => {
   try {
     if (!organizationId) throw new AppError('organizationId is required', 400);
     const org = await Organization.findById(organizationId).select('_id');
     if (!org) throw new AppError('Organization not found', 404);
-    return getAuthUrl(organizationId);
+    return getAuthUrl(organizationId, source);
   } catch (err) {
     logger.error('[GmailService] getConnectUrl failed:', err.message);
     throw err;

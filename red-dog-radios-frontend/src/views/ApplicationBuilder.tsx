@@ -392,6 +392,12 @@ export const ApplicationBuilder = () => {
     return oid || "";
   }, [app?.opportunity]);
 
+  const isFederalFunder = useMemo(() => {
+    const FEDERAL_FUNDERS = ['FEMA', 'DHS', 'DOJ', 'COPS Office'];
+    const fn = app?.funder?.name || app?.opportunity?.funder || "";
+    return FEDERAL_FUNDERS.some(name => fn.toUpperCase().includes(name.toUpperCase()));
+  }, [app?.funder?.name, app?.opportunity?.funder]);
+
   const grantEmailHistory = useQuery<GrantOutbox[]>({
     queryKey: ["outbox", "grant", id],
     queryFn: async () => {
@@ -401,6 +407,16 @@ export const ApplicationBuilder = () => {
     enabled: !!id,
     retry: false,
   });
+
+  const { data: gmailStatus } = useQuery({
+    queryKey: ["gmail", "self-status"],
+    queryFn: async () => {
+      const r = await api.get("gmail/oauth/status-self");
+      return r.data.data as { isConnected: boolean; senderEmail: string | null };
+    },
+  });
+
+  const gmailConnected = gmailStatus?.isConnected;
 
   const generateEmailMutation = useMutation({
     mutationFn: async () => {
@@ -975,10 +991,6 @@ export const ApplicationBuilder = () => {
                 <h2 className="[font-family:'Oswald',Helvetica] font-bold text-black text-xl tracking-[0.5px] uppercase">
                   Generate Outreach Email
                 </h2>
-                <p className="mt-1 text-xs text-[#6b7280] [font-family:'Montserrat',Helvetica]">
-                  This will queue an email in your Outbox and link it to this application. <br />
-                  This emails the funder. Use for inquiries and follow-ups. Federal grants like FEMA AFG must be submitted through Grants.gov.
-                </p>
               </div>
               <button
                 onClick={() => setComposeOpen(false)}
@@ -988,7 +1000,82 @@ export const ApplicationBuilder = () => {
               </button>
             </div>
 
-            <div className="p-6 space-y-3">
+            <div className="p-6 space-y-3 max-h-[70vh] overflow-y-auto">
+              <p className="text-sm text-[#6b7280] mb-3">
+                This will queue an email in your Outbox and link it to this application.
+              </p>
+
+              <div className="bg-amber-50 border border-amber-200 rounded-lg p-3 mb-4">
+                <div className="flex items-start gap-2">
+                  <span className="text-amber-600 text-base">⚠️</span>
+                  <div className="text-sm">
+                    <p className="font-bold text-amber-900 mb-1">
+                      For inquiries and follow-ups only
+                    </p>
+                    <p className="text-amber-800">
+                      Federal grants like FEMA, DHS, DOJ, and COPS Office 
+                      require submission through{" "}
+                      <a 
+                        href="https://www.grants.gov" 
+                        target="_blank" 
+                        rel="noopener noreferrer"
+                        className="underline font-medium"
+                      >
+                        Grants.gov
+                      </a>. 
+                      This email feature is for asking funder questions, 
+                      following up after submission, or contacting small 
+                      foundations that accept email applications.
+                    </p>
+                  </div>
+                </div>
+              </div>
+
+              {isFederalFunder && (
+                <div className="bg-red-50 border-2 border-red-300 rounded-lg p-3 mb-4">
+                  <p className="font-bold text-red-900">
+                    🚨 This is a federal grant
+                  </p>
+                  <p className="text-sm text-red-800 mt-1">
+                    Sending an email here does NOT submit your application. 
+                    You must submit through the funder&apos;s official portal. 
+                    Use this only for asking the funder questions.
+                  </p>
+                </div>
+              )}
+
+              {!gmailConnected && (
+                <div className="bg-blue-50 border border-blue-200 rounded-lg p-3 mb-4">
+                  <div className="flex items-start gap-2">
+                    <Mail size={16} className="text-blue-600 mt-0.5" />
+                    <div className="text-sm">
+                      <p className="font-medium text-blue-900 mb-1">
+                        Gmail not connected
+                      </p>
+                      <p className="text-blue-800 mb-2">
+                        This email will be sent from a Red Dog Grant Intelligence 
+                        system address with your contact info in the body. 
+                        Connect your Gmail to send from your own address instead.
+                      </p>
+                      <button
+                        className="text-blue-700 font-semibold underline"
+                        onClick={() => router.push("/settings/agency")}
+                      >
+                        Connect Gmail in Settings
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {gmailConnected && (
+                <div className="bg-emerald-50 border border-emerald-200 rounded-lg p-3 mb-4">
+                  <p className="text-sm text-emerald-900">
+                    ✓ This will send from <strong>{gmailStatus?.senderEmail}</strong>
+                  </p>
+                </div>
+              )}
+
               {!opportunityId ? (
                 <div className="rounded-xl border border-[#fee2e2] bg-[#fff1f2] p-4">
                   <p className="[font-family:'Montserrat',Helvetica] text-sm font-semibold text-[#991b1b]">
@@ -1000,7 +1087,7 @@ export const ApplicationBuilder = () => {
                 </div>
               ) : null}
 
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-2">
                 <div className="flex flex-col gap-1">
                   <label className="text-xs font-semibold text-[#374151] [font-family:'Montserrat',Helvetica]">Contact email</label>
                   <input

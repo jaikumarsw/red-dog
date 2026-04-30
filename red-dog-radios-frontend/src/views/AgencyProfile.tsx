@@ -9,6 +9,8 @@ import { qk } from "@/lib/queryKeys";
 import { SettingsSectionCard } from "@/components/settings/SettingsPrimitives";
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/hooks/use-toast";
+import { useSearchParams } from "next/navigation";
+import AgencyGmailConnect from "@/components/AgencyGmailConnect";
 
 // ── Constants ──────────────────────────────────────────────────────────────
 
@@ -132,6 +134,18 @@ const helperCls =
 export function AgencyProfile() {
   const qc = useQueryClient();
   const { toast } = useToast();
+  const searchParams = useSearchParams();
+
+  useEffect(() => {
+    if (searchParams.get("gmail") === "connected") {
+      toast({ 
+        title: "Gmail connected ✓",
+        description: "Your funder emails will now send from your Gmail." 
+      });
+      // Replace URL without query param
+      window.history.replaceState(null, "", "/settings/agency");
+    }
+  }, [searchParams, toast]);
 
   const {
     data: settings,
@@ -342,6 +356,18 @@ export function AgencyProfile() {
 
       {!isSettingsLoading && !isSettingsError && org && (
         <div className="flex flex-col gap-6">
+
+          {/* ── Email Sending ── */}
+          <div className="mb-2">
+            <h2 className="text-xl font-bold text-[#111827] mb-2 [font-family:'Montserrat',Helvetica]">
+              Email Sending
+            </h2>
+            <p className="text-sm text-[#6b7280] mb-4">
+              Connect your Gmail to send funder outreach from your address. 
+              Replies land in your Gmail inbox normally.
+            </p>
+            <AgencyGmailConnect variant="card" source="settings" />
+          </div>
 
           {/* ── Overview ── */}
           <SettingsSectionCard

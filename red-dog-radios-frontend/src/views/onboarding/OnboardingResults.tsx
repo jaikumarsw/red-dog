@@ -1,10 +1,12 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { RedDogLogo } from "@/components/RedDogLogo";
 import { ArrowRight, CheckCircle, Target, Sparkles } from "lucide-react";
 import { useAuth } from "@/lib/AuthContext";
+import { useToast } from "@/hooks/use-toast";
+import AgencyGmailConnect from "@/components/AgencyGmailConnect";
 
 interface Match {
   fitScore: number;
@@ -27,9 +29,21 @@ type OnboardingResultsPayload = {
 
 export const OnboardingResults = () => {
   const router = useRouter();
+  const searchParams = useSearchParams();
+  const { toast } = useToast();
   const { user, updateUser } = useAuth();
   const [data, setData] = useState<OnboardingResultsPayload | null>(null);
   const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    if (searchParams.get("gmail") === "connected") {
+      toast({ 
+        title: "Gmail connected ✓",
+        description: "You can now send emails to funders from your address." 
+      });
+      router.replace("/onboarding/results");
+    }
+  }, [searchParams, router, toast]);
 
   useEffect(() => {
     if (typeof window === "undefined") return;
@@ -47,18 +61,14 @@ export const OnboardingResults = () => {
       sessionStorage.removeItem("rdg_onboarding_step4");
 
       // ── CRITICAL: flip rdg_onboarding cookie to "1" ──────────────────────
-      // The Next.js middleware blocks /dashboard and /matches while the
-      // rdg_onboarding cookie is "0". updateUser writes onboardingCompleted
-      // into both localStorage and the cookie so the guard passes immediately.
       if (user) {
         updateUser({ ...user, onboardingCompleted: true });
       } else {
-        // Fallback: set cookie directly when user object isn't hydrated yet
         document.cookie = "rdg_onboarding=1; path=/; max-age=604800";
       }
     } catch {}
     setLoading(false);
-  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [user, updateUser]); // eslint-disable-line react-hooks/exhaustive-deps
 
 
   if (loading) return <div className="min-h-screen bg-white" />;
@@ -104,6 +114,20 @@ export const OnboardingResults = () => {
               {buildParagraph()}
             </p>
           </div>
+        </div>
+
+        <div className="w-full mb-2">
+          <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-3">
+            <h4 className="font-bold text-blue-900 mb-1">
+              📬 Optional: Connect your email
+            </h4>
+            <p className="text-sm text-blue-800">
+              Once connected, you can send funder outreach directly from 
+              your Gmail. Replies come back to your inbox normally. You can 
+              skip this and connect later from Settings.
+            </p>
+          </div>
+          <AgencyGmailConnect variant="card" source="onboarding" />
         </div>
 
         {matches.length > 0 ? (
