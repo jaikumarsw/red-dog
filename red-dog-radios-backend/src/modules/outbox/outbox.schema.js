@@ -9,6 +9,7 @@ const outboxSchema = new mongoose.Schema(
     htmlBody: { type: String, required: true },
     replyTo: { type: String }, // grant-{id}@reddogradios.com alias
     senderEmail: { type: String }, // which gmail account sent this
+    senderName: { type: String },  // display name for SMTP From header
     sentViaGmail: { type: Boolean, default: false },
     emailType: {
       type: String,

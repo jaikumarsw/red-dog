@@ -169,6 +169,22 @@ export const Outbox = () => {
     },
   });
 
+  const sendNowMutation = useMutation({
+    mutationFn: (id: string) => api.post(`/outbox/${id}/send`),
+    onSuccess: (_data, id) => {
+      queryClient.setQueryData<Email[]>(qk.outbox(), (prev = []) =>
+        prev.map((e) => e.id === id ? { ...e, status: "sent", sentAt: fmtDate(new Date().toISOString()) } : e)
+      );
+      toast({ title: "Email sent" });
+    },
+    onError: (err: unknown) => {
+      const msg =
+        (err as { response?: { data?: { message?: string } } })?.response?.data?.message ??
+        "Failed to send email.";
+      toast({ title: "Send failed", description: msg, variant: "destructive" });
+    },
+  });
+
   const pending = emails.filter((e) => e.status === "pending").length;
   const sent = emails.filter((e) => e.status === "sent").length;
   const failed = emails.filter((e) => e.status === "failed").length;
@@ -250,6 +266,20 @@ export const Outbox = () => {
                         >
                           <RefreshCw size={12} className={retryMutation.isPending && retryMutation.variables === email.id ? "animate-spin" : ""} />
                           Retry
+                        </button>
+                      )}
+                      {(email.status === "pending" || email.status === "queued") && (
+                        <button
+                          onClick={() => sendNowMutation.mutate(email.id)}
+                          disabled={sendNowMutation.isPending && sendNowMutation.variables === email.id}
+                          className="flex items-center gap-1 h-8 px-3 rounded-lg border border-[#e5e7eb] bg-white hover:bg-[#f3f4f6] [font-family:'Montserrat',Helvetica] font-medium text-xs text-[#374151] transition-colors disabled:opacity-50"
+                        >
+                          {sendNowMutation.isPending && sendNowMutation.variables === email.id ? (
+                            <RefreshCw size={12} className="animate-spin" />
+                          ) : (
+                            <Zap size={12} className="text-[#f59e0b]" />
+                          )}
+                          Send Now
                         </button>
                       )}
                       <button

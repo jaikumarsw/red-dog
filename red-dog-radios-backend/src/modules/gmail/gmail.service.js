@@ -1,9 +1,10 @@
 'use strict';
 
+const { google } = require('googleapis');
 const Organization = require('../organizations/organization.schema');
 const logger = require('../../utils/logger');
 const { AppError } = require('../../middlewares/error.middleware');
-const { getAuthUrl, exchangeCodeForTokens } = require('../../config/gmail.config');
+const { getAuthUrl, exchangeCodeForTokens, oauth2Client } = require('../../config/gmail.config');
 
 const getConnectUrl = async (organizationId, source) => {
   try {
@@ -28,6 +29,17 @@ const handleOAuthCallback = async ({ organizationId, code }) => {
     const tokens = await exchangeCodeForTokens(code);
     if (!tokens?.access_token) throw new AppError('Google did not return an access token', 502);
 
+    // After getting tokens and setting credentials:
+    oauth2Client.setCredentials({
+      access_token: tokens.access_token,
+      refresh_token: tokens.refresh_token,
+    });
+
+    // Fetch actual Gmail address
+    const oauth2Api = google.oauth2({ version: 'v2', auth: oauth2Client });
+    const userInfoResponse = await oauth2Api.userinfo.get();
+    const senderEmail = userInfoResponse.data.email;
+
     // NOTE: refresh_token may be undefined if the user previously consented.
     const refreshToken = tokens.refresh_token || org?.gmailOAuth?.refreshToken;
     if (!refreshToken) {
@@ -36,8 +48,6 @@ const handleOAuthCallback = async ({ organizationId, code }) => {
         502
       );
     }
-
-    const senderEmail = org?.gmailOAuth?.senderEmail || org?.email || undefined;
 
     org.gmailOAuth = {
       accessToken: tokens.access_token,

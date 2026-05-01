@@ -83,6 +83,7 @@ const queueEmail = async ({
   emailType,
   isTest,
   emailKey,
+  senderName,
   relatedOrganization,
   relatedAgency,
   relatedUser,
@@ -107,6 +108,7 @@ const queueEmail = async ({
       emailType: emailType || 'manual',
       isTest: isTest || false,
       emailKey,
+      senderName: senderName || undefined,
       relatedOrganization,
       relatedAgency,
       relatedUser,
@@ -137,6 +139,7 @@ const sendEmail = async (outboxId) => {
       subject: record.subject,
       html: record.htmlBody,
       replyTo: record.replyTo,
+      senderName: record.senderName || undefined,
       organizationId: record.relatedAgency || undefined,
     });
 

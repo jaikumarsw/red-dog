@@ -16,6 +16,10 @@ const opportunitySchema = new mongoose.Schema(
     equipmentTags: [{ type: String }],
     localMatchRequired: { type: Boolean, default: false },
     status: { type: String, enum: ['open', 'closing', 'closed'], default: 'open' },
+    contactEmail:   { type: String, default: null },
+    contactName:    { type: String, default: null },
+    contactPhone:   { type: String, default: null },
+    applicationUrl: { type: String, default: null },
     /** 0 = unlimited applications for this opportunity */
     maxApplicationsAllowed: { type: Number, default: 0 },
     currentApplicationCount: { type: Number, default: 0 },

@@ -29,7 +29,7 @@ const initTransporter = () => {
   return transporter;
 };
 
-const sendViaSmtp = async ({ to, subject, html, text, replyTo }) => {
+const sendViaSmtp = async ({ to, subject, html, text, replyTo, senderName }) => {
   try {
     console.log('[Email] Sending to:', to, '| Subject:', subject);
 
@@ -51,8 +51,12 @@ const sendViaSmtp = async ({ to, subject, html, text, replyTo }) => {
       console.log('[Email] DEV redirect:', originalTo, '→', devRedirect);
     }
 
+    // Use the sender's name if provided, otherwise fall back to a neutral brand name.
+    const displayName = (senderName || '').trim() || 'Red Dog Grant Intelligence';
+    const fromAddress = process.env.SMTP_FROM || process.env.SMTP_USER;
+
     const info = await transport.sendMail({
-      from: '"Red Dog Radios" <' + (process.env.SMTP_FROM || process.env.SMTP_USER) + '>',
+      from: `"${displayName}" <${fromAddress}>`,
       to: actualTo,
       subject: finalSubject,
       replyTo: replyTo || undefined,
@@ -72,14 +76,14 @@ const sendViaSmtp = async ({ to, subject, html, text, replyTo }) => {
  * - If organizationId is provided and org has Gmail OAuth connected → send via Gmail API (OAuth2)
  * - Otherwise → fallback to SMTP (nodemailer)
  */
-const sendEmail = async ({ to, subject, html, text, replyTo, organizationId }) => {
+const sendEmail = async ({ to, subject, html, text, replyTo, senderName, organizationId }) => {
   try {
     if (organizationId) {
       try {
         const org = await Organization.findById(organizationId).select('gmailOAuth email name');
-        if (org?.gmailOAuth?.isConnected) {
+        if (org?.gmailOAuth?.isConnected && org?.gmailOAuth?.senderEmail) {
+          const senderEmail = org.gmailOAuth.senderEmail;
           const accessToken = await getValidAccessToken(org);
-          const senderEmail = org?.gmailOAuth?.senderEmail || org?.email;
           const result = await sendViaGmail({
             accessToken,
             senderEmail,
@@ -95,7 +99,7 @@ const sendEmail = async ({ to, subject, html, text, replyTo, organizationId }) =
       }
     }
 
-    return await sendViaSmtp({ to, subject, html, text, replyTo });
+    return await sendViaSmtp({ to, subject, html, text, replyTo, senderName });
   } catch (err) {
     logger.error('[EmailProvider] sendEmail failed:', err.message);
     return { success: false, error: err.message, sentViaGmail: false };

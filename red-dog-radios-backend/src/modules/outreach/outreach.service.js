@@ -213,6 +213,7 @@ const send = async (id) => {
     to: recipient,
     subject: record.subject || 'Grant Outreach',
     html: htmlBody,
+    organizationId: record.organization._id,
   });
 
   if (result.success || result.stub) {

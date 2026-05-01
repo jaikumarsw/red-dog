@@ -16,7 +16,8 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
-import { ArrowLeft, Download, RefreshCw, CheckCircle, Columns2, FileText, AlertTriangle, Mail, Phone, Users, Settings, X } from "lucide-react";
+import { ArrowLeft, Download, RefreshCw, CheckCircle, Columns2, FileText, AlertTriangle, Mail, Phone, Users, Settings, X, ExternalLink } from "lucide-react";
+import { useAuth } from "@/lib/AuthContext";
 import { cn } from "@/lib/utils";
 import { formatDistanceToNow } from "date-fns";
 
@@ -54,7 +55,17 @@ interface Application {
   notes?: string;
   dateSubmitted?: string;
   funder?: { _id: string; name: string; avgGrantMax?: number; deadline?: string };
-  opportunity?: { _id?: string; title: string; funder: string; maxAmount?: number; deadline?: string };
+  opportunity?: {
+    _id?: string;
+    title: string;
+    funder: string;
+    maxAmount?: number;
+    deadline?: string;
+    contactEmail?: string | null;
+    contactName?: string | null;
+    contactPhone?: string | null;
+    applicationUrl?: string | null;
+  };
   organization?: { name: string };
 }
 
@@ -229,6 +240,7 @@ export const ApplicationBuilder = () => {
   const searchParams = useSearchParams();
   const { toast } = useToast();
   const queryClient = useQueryClient();
+  const { user } = useAuth();
   const [isEditing, setIsEditing] = useState(false);
   const [viewMode, setViewMode] = useState<ViewMode>("original");
   const [form, setForm] = useState<Partial<Application>>({});
@@ -252,6 +264,17 @@ export const ApplicationBuilder = () => {
     },
     enabled: !!id,
   });
+
+  // Fetch org name from settings (same pattern as Settings.tsx)
+  const { data: settingsData } = useQuery<{ organizationId?: { name?: string } | null }>({
+    queryKey: qk.settings(),
+    queryFn: async () => {
+      const res = await api.get("/settings");
+      return res.data.data;
+    },
+  });
+
+  const orgName = settingsData?.organizationId?.name ?? "";
 
   useEffect(() => {
     if (app) {
@@ -690,7 +713,17 @@ export const ApplicationBuilder = () => {
               </p>
             </div>
             <button
-              onClick={() => setComposeOpen(true)}
+              onClick={() => {
+                const opp = app?.opportunity;
+                const senderFull = user?.firstName
+                  ? `${user.firstName} ${user.lastName ?? ''}`.trim()
+                  : user?.fullName ?? '';
+                setComposeContactEmail(opp?.contactEmail || '');
+                setComposeContactName(opp?.contactName || '');
+                setComposeSenderName(senderFull);
+                setComposeSenderCompany(orgName);
+                setComposeOpen(true);
+              }}
               className="rounded-lg bg-[#ef3e34] px-4 py-2 text-sm font-bold text-white [font-family:'Montserrat',Helvetica] hover:bg-[#d63029] disabled:opacity-60"
               disabled={generateEmailMutation.isPending}
             >
@@ -726,7 +759,17 @@ export const ApplicationBuilder = () => {
                 Generate an outreach email to start the conversation.
               </p>
               <button
-                onClick={() => setComposeOpen(true)}
+                onClick={() => {
+                  const opp = app?.opportunity;
+                  const senderFull = user?.firstName
+                    ? `${user.firstName} ${user.lastName ?? ''}`.trim()
+                    : user?.fullName ?? '';
+                  setComposeContactEmail(opp?.contactEmail || '');
+                  setComposeContactName(opp?.contactName || '');
+                  setComposeSenderName(senderFull);
+                  setComposeSenderCompany(orgName);
+                  setComposeOpen(true);
+                }}
                 className="mt-4 rounded-lg bg-[#ef3e34] px-4 py-2 text-sm font-bold text-white [font-family:'Montserrat',Helvetica] hover:bg-[#d63029]"
               >
                 Generate Outreach Email
@@ -1089,13 +1132,22 @@ export const ApplicationBuilder = () => {
 
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-2">
                 <div className="flex flex-col gap-1">
-                  <label className="text-xs font-semibold text-[#374151] [font-family:'Montserrat',Helvetica]">Contact email</label>
+                  <label className="text-xs font-semibold text-[#374151] [font-family:'Montserrat',Helvetica]">Contact email *</label>
                   <input
                     value={composeContactEmail}
                     onChange={(e) => setComposeContactEmail(e.target.value)}
-                    placeholder="funder@example.com"
+                    placeholder={
+                      app?.opportunity?.contactEmail
+                        ? ''
+                        : 'No email on file — check funder website'
+                    }
                     className="h-10 rounded-lg border border-[#e5e7eb] px-3 text-sm [font-family:'Montserrat',Helvetica] focus:border-[#ef3e34] focus:outline-none"
                   />
+                  {!app?.opportunity?.contactEmail && (
+                    <p className="text-xs text-amber-700 [font-family:'Montserrat',Helvetica] mt-0.5">
+                      ⚠️ No contact email on file for this opportunity. Check the funder&apos;s website for the program officer&apos;s email.
+                    </p>
+                  )}
                 </div>
                 <div className="flex flex-col gap-1">
                   <label className="text-xs font-semibold text-[#374151] [font-family:'Montserrat',Helvetica]">Contact name (optional)</label>
@@ -1127,20 +1179,33 @@ export const ApplicationBuilder = () => {
               </div>
             </div>
 
-            <div className="px-6 pb-6 flex items-center justify-end gap-2">
-              <button
-                onClick={() => setComposeOpen(false)}
-                className="rounded-lg border border-[#e5e7eb] bg-white px-4 py-2 text-sm font-semibold [font-family:'Montserrat',Helvetica] text-[#374151] hover:bg-[#f9fafb]"
-              >
-                Cancel
-              </button>
-              <button
-                onClick={() => generateEmailMutation.mutate()}
-                disabled={generateEmailMutation.isPending || !composeContactEmail.trim() || !opportunityId}
-                className="rounded-lg bg-[#ef3e34] px-4 py-2 text-sm font-bold text-white [font-family:'Montserrat',Helvetica] hover:bg-[#d63029] disabled:opacity-60"
-              >
-                {generateEmailMutation.isPending ? "Generating…" : "Generate & Queue"}
-              </button>
+            <div className="px-6 pb-6 flex flex-col gap-3">
+              {app?.opportunity?.applicationUrl && (
+                <a
+                  href={app.opportunity.applicationUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="inline-flex items-center gap-2 rounded-lg border border-blue-200 bg-blue-50 px-4 py-2 text-sm font-semibold text-blue-700 [font-family:'Montserrat',Helvetica] hover:bg-blue-100 transition-colors"
+                >
+                  <ExternalLink size={14} />
+                  Apply on Official Portal ↗
+                </a>
+              )}
+              <div className="flex items-center justify-end gap-2">
+                <button
+                  onClick={() => setComposeOpen(false)}
+                  className="rounded-lg border border-[#e5e7eb] bg-white px-4 py-2 text-sm font-semibold [font-family:'Montserrat',Helvetica] text-[#374151] hover:bg-[#f9fafb]"
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={() => generateEmailMutation.mutate()}
+                  disabled={generateEmailMutation.isPending || !composeContactEmail.trim() || !opportunityId}
+                  className="rounded-lg bg-[#ef3e34] px-4 py-2 text-sm font-bold text-white [font-family:'Montserrat',Helvetica] hover:bg-[#d63029] disabled:opacity-60"
+                >
+                  {generateEmailMutation.isPending ? "Generating…" : "Generate & Queue"}
+                </button>
+              </div>
             </div>
           </div>
         </div>
