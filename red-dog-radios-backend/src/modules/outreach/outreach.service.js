@@ -149,7 +149,7 @@ const getAll = async ({ page = 1, limit = 20, userId, organizationId } = {}) => 
     sort: { createdAt: -1 },
     populate: [
       { path: 'funder', select: 'name contactName contactEmail' },
-      { path: 'opportunity', select: 'title funder' },
+      { path: 'opportunity', select: 'title funder contactEmail contactName' },
       { path: 'organization', select: 'name' },
     ],
   });
@@ -158,7 +158,7 @@ const getAll = async ({ page = 1, limit = 20, userId, organizationId } = {}) => 
 const getOne = async (id) => {
   const record = await Outreach.findById(id)
     .populate('funder', 'name contactName contactEmail')
-    .populate('opportunity', 'title funder')
+    .populate('opportunity', 'title funder contactEmail contactName')
     .populate('organization', 'name');
   if (!record) throw new AppError('Outreach email not found', 404);
   return record;
@@ -183,13 +183,14 @@ const markSent = async (id) => {
 const send = async (id) => {
   const record = await Outreach.findById(id)
     .populate('funder', 'contactEmail contactName name')
+    .populate('opportunity', 'contactEmail contactName title funder')
     .populate('organization', 'name');
 
   if (!record) throw new AppError('Outreach record not found', 404);
 
-  const recipient = record.funder?.contactEmail;
+  const recipient = record.funder?.contactEmail || record.opportunity?.contactEmail;
   if (!recipient) {
-    throw new AppError('Funder does not have a contact email on file', 400);
+    throw new AppError('No contact email on file for this funder or opportunity', 400);
   }
 
   // Final cleanup of placeholders just in case

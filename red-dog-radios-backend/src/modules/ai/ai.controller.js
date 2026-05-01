@@ -14,15 +14,28 @@ const generateSummary = asyncHandler(async (req, res) => {
 const generateEmail = asyncHandler(async (req, res) => {
   const organizationId = await resolveAgencyOrganizationId(req.user);
   if (!organizationId) throw new AppError('No organization linked to your account', 400);
-  const { opportunityId, contactName, contactEmail, senderName, senderCompany, grantId } = req.body;
+  const { opportunityId, contactName, contactEmail, grantId } = req.body;
   if (!contactEmail) throw new AppError('contactEmail is required', 400);
+
+  const Organization = require('../organizations/organization.schema');
+  const org = await Organization.findById(organizationId).lean();
+  if (!org) throw new AppError('Organization not found', 404);
+
+  // Pull sender info silently from agency profile (Organization) and User
+  const resolvedSenderName = org.contact_name || req.user.fullName || req.user.firstName + ' ' + (req.user.lastName || '');
+  const resolvedSenderCompany = org.organisation_name || org.name;
+
   const result = await aiService.generateOutreachEmail(
     opportunityId,
     organizationId,
     contactName,
-    senderName,
-    senderCompany
+    resolvedSenderName,
+    resolvedSenderCompany,
+    grantId
   );
+
+  const sigName    = (resolvedSenderName    || '').trim();
+  const sigCompany = (resolvedSenderCompany || '').trim();
 
   // Strip [DATA NEEDED] placeholders and excessive blank lines from the AI body.
   const cleanedBody = String(result.body || '')
@@ -30,9 +43,6 @@ const generateEmail = asyncHandler(async (req, res) => {
     .replace(/\n{3,}/g, '\n\n')
     .trim();
 
-  // Build a properly formatted HTML signature block so fields never run together.
-  const sigName    = (senderName    || '').trim();
-  const sigCompany = (senderCompany || '').trim();
   const signature = [
     '<br><br>',
     '<p style="margin:0;font-family:sans-serif;">Thank you,</p>',

@@ -66,7 +66,6 @@ const statCards = [
     icon: Target,
     color: "text-[#50a2ff]",
     bg: "bg-[#eef5fe]",
-    path: "/funders",
     format: (v: number) => String(v),
   },
   {
@@ -251,8 +250,8 @@ export const PlatformDashboardSection = () => {
             return (
               <Card
                 key={index}
-                onClick={() => !loading && router.push(card.path)}
-                className="flex min-w-0 items-center gap-3 p-4 bg-white rounded-xl border border-solid border-[#0000001a] shadow-none cursor-pointer hover:shadow-md hover:border-[#ef3e3433] transition-all"
+                onClick={() => !loading && card.path && router.push(card.path)}
+                className={`flex min-w-0 items-center gap-3 p-4 bg-white rounded-xl border border-solid border-[#0000001a] shadow-none transition-all ${card.path ? "cursor-pointer hover:shadow-md hover:border-[#ef3e3433]" : ""}`}
               >
                 <CardContent className="flex min-w-0 flex-1 items-center gap-3 p-0 w-full">
                   <div className={`flex h-10 w-10 items-center justify-center rounded-full ${card.bg} shrink-0`}>
@@ -277,9 +276,8 @@ export const PlatformDashboardSection = () => {
         </div>
 
         {/* Quick Actions */}
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 self-stretch w-full">
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 self-stretch w-full">
           {[
-            { label: "Browse Funders", path: "/funders", color: "border-[#50a2ff] text-[#50a2ff] hover:bg-[#eef5fe]" },
             { label: "New Application", path: "/opportunities", color: "border-[#ef3e34] text-[#ef3e34] hover:bg-[#fff1f0]" },
             { label: "View Applications", path: "/applications", color: "border-[#00d491] text-[#00d491] hover:bg-[#e6fdf5]" },
           ].map((action) => (

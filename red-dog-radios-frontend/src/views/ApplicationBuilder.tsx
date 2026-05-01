@@ -54,7 +54,8 @@ interface Application {
   };
   notes?: string;
   dateSubmitted?: string;
-  funder?: { _id: string; name: string; avgGrantMax?: number; deadline?: string };
+  funder?: { _id: string; name: string; avgGrantMax?: number; deadline?: string; contactEmail?: string; contactName?: string };
+  funder_id?: string;
   opportunity?: {
     _id?: string;
     title: string;
@@ -251,10 +252,6 @@ export const ApplicationBuilder = () => {
   const [awardResponseSubmitted, setAwardResponseSubmitted] = useState(false);
   const [threadOutbox, setThreadOutbox] = useState<GrantOutbox | null>(null);
   const [composeOpen, setComposeOpen] = useState(false);
-  const [composeContactEmail, setComposeContactEmail] = useState("");
-  const [composeContactName, setComposeContactName] = useState("");
-  const [composeSenderName, setComposeSenderName] = useState("");
-  const [composeSenderCompany, setComposeSenderCompany] = useState("");
 
   const { data: app, isLoading, isError, refetch } = useQuery<Application>({
     queryKey: qk.application(id),
@@ -443,14 +440,16 @@ export const ApplicationBuilder = () => {
 
   const generateEmailMutation = useMutation({
     mutationFn: async () => {
-      if (!composeContactEmail.trim()) throw new Error("contactEmail is required");
+      const funderEmail = app?.funder?.contactEmail || app?.opportunity?.contactEmail;
+      const funderName = app?.funder?.contactName || app?.opportunity?.contactName;
+      
+      if (!funderEmail) throw new Error("No contact email on file for this funder — please ask your admin to update the funder record.");
       if (!opportunityId) throw new Error("This application is missing an opportunityId, so outreach can't be generated here yet.");
+      
       const res = await api.post(`/ai/generate-email`, {
         opportunityId,
-        contactEmail: composeContactEmail.trim(),
-        contactName: composeContactName.trim() || undefined,
-        senderName: composeSenderName.trim() || undefined,
-        senderCompany: composeSenderCompany.trim() || undefined,
+        contactEmail: funderEmail.trim(),
+        contactName: funderName?.trim() || undefined,
         grantId: id,
       });
       return res.data.data as { generated: { subject?: string; body?: string }; outbox: GrantOutbox };
@@ -714,14 +713,6 @@ export const ApplicationBuilder = () => {
             </div>
             <button
               onClick={() => {
-                const opp = app?.opportunity;
-                const senderFull = user?.firstName
-                  ? `${user.firstName} ${user.lastName ?? ''}`.trim()
-                  : user?.fullName ?? '';
-                setComposeContactEmail(opp?.contactEmail || '');
-                setComposeContactName(opp?.contactName || '');
-                setComposeSenderName(senderFull);
-                setComposeSenderCompany(orgName);
                 setComposeOpen(true);
               }}
               className="rounded-lg bg-[#ef3e34] px-4 py-2 text-sm font-bold text-white [font-family:'Montserrat',Helvetica] hover:bg-[#d63029] disabled:opacity-60"
@@ -760,14 +751,6 @@ export const ApplicationBuilder = () => {
               </p>
               <button
                 onClick={() => {
-                  const opp = app?.opportunity;
-                  const senderFull = user?.firstName
-                    ? `${user.firstName} ${user.lastName ?? ''}`.trim()
-                    : user?.fullName ?? '';
-                  setComposeContactEmail(opp?.contactEmail || '');
-                  setComposeContactName(opp?.contactName || '');
-                  setComposeSenderName(senderFull);
-                  setComposeSenderCompany(orgName);
                   setComposeOpen(true);
                 }}
                 className="mt-4 rounded-lg bg-[#ef3e34] px-4 py-2 text-sm font-bold text-white [font-family:'Montserrat',Helvetica] hover:bg-[#d63029]"
@@ -1130,56 +1113,38 @@ export const ApplicationBuilder = () => {
                 </div>
               ) : null}
 
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-2">
-                <div className="flex flex-col gap-1">
-                  <label className="text-xs font-semibold text-[#374151] [font-family:'Montserrat',Helvetica]">Contact email *</label>
-                  <input
-                    value={composeContactEmail}
-                    onChange={(e) => setComposeContactEmail(e.target.value)}
-                    placeholder={
-                      app?.opportunity?.contactEmail
-                        ? ''
-                        : 'No email on file — check funder website'
-                    }
-                    className="h-10 rounded-lg border border-[#e5e7eb] px-3 text-sm [font-family:'Montserrat',Helvetica] focus:border-[#ef3e34] focus:outline-none"
-                  />
-                  {!app?.opportunity?.contactEmail && (
-                    <p className="text-xs text-amber-700 [font-family:'Montserrat',Helvetica] mt-0.5">
-                      ⚠️ No contact email on file for this opportunity. Check the funder&apos;s website for the program officer&apos;s email.
+              <div className="pt-2">
+                {(!app?.funder?.contactEmail && !app?.opportunity?.contactEmail) ? (
+                  <div className="rounded-xl border border-[#fee2e2] bg-[#fff1f2] p-4 mb-4">
+                    <p className="[font-family:'Montserrat',Helvetica] text-sm font-semibold text-[#991b1b]">
+                      No contact email on file for this funder — please ask your admin to update the funder record.
                     </p>
-                  )}
-                </div>
-                <div className="flex flex-col gap-1">
-                  <label className="text-xs font-semibold text-[#374151] [font-family:'Montserrat',Helvetica]">Contact name (optional)</label>
-                  <input
-                    value={composeContactName}
-                    onChange={(e) => setComposeContactName(e.target.value)}
-                    placeholder="Jane Doe"
-                    className="h-10 rounded-lg border border-[#e5e7eb] px-3 text-sm [font-family:'Montserrat',Helvetica] focus:border-[#ef3e34] focus:outline-none"
-                  />
-                </div>
-                <div className="flex flex-col gap-1">
-                  <label className="text-xs font-semibold text-[#374151] [font-family:'Montserrat',Helvetica]">Sender name (optional)</label>
-                  <input
-                    value={composeSenderName}
-                    onChange={(e) => setComposeSenderName(e.target.value)}
-                    placeholder="Your name"
-                    className="h-10 rounded-lg border border-[#e5e7eb] px-3 text-sm [font-family:'Montserrat',Helvetica] focus:border-[#ef3e34] focus:outline-none"
-                  />
-                </div>
-                <div className="flex flex-col gap-1">
-                  <label className="text-xs font-semibold text-[#374151] [font-family:'Montserrat',Helvetica]">Sender company (optional)</label>
-                  <input
-                    value={composeSenderCompany}
-                    onChange={(e) => setComposeSenderCompany(e.target.value)}
-                    placeholder="Your organization"
-                    className="h-10 rounded-lg border border-[#e5e7eb] px-3 text-sm [font-family:'Montserrat',Helvetica] focus:border-[#ef3e34] focus:outline-none"
-                  />
-                </div>
+                  </div>
+                ) : (
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 pb-4">
+                    <div className="flex flex-col gap-1">
+                      <label className="text-xs font-semibold text-[#6b7280] [font-family:'Montserrat',Helvetica] uppercase tracking-wider">Contact email</label>
+                      <p className="text-sm font-medium text-[#111827] [font-family:'Montserrat',Helvetica]">{app?.funder?.contactEmail || app?.opportunity?.contactEmail}</p>
+                    </div>
+                    <div className="flex flex-col gap-1">
+                      <label className="text-xs font-semibold text-[#6b7280] [font-family:'Montserrat',Helvetica] uppercase tracking-wider">Contact name</label>
+                      <p className="text-sm font-medium text-[#111827] [font-family:'Montserrat',Helvetica]">{app?.funder?.contactName || app?.opportunity?.contactName || "—"}</p>
+                    </div>
+                  </div>
+                )}
               </div>
             </div>
 
             <div className="px-6 pb-6 flex flex-col gap-3">
+              <div className="bg-[#eff6ff] border border-[#dbeafe] rounded-xl p-4 flex items-start gap-3">
+                <div className="mt-0.5 rounded-full bg-blue-100 p-1">
+                  <Mail size={14} className="text-blue-600" />
+                </div>
+                <p className="text-xs text-blue-800 [font-family:'Montserrat',Helvetica] leading-relaxed">
+                  Replies from the funder will appear in your Application Inbox and are visible to your Red Dog advisor.
+                </p>
+              </div>
+
               {app?.opportunity?.applicationUrl && (
                 <a
                   href={app.opportunity.applicationUrl}
@@ -1191,20 +1156,26 @@ export const ApplicationBuilder = () => {
                   Apply on Official Portal ↗
                 </a>
               )}
-              <div className="flex items-center justify-end gap-2">
-                <button
-                  onClick={() => setComposeOpen(false)}
-                  className="rounded-lg border border-[#e5e7eb] bg-white px-4 py-2 text-sm font-semibold [font-family:'Montserrat',Helvetica] text-[#374151] hover:bg-[#f9fafb]"
-                >
-                  Cancel
-                </button>
-                <button
-                  onClick={() => generateEmailMutation.mutate()}
-                  disabled={generateEmailMutation.isPending || !composeContactEmail.trim() || !opportunityId}
-                  className="rounded-lg bg-[#ef3e34] px-4 py-2 text-sm font-bold text-white [font-family:'Montserrat',Helvetica] hover:bg-[#d63029] disabled:opacity-60"
-                >
-                  {generateEmailMutation.isPending ? "Generating…" : "Generate & Queue"}
-                </button>
+
+              <div className="flex flex-col gap-3">
+                <p className="text-[10px] text-[#9ca3af] [font-family:'Montserrat',Helvetica]">
+                  By sending this email, you agree not to contact this funder outside the Red Dog platform for this application.
+                </p>
+                <div className="flex items-center justify-end gap-2">
+                  <button
+                    onClick={() => setComposeOpen(false)}
+                    className="rounded-lg border border-[#e5e7eb] bg-white px-4 py-2 text-sm font-semibold [font-family:'Montserrat',Helvetica] text-[#374151] hover:bg-[#f9fafb]"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    onClick={() => generateEmailMutation.mutate()}
+                    disabled={generateEmailMutation.isPending || (!app?.funder?.contactEmail && !app?.opportunity?.contactEmail) || !opportunityId}
+                    className="rounded-lg bg-[#ef3e34] px-4 py-2 text-sm font-bold text-white [font-family:'Montserrat',Helvetica] hover:bg-[#d63029] disabled:opacity-60"
+                  >
+                    {generateEmailMutation.isPending ? "Generating…" : "Generate & Queue"}
+                  </button>
+                </div>
               </div>
             </div>
           </div>

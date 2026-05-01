@@ -11,9 +11,7 @@ export const AppShell = ({ children }: { children: ReactNode }) => {
     { id: "dashboard", label: "Dashboard", icon: "/figmaAssets/svg-8.svg", path: "/dashboard" },
     { id: "opportunities", label: "Opportunities", icon: "/figmaAssets/svg-14.svg", path: "/opportunities" },
     { id: "applications", label: "Applications", icon: "/figmaAssets/svg-11.svg", path: "/applications" },
-    { id: "funders", label: "Funders", icon: "/figmaAssets/svg-12.svg", path: "/funders" },
     { id: "outbox", label: "Outbox", icon: "/figmaAssets/svg-9.svg", path: "/outbox" },
-    { id: "resources", label: "Resources", icon: "/figmaAssets/svg-2.svg", path: "/resources" },
     { id: "weekly-summary", label: "Weekly Summary", icon: "/figmaAssets/svg-3.svg", path: "/weekly-summary" },
     { id: "billing", label: "Billing", icon: "/figmaAssets/svg-6.svg", path: "/account/billing" },
   ];
