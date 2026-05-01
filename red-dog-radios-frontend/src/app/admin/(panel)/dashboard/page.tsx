@@ -21,13 +21,18 @@ type DashboardData = {
     location?: string;
     signupDate?: string;
   }[];
-  recentApplications: {
-    id: string;
-    agencyName?: string;
-    funderName?: string;
-    status: string;
-    updatedAt?: string;
-  }[];
+};
+
+type OutboxRow = {
+  _id: string;
+  recipient?: string;
+  recipientName?: string;
+  subject?: string;
+  status?: "pending" | "sent" | "failed" | string;
+  createdAt?: string;
+  sentAt?: string;
+  relatedAgency?: { _id: string; name?: string } | string | null;
+  relatedGrant?: { _id: string; projectTitle?: string } | string | null;
 };
 
 type PriorityAgency = {
@@ -56,6 +61,14 @@ export default function AdminDashboardPage() {
     queryFn: async () => {
       const res = await adminApi.get("admin/agencies/priority");
       return (res.data.data || []) as PriorityAgency[];
+    },
+  });
+
+  const { data: recentOutbox, isLoading: outboxLoading } = useQuery({
+    queryKey: ["admin", "outbox", "recent"],
+    queryFn: async () => {
+      const res = await adminApi.get("outbox/admin/all", { params: { limit: 10 } });
+      return (res.data.data || []) as OutboxRow[];
     },
   });
 
@@ -131,21 +144,50 @@ export default function AdminDashboardPage() {
         </div>
         <div className="rounded-xl border border-[#e5e7eb] bg-white p-5 shadow-[0_1px_4px_rgba(0,0,0,0.05)]">
           <h2 className="mb-4 text-sm font-bold uppercase tracking-wide text-[#ef3e34] [font-family:'Montserrat',Helvetica]">
-            Recent applications
+            Recent Outbox
           </h2>
-          <ul className="space-y-3 text-sm">
-            {data.recentApplications?.map((r) => (
-              <li key={r.id} className="flex items-start justify-between gap-2 border-b border-[#f0f0f0] pb-2">
-                <div className="min-w-0 flex-1">
-                  <p className="text-[#111827]">{r.agencyName}</p>
-                  <p className="text-[#6b7280]">{r.funderName}</p>
-                  <span className="mt-1 inline-block rounded bg-[#f3f4f6] px-2 py-0.5 text-xs text-[#374151]">
-                    {r.status}
-                  </span>
-                </div>
-                <AdminTableViewLink href={`/admin/applications/${r.id}`} label="View application" />
-              </li>
-            ))}
+          <ul className="space-y-4 text-sm">
+            {outboxLoading ? (
+              <p className="text-[#6b7280]">Loading outbox…</p>
+            ) : (recentOutbox || []).length === 0 ? (
+              <p className="text-[#6b7280]">No outbound emails yet.</p>
+            ) : (
+              recentOutbox?.map((r) => {
+                const agencyName = typeof r.relatedAgency === "object" ? r.relatedAgency?.name : "—";
+                const appTitle = typeof r.relatedGrant === "object" ? r.relatedGrant?.projectTitle : null;
+                const appId = typeof r.relatedGrant === "object" ? r.relatedGrant?._id : null;
+                const status = (r.status || "pending").toLowerCase();
+                const statusCls = status === "sent" ? "bg-green-100 text-green-700" : status === "failed" ? "bg-red-100 text-red-700" : "bg-yellow-100 text-yellow-800";
+                
+                return (
+                  <li key={r._id} className="flex items-start justify-between gap-3 border-b border-[#f0f0f0] pb-3 last:border-0 last:pb-0">
+                    <div className="min-w-0 flex-1 space-y-1">
+                      <div className="flex items-center gap-2">
+                        <p className="font-semibold text-[#111827] truncate">{agencyName}</p>
+                        <span className={`rounded-full px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider ${statusCls}`}>
+                          {status}
+                        </span>
+                      </div>
+                      <p className="text-xs text-[#6b7280] truncate">
+                        <span className="font-medium text-[#374151]">To:</span> {r.recipient}
+                      </p>
+                      {appTitle && (
+                        <p className="text-xs text-[#6b7280] truncate">
+                          <span className="font-medium text-[#374151]">App:</span>{" "}
+                          <Link href={`/admin/applications/${appId}`} className="text-[#ef3e34] hover:underline">
+                            {appTitle}
+                          </Link>
+                        </p>
+                      )}
+                      <p className="text-[10px] text-[#9ca3af]">
+                        {r.status === "sent" && r.sentAt ? new Date(r.sentAt).toLocaleString() : new Date(r.createdAt || "").toLocaleString()}
+                      </p>
+                    </div>
+                    <AdminTableViewLink href="/admin/outbox" label="View Outbox" />
+                  </li>
+                );
+              })
+            )}
           </ul>
         </div>
       </div>

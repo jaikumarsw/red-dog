@@ -281,7 +281,7 @@ const getAll = async ({ page = 1, limit = 20, status, organizationId } = {}) => 
     sort: { createdAt: -1 },
     populate: [
       { path: 'organization', select: 'name location' },
-      { path: 'opportunity', select: 'title funder minAmount maxAmount deadline contactEmail contactName' },
+      { path: 'opportunity', populate: { path: 'funderId' }, select: 'title funder minAmount maxAmount deadline contactEmail contactName funderId' },
       { path: 'funder', select: 'name avgGrantMax deadline contactEmail contactName' },
     ],
   });
@@ -445,6 +445,7 @@ const createWithAI = async ({ opportunityId, funderId, organizationId, userId, a
   }
 
   const opp = await resolveOpportunityForAI({ opportunityId, funderId, adminPortal });
+  const finalFunderId = funderId || opp?.funderId;
 
   if (opp && opp.isLocked) {
     throw new AppError('This opportunity has reached its application limit.', 423);
@@ -453,14 +454,15 @@ const createWithAI = async ({ opportunityId, funderId, organizationId, userId, a
   if (!adminPortal) {
     const dupQ = { organization: organizationId };
     if (opp) dupQ.opportunity = opp._id;
-    else if (funderId) dupQ.funder = funderId;
-    if (dupQ.opportunity || dupQ.funder) {
+    else if (finalFunderId) dupQ.funder = finalFunderId;
+    if (dupQ.opportunity || finalFunderId) {
       const existingApp = await Application.findOne(dupQ);
       if (existingApp && !['denied', 'rejected'].includes(existingApp.status)) return existingApp;
     }
   }
 
-  const parsed = await buildAIContent(org, funder, opp, { adminPortal });
+  const funderDoc = funder || (finalFunderId ? await Funder.findById(finalFunderId) : null);
+  const parsed = await buildAIContent(org, funderDoc, opp, { adminPortal });
   const resolvedOppId = opp ? opp._id : opportunityId || undefined;
 
   // After resolving the opportunity and before creating the app,
@@ -491,7 +493,7 @@ const createWithAI = async ({ opportunityId, funderId, organizationId, userId, a
     app = await Application.create({
       organization: organizationId,
       opportunity: resolvedOppId,
-      funder: funderId || undefined,
+      funder: finalFunderId || undefined,
       submittedBy: userId || undefined,
       status: 'drafting',
       projectTitle: funder
@@ -537,7 +539,7 @@ const createWithAI = async ({ opportunityId, funderId, organizationId, userId, a
 const getOne = async (id) => {
   const app = await Application.findById(id)
     .populate('organization')
-    .populate('opportunity')
+    .populate({ path: 'opportunity', populate: { path: 'funderId' } })
     .populate('funder')
     .populate('submittedBy', 'firstName lastName email role createdAt');
   if (!app) throw new AppError('Application not found', 404);
@@ -547,7 +549,7 @@ const getOne = async (id) => {
 const update = async (id, data) => {
   const app = await Application.findByIdAndUpdate(id, data, { new: true, runValidators: true })
     .populate('organization')
-    .populate('opportunity')
+    .populate({ path: 'opportunity', populate: { path: 'funderId' } })
     .populate('funder')
     .populate('submittedBy', 'firstName lastName email role createdAt');
   if (!app) throw new AppError('Application not found', 404);
@@ -586,7 +588,7 @@ const updateStatus = async (id, { status, dateSubmitted, followUpDate, notes, in
     { new: true }
   )
     .populate('organization')
-    .populate('opportunity')
+    .populate({ path: 'opportunity', populate: { path: 'funderId' } })
     .populate('funder')
     .populate('submittedBy', 'firstName lastName email role createdAt');
   if (!app) throw new AppError('Application not found', 404);

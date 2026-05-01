@@ -99,6 +99,7 @@ export default function AdminOpportunitiesPage() {
       await adminApi.post("admin/opportunities", {
         title: form.title,
         funder: selected.name,
+        funderId: form.funderId,
         deadline: form.deadline || undefined,
         minAmount: parseMoney(form.minAmount),
         maxAmount: parseMoney(form.maxAmount),

@@ -149,7 +149,7 @@ const getAll = async ({ page = 1, limit = 20, userId, organizationId } = {}) => 
     sort: { createdAt: -1 },
     populate: [
       { path: 'funder', select: 'name contactName contactEmail' },
-      { path: 'opportunity', select: 'title funder contactEmail contactName' },
+      { path: 'opportunity', populate: { path: 'funderId', select: 'contactEmail contactName contactPhone' } },
       { path: 'organization', select: 'name' },
     ],
   });
@@ -158,7 +158,7 @@ const getAll = async ({ page = 1, limit = 20, userId, organizationId } = {}) => 
 const getOne = async (id) => {
   const record = await Outreach.findById(id)
     .populate('funder', 'name contactName contactEmail')
-    .populate('opportunity', 'title funder contactEmail contactName')
+    .populate({ path: 'opportunity', populate: { path: 'funderId', select: 'contactEmail contactName contactPhone' } })
     .populate('organization', 'name');
   if (!record) throw new AppError('Outreach email not found', 404);
   return record;
@@ -183,14 +183,14 @@ const markSent = async (id) => {
 const send = async (id) => {
   const record = await Outreach.findById(id)
     .populate('funder', 'contactEmail contactName name')
-    .populate('opportunity', 'contactEmail contactName title funder')
+    .populate({ path: 'opportunity', populate: { path: 'funderId', select: 'contactEmail contactName contactPhone' } })
     .populate('organization', 'name');
 
   if (!record) throw new AppError('Outreach record not found', 404);
 
-  const recipient = record.funder?.contactEmail || record.opportunity?.contactEmail;
+  const recipient = record.funder?.contactEmail || record.opportunity?.funderId?.contactEmail;
   if (!recipient) {
-    throw new AppError('No contact email on file for this funder or opportunity', 400);
+    throw new AppError('No contact email on file for this funder — please ask your admin to update the funder record.', 400);
   }
 
   // Final cleanup of placeholders just in case
@@ -203,7 +203,7 @@ const send = async (id) => {
   const bodyHtml = marked.parse(cleanedBody);
 
   const htmlBody = `
-    <p>Dear ${record.contactName || record.funder?.contactName || 'Program Officer'},</p>
+    <p>Dear ${record.contactName || record.funder?.contactName || record.opportunity?.funderId?.contactName || 'Program Officer'},</p>
     <br/>
     ${bodyHtml}
     <br/>

@@ -1,5 +1,6 @@
 const Opportunity = require('./opportunity.schema');
 const { AppError } = require('../../middlewares/error.middleware');
+const matchService = require('../matches/match.service');
 
 const computeStatus = (deadline) => {
   if (!deadline) return 'open';
@@ -10,7 +11,7 @@ const computeStatus = (deadline) => {
   return 'open';
 };
 
-const getAll = async ({ page = 1, limit = 20, search, status, category }) => {
+const getAll = async ({ page = 1, limit = 20, search, status, category, organizationId }) => {
   const query = {};
   if (status) query.status = status;
   if (category) query.category = { $regex: category, $options: 'i' };
@@ -25,7 +26,10 @@ const getAll = async ({ page = 1, limit = 20, search, status, category }) => {
     page: parseInt(page),
     limit: parseInt(limit),
     sort: { deadline: 1 },
-    populate: { path: 'createdBy', select: 'firstName lastName email' },
+    populate: [
+      { path: 'createdBy', select: 'firstName lastName email' },
+      { path: 'funderId' }
+    ],
   });
 
   // Auto-update statuses for returned docs
@@ -37,24 +41,67 @@ const getAll = async ({ page = 1, limit = 20, search, status, category }) => {
     }
   }
 
+  // Inject match scores for the specific organization if requested
+  if (organizationId) {
+    const Match = require('../matches/match.schema');
+    const matches = await Match.find({
+      organization: organizationId,
+      opportunity: { $in: result.docs.map((d) => d._id) },
+    }).lean();
+
+    const matchMap = new Map(matches.map((m) => [String(m.opportunity), m]));
+
+    result.docs = result.docs.map((doc) => {
+      const plain = doc.toObject ? doc.toObject() : doc;
+      const match = matchMap.get(String(doc._id));
+      if (match) {
+        plain.fitScore = match.fitScore;
+        plain.matchTier = match.rubricTier;
+        plain.matchStatus = match.status;
+        plain.winProbability = match.winProbability;
+        plain.matchReasons = [...(match.fitReasons || []), ...(match.reasons || [])];
+      }
+      return plain;
+    });
+  }
+
   return result;
 };
 
 const create = async (data, userId) => {
   const status = computeStatus(data.deadline ? new Date(data.deadline) : null);
-  return Opportunity.create({ ...data, status, createdBy: userId });
+  const opp = await Opportunity.create({ ...data, status, createdBy: userId });
+  
+  // Trigger scoring for all agencies
+  try {
+    await matchService.computeAllForOpportunity(opp._id);
+  } catch (err) {
+    console.error(`[Opportunity Scoring Error] Failed for new opp ${opp._id}:`, err);
+  }
+  
+  return opp;
 };
 
 const getOne = async (id) => {
-  const opp = await Opportunity.findById(id).populate('createdBy', 'firstName lastName email');
+  const opp = await Opportunity.findById(id)
+    .populate('createdBy', 'firstName lastName email')
+    .populate('funderId');
   if (!opp) throw new AppError('Opportunity not found', 404);
   return opp;
 };
 
 const update = async (id, data) => {
   if (data.deadline) data.status = computeStatus(new Date(data.deadline));
-  const opp = await Opportunity.findByIdAndUpdate(id, data, { new: true, runValidators: true });
+  const opp = await Opportunity.findByIdAndUpdate(id, data, { new: true, runValidators: true }).populate('funderId');
   if (!opp) throw new AppError('Opportunity not found', 404);
+  
+  // Recalculate scores
+  try {
+    await matchService.computeAllForOpportunity(opp._id);
+  } catch (err) {
+    console.error(`[Opportunity Scoring Error] Failed for update of ${opp._id}:`, err);
+  }
+
   return opp;
 };
 
