@@ -2,6 +2,7 @@ const Outbox = require('./outbox.schema');
 const { sendEmail: sendEmailProvider } = require('../../config/email.config');
 const { AppError } = require('../../middlewares/error.middleware');
 const logger = require('../../utils/logger');
+const { marked } = require('marked');
 
 const getAll = async ({ page = 1, limit = 20, status, emailType, isTest, relatedOrganization }) => {
   const query = {};
@@ -89,11 +90,20 @@ const queueEmail = async ({
   scheduledFor,
 }) => {
   try {
+    // 1. Strip [DATA NEEDED] placeholders and clean extra whitespace
+    const cleanedBody = String(htmlBody || '')
+      .replace(/\[DATA NEEDED\][^\n]*/g, '')
+      .replace(/\n{3,}/g, '\n\n')
+      .trim();
+
+    // 2. Convert Markdown to proper HTML (handles [text](url) -> <a href="url">text</a>)
+    const finalHtml = marked.parse(cleanedBody);
+
     const record = new Outbox({
       recipient,
       recipientName,
       subject,
-      htmlBody,
+      htmlBody: finalHtml,
       emailType: emailType || 'manual',
       isTest: isTest || false,
       emailKey,

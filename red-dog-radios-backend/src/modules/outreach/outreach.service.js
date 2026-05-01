@@ -6,6 +6,7 @@ const openai = require('../../config/openai.config');
 const logger = require('../../utils/logger');
 const { AppError } = require('../../middlewares/error.middleware');
 const { sendEmail } = require('../../config/email.config');
+const { marked } = require('marked');
 
 const AI_FALLBACK = {
   subject: 'Partnership Opportunity: Communications Infrastructure for Public Safety',
@@ -61,6 +62,12 @@ Return JSON only with keys: subject (string), contactName (string), body (plain 
       const raw = res.choices[0]?.message?.content?.trim() || '';
       const cleaned = raw.replace(/^```json?\n?/, '').replace(/\n?```$/, '').trim();
       emailContent = JSON.parse(cleaned);
+      if (emailContent.body) {
+        emailContent.body = emailContent.body
+          .replace(/\[DATA NEEDED\][^\n]*/g, '')
+          .replace(/\n{3,}/g, '\n\n')
+          .trim();
+      }
     } catch (e) {
       logger.warn('[Outreach] AI generation failed, using fallback:', e.message);
       emailContent = AI_FALLBACK;
@@ -107,6 +114,12 @@ Return JSON only with keys: subject, contactName, body (under 200 words).`;
       const raw = res.choices[0]?.message?.content?.trim() || '';
       const cleaned = raw.replace(/^```json?\n?/, '').replace(/\n?```$/, '').trim();
       emailContent = JSON.parse(cleaned);
+      if (emailContent.body) {
+        emailContent.body = emailContent.body
+          .replace(/\[DATA NEEDED\][^\n]*/g, '')
+          .replace(/\n{3,}/g, '\n\n')
+          .trim();
+      }
     } catch (e) {
       logger.warn('[Outreach] AI generation failed, using fallback:', e.message);
     }
@@ -179,10 +192,19 @@ const send = async (id) => {
     throw new AppError('Funder does not have a contact email on file', 400);
   }
 
+  // Final cleanup of placeholders just in case
+  const cleanedBody = String(record.body || '')
+    .replace(/\[DATA NEEDED\][^\n]*/g, '')
+    .replace(/\n{3,}/g, '\n\n')
+    .trim();
+
+  // Convert to HTML
+  const bodyHtml = marked.parse(cleanedBody);
+
   const htmlBody = `
     <p>Dear ${record.contactName || record.funder?.contactName || 'Program Officer'},</p>
     <br/>
-    ${String(record.body || '').replace(/\n/g, '<br/>')}
+    ${bodyHtml}
     <br/>
     <p>Best regards,<br/>${record.organization?.name || 'Red Dog Radios'}</p>
   `;

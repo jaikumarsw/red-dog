@@ -24,11 +24,16 @@ const generateEmail = asyncHandler(async (req, res) => {
     senderCompany
   );
 
+  const cleanedBody = String(result.body || '')
+    .replace(/\[DATA NEEDED\][^\n]*/g, '')
+    .replace(/\n{3,}/g, '\n\n')
+    .trim();
+
   const queued = await outboxService.queueEmail({
     recipient: contactEmail,
     recipientName: contactName,
     subject: result.subject,
-    htmlBody: '<p>' + String(result.body || '').replace(/\n/g, '<br>') + '</p>',
+    htmlBody: cleanedBody,
     emailType: 'outreach',
     relatedOrganization: organizationId,
     relatedAgency: organizationId,
