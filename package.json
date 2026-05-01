@@ -5,6 +5,9 @@
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1",
     "e2e:seed": "npm --prefix red-dog-radios-backend run e2e:seed",
+    "seed": "npm --prefix red-dog-radios-backend run seed",
+    "seed-contacts": "npm --prefix red-dog-radios-backend run seed-contacts",
+    "seed-coupons": "npm --prefix red-dog-radios-backend run seed-coupons",
     "e2e:teardown": "npm --prefix red-dog-radios-backend run e2e:teardown",
     "e2e:reset": "npm --prefix red-dog-radios-backend run e2e:reset"
   },

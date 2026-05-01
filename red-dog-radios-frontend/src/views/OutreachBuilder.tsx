@@ -16,7 +16,7 @@ interface OutreachEmail {
   status: "draft" | "sent";
   sentAt?: string;
   funder?: { _id: string; name: string; contactName?: string; contactEmail?: string };
-  opportunity?: { title: string; funder: string };
+  opportunity?: { title: string; funder: string; contactName?: string; contactEmail?: string };
   organization?: { name: string };
 }
 
@@ -149,13 +149,13 @@ export const OutreachBuilder = () => {
           >
             {saveMutation.isPending ? "Saving..." : "Save"}
           </button>
-          {email.funder && !email.funder.contactEmail && (
+          {!email.funder?.contactEmail && !email.opportunity?.contactEmail && (
             <p className="text-sm text-amber-600 flex items-center gap-1">
-              ⚠️ No funder email on file — use manual send only.
+              ⚠️ No contact email on file — use manual send only.
             </p>
           )}
 
-          {email.status !== "sent" && email.funder?.contactEmail && (
+          {email.status !== "sent" && (email.funder?.contactEmail || email.opportunity?.contactEmail) && (
             <button
               type="button"
               onClick={() => sendMutation.mutate()}

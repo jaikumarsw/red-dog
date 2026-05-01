@@ -53,6 +53,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 
 const BUDGET_LABELS: Record<string, string> = {
   under_25k: "Under $25K",
@@ -385,6 +386,14 @@ export default function AdminApplicationDetailPage() {
         </div>
       </div>
 
+      <Tabs defaultValue="details" className="w-full">
+        <TabsList className="grid w-full max-w-[400px] grid-cols-2">
+          <TabsTrigger value="details">Application Details</TabsTrigger>
+          <TabsTrigger value="communications">Communications</TabsTrigger>
+        </TabsList>
+
+        <TabsContent value="details" className="space-y-6 mt-6">
+
       {org && (
         <div className="rounded-lg border border-[#e5e7eb] bg-white p-4 shadow-sm">
           <button
@@ -692,83 +701,88 @@ export default function AdminApplicationDetailPage() {
         </div>
       ))}
 
-      <div className="rounded-lg border border-[#e5e7eb] bg-white p-4 shadow-sm">
-        <div className="flex items-start justify-between gap-3">
-          <div>
-            <h2 className="[font-family:'Montserrat',Helvetica] text-sm font-bold uppercase tracking-wide text-[#111827]">
-              Communication Log
-            </h2>
-            <p className="mt-1 text-xs text-[#6b7280]">Timeline of conversations and system activity</p>
+    </TabsContent>
+
+      <TabsContent value="communications" className="space-y-6 mt-6">
+        <div className="rounded-lg border border-[#e5e7eb] bg-white p-4 shadow-sm">
+          <div className="flex items-start justify-between gap-3">
+            <div>
+              <h2 className="[font-family:'Montserrat',Helvetica] text-sm font-bold uppercase tracking-wide text-[#111827]">
+                Communications
+              </h2>
+              <p className="mt-1 text-xs text-[#6b7280]">Timeline of conversations and system activity</p>
+            </div>
+            <Button
+              type="button"
+              className="bg-[#ef3e34] hover:bg-[#d63530] text-white"
+              onClick={() => setCommOpen(true)}
+            >
+              Add Entry
+            </Button>
           </div>
-          <Button
-            type="button"
-            className="bg-[#ef3e34] hover:bg-[#d63530] text-white"
-            onClick={() => setCommOpen(true)}
-          >
-            Add Entry
-          </Button>
-        </div>
 
-        <div className="mt-4 space-y-3">
-          {commQuery.isLoading ? (
-            <p className="text-sm text-[#6b7280]">Loading…</p>
-          ) : (commQuery.data?.length || 0) === 0 ? (
-            <p className="text-sm text-[#6b7280]">No communications logged yet.</p>
-          ) : (
-            (commQuery.data || []).map((log) => {
-              const canDelete =
-                log.type !== "system" &&
-                adminUser?._id &&
-                (String(log.createdBy || "") === String(adminUser._id) || log.createdByRole === "admin");
-              const createdAt = log.createdAt ? new Date(log.createdAt) : null;
-              const relTime = createdAt ? formatDistanceToNow(createdAt, { addSuffix: true }) : "—";
-              return (
-                <div key={log._id} className="rounded-lg border border-[#f0f0f0] bg-[#fafafa] p-3">
-                  <div className="flex items-start justify-between gap-3">
-                    <div className="flex items-start gap-2 min-w-0">
-                      <div className="mt-0.5">{commIcon(log.type)}</div>
-                      <div className="min-w-0">
-                        <p className="text-xs font-semibold text-[#6b7280] uppercase tracking-wide [font-family:'Montserrat',Helvetica]">
-                          {commTypeLabel(log.type)}
-                          {log.direction ? ` · ${commDirectionLabel(log.direction)}` : ""}
-                        </p>
-                        {log.subject ? (
-                          <p className="[font-family:'Montserrat',Helvetica] text-sm font-semibold text-[#111827] mt-1">
-                            {log.subject}
+          <div className="mt-4 space-y-3">
+            {commQuery.isLoading ? (
+              <p className="text-sm text-[#6b7280]">Loading…</p>
+            ) : (commQuery.data?.length || 0) === 0 ? (
+              <p className="text-sm text-[#6b7280]">No communications logged yet.</p>
+            ) : (
+              (commQuery.data || []).map((log) => {
+                const canDelete =
+                  log.type !== "system" &&
+                  adminUser?._id &&
+                  (String(log.createdBy || "") === String(adminUser._id) || log.createdByRole === "admin");
+                const createdAt = log.createdAt ? new Date(log.createdAt) : null;
+                const relTime = createdAt ? formatDistanceToNow(createdAt, { addSuffix: true }) : "—";
+                return (
+                  <div key={log._id} className="rounded-lg border border-[#f0f0f0] bg-[#fafafa] p-3">
+                    <div className="flex items-start justify-between gap-3">
+                      <div className="flex items-start gap-2 min-w-0">
+                        <div className="mt-0.5">{commIcon(log.type)}</div>
+                        <div className="min-w-0">
+                          <p className="text-xs font-semibold text-[#6b7280] uppercase tracking-wide [font-family:'Montserrat',Helvetica]">
+                            {commTypeLabel(log.type)}
+                            {log.direction ? ` · ${commDirectionLabel(log.direction)}` : ""}
                           </p>
-                        ) : null}
+                          {log.subject ? (
+                            <p className="[font-family:'Montserrat',Helvetica] text-sm font-semibold text-[#111827] mt-1">
+                              {log.subject}
+                            </p>
+                          ) : null}
+                        </div>
                       </div>
+                      {canDelete && (
+                        <button
+                          type="button"
+                          className="text-[#9ca3af] hover:text-red-600"
+                          onClick={() => deleteComm.mutate(log._id)}
+                          disabled={deleteComm.isPending}
+                          aria-label="Delete entry"
+                        >
+                          <Trash2 size={16} />
+                        </button>
+                      )}
                     </div>
-                    {canDelete && (
-                      <button
-                        type="button"
-                        className="text-[#9ca3af] hover:text-red-600"
-                        onClick={() => deleteComm.mutate(log._id)}
-                        disabled={deleteComm.isPending}
-                        aria-label="Delete entry"
-                      >
-                        <Trash2 size={16} />
-                      </button>
-                    )}
-                  </div>
 
-                  {log.withParty ? (
-                    <p className="mt-2 text-xs text-[#6b7280]">
-                      <span className="font-semibold">With:</span> {log.withParty}
+                    {log.withParty ? (
+                      <p className="mt-2 text-xs text-[#6b7280]">
+                        <span className="font-semibold">With:</span> {log.withParty}
+                      </p>
+                    ) : null}
+
+                    <p className="mt-2 whitespace-pre-wrap text-sm text-[#374151]">{log.body}</p>
+
+                    <p className="mt-2 text-xs text-[#9ca3af]">
+                      by {log.createdByName || "Unknown"} · {relTime}
                     </p>
-                  ) : null}
-
-                  <p className="mt-2 whitespace-pre-wrap text-sm text-[#374151]">{log.body}</p>
-
-                  <p className="mt-2 text-xs text-[#9ca3af]">
-                    by {log.createdByName || "Unknown"} · {relTime}
-                  </p>
-                </div>
-              );
-            })
-          )}
+                  </div>
+                );
+              })
+            )}
+          </div>
         </div>
-      </div>
+      </TabsContent>
+    </Tabs>
 
       <Dialog open={commOpen} onOpenChange={setCommOpen}>
         <DialogContent className="max-w-xl">
@@ -797,23 +811,23 @@ export default function AdminApplicationDetailPage() {
             {(commForm.type === "email_sent" ||
               commForm.type === "email_received" ||
               commForm.type === "phone_call") && (
-              <div className="grid gap-2">
-                <Label>Direction</Label>
-                <Select
-                  value={commForm.direction}
-                  onValueChange={(v) => setCommForm((p) => ({ ...p, direction: v }))}
-                >
-                  <SelectTrigger>
-                    <SelectValue placeholder="Select direction" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="outbound">Outbound</SelectItem>
-                    <SelectItem value="inbound">Inbound</SelectItem>
-                    <SelectItem value="internal">Internal</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-            )}
+                <div className="grid gap-2">
+                  <Label>Direction</Label>
+                  <Select
+                    value={commForm.direction}
+                    onValueChange={(v) => setCommForm((p) => ({ ...p, direction: v }))}
+                  >
+                    <SelectTrigger>
+                      <SelectValue placeholder="Select direction" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="outbound">Outbound</SelectItem>
+                      <SelectItem value="inbound">Inbound</SelectItem>
+                      <SelectItem value="internal">Internal</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+              )}
 
             <div className="grid gap-2">
               <Label>With (optional)</Label>

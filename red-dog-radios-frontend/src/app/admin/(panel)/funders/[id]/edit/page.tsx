@@ -28,6 +28,18 @@ export default function EditFunderPage() {
   const [selectedFundingCategories, setSelectedFundingCategories] = useState<string[]>([]);
   const [selectedAgencyTypesFunded, setSelectedAgencyTypesFunded] = useState<string[]>([]);
   const [selectedEquipmentTags, setSelectedEquipmentTags] = useState<string[]>([]);
+  const [attemptedSubmit, setAttemptedSubmit] = useState(false);
+
+  const validate = (f: typeof form) => {
+    const errors: Record<string, string> = {};
+    if (!f.name?.trim()) errors.name = "Name is required";
+    if (!f.contactEmail?.trim()) errors.contactEmail = "Contact email is required";
+    else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(f.contactEmail)) errors.contactEmail = "Enter a valid email address";
+    return errors;
+  };
+
+  const errors = validate(form);
+  const isValid = Object.keys(errors).length === 0;
 
   const { data } = useQuery({
     queryKey: ["admin", "funder", id],
@@ -93,6 +105,12 @@ export default function EditFunderPage() {
     onSuccess: () => router.push("/admin/funders"),
   });
 
+  const handleSubmit = () => {
+    setAttemptedSubmit(true);
+    if (!isValid) return;
+    save.mutate();
+  };
+
   if (!data) return <p className="text-[#6b7280]">Loading…</p>;
 
   return (
@@ -107,6 +125,10 @@ export default function EditFunderPage() {
               : key === "website"
                 ? "Website (official)"
                 : key.replace(/([A-Z])/g, " $1")}
+            {key === "contactEmail" && <span className="text-[#ef3e34] ml-0.5">*</span>}
+            {(key === "contactName" || key === "contactPhone") && (
+              <span className="text-[#9ca3af] ml-1 lowercase">(recommended)</span>
+            )}
           </Label>
           {key === "localMatchRequired" ? (
             <select
@@ -125,10 +147,13 @@ export default function EditFunderPage() {
             />
           ) : (
             <Input
-              className="mt-1 border-[#e5e7eb]"
+              className={`mt-1 border-[#e5e7eb] ${attemptedSubmit && errors[key] ? "border-red-500" : ""}`}
               value={form[key]}
               onChange={(e) => setForm({ ...form, [key]: e.target.value })}
             />
+          )}
+          {attemptedSubmit && errors[key] && (
+            <p className="mt-1 text-xs text-red-600">{errors[key]}</p>
           )}
         </div>
       ))}
@@ -153,8 +178,8 @@ export default function EditFunderPage() {
         onChange={setSelectedEquipmentTags}
         allowCustom
       />
-      <Button className="bg-[#ef3e34] hover:bg-[#d63530] text-white" onClick={() => save.mutate()} disabled={save.isPending}>
-        Save
+      <Button className="bg-[#ef3e34] hover:bg-[#d63530] text-white" onClick={handleSubmit} disabled={save.isPending}>
+        {save.isPending ? "Saving..." : "Save"}
       </Button>
     </div>
   );

@@ -102,7 +102,9 @@ export default function AdminFunderDetailPage() {
   const rows: [string, React.ReactNode][] = [
     ["Name", String(data.name ?? "")],
     ["Website", data.website ? String(data.website) : "—"],
-    ["Contact", [data.contactName, data.contactEmail, data.contactPhone].filter(Boolean).join(" · ") || "—"],
+    ["Contact Name", data.contactName ? String(data.contactName) : <span className="text-[#9ca3af] italic">Not provided</span>],
+    ["Contact Email", data.contactEmail ? String(data.contactEmail) : <span className="text-[#9ca3af] italic">Not provided</span>],
+    ["Contact Phone", data.contactPhone ? String(data.contactPhone) : <span className="text-[#9ca3af] italic">Not provided</span>],
     ["Mission", data.missionStatement ? String(data.missionStatement) : "—"],
     ["Location focus", formatList(data.locationFocus)],
     ["Funding categories", formatList(data.fundingCategories)],

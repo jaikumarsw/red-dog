@@ -126,9 +126,6 @@ export default function AdminFundersPage() {
     if (!website) errors.website = "Website is required";
     else if (!/^https?:\/\/.+/i.test(website)) errors.website = "Enter a valid URL (include https://)";
 
-    const contactName = form.contactName.trim();
-    if (!contactName) errors.contactName = "Contact name is required";
-
     const contactEmail = form.contactEmail.trim();
     if (!contactEmail) errors.contactEmail = "Contact email is required";
     else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(contactEmail)) errors.contactEmail = "Enter a valid email address";
@@ -307,6 +304,10 @@ export default function AdminFundersPage() {
                   {key === "website"
                     ? "Website (official funder page)"
                     : key.replace(/([A-Z])/g, " $1")}
+                  {key === "contactEmail" && <span className="text-[#ef3e34] ml-0.5">*</span>}
+                  {(key === "contactName" || key === "contactPhone") && (
+                    <span className="text-[#9ca3af] ml-1 lowercase">(recommended)</span>
+                  )}
                 </Label>
                 {key === "missionStatement" || key === "notes" || key === "pastGrantsAwarded" ? (
                   <Textarea

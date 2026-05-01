@@ -2,6 +2,8 @@ const openai = require('../../config/openai.config');
 const Opportunity = require('../opportunities/opportunity.schema');
 const Organization = require('../organizations/organization.schema');
 const { AppError } = require('../../middlewares/error.middleware');
+const Funder = require('../funders/funder.schema');
+const Application = require('../applications/application.schema');
 const logger = require('../../utils/logger');
 
 const callOpenAI = async (prompt, parseJson = false) => {
@@ -55,18 +57,101 @@ const generateGrantSummary = async (opportunityId) => {
   };
 };
 
-const generateOutreachEmail = async (opportunityId, organizationId, contactName, senderName, senderCompany) => {
-  const [opp, org] = await Promise.all([
+const generateOutreachEmail = async (opportunityId, organizationId, contactName, senderName, senderCompany, grantId) => {
+  const [opp, org, app] = await Promise.all([
     Opportunity.findById(opportunityId),
     Organization.findById(organizationId),
+    grantId ? Application.findById(grantId) : null,
   ]);
   if (!opp) throw new AppError('Opportunity not found', 404);
   if (!org) throw new AppError('Organization not found', 404);
 
-  const result = await callOpenAI(
-    `Write a concise professional outreach email. From ${senderName} at ${senderCompany} to ${contactName}. About this grant opportunity: ${JSON.stringify(opp)}. Organization context: ${JSON.stringify(org)}. Return JSON only: { "subject": "...", "body": "..." }`,
-    true
-  );
+  // Fetch funder record for additional context
+  const funder = await Funder.findOne({ name: opp.funder });
+
+  // Map agency/org fields to the logical names required by the prompt
+  const agencyData = {
+    organisation_name: org.name,
+    jurisdiction: org.location,
+    department_type: org.agencyTypes?.[0] || 'Public Safety Agency',
+    department_size: org.staffSizeRange || org.numberOfStaff,
+    current_equipment_status: org.currentEquipment,
+    stated_needs: org.specificRequest,
+    budget_constraints: org.budgetRange,
+    operational_challenges: org.challenges && org.challenges.length > 0 ? org.challenges.join(', ') : null,
+  };
+
+  const funderData = {
+    name: funder?.name || opp.funder,
+    mission: funder?.missionStatement,
+    focus_area: funder?.fundingCategories && funder.fundingCategories.length > 0 ? funder.fundingCategories.join(', ') : funder?.locationFocus?.join(', '),
+    eligibility_criteria: funder?.agencyTypesFunded && funder.agencyTypesFunded.length > 0 ? funder.agencyTypesFunded.join(', ') : null,
+  };
+
+  const opportunityData = {
+    title: opp.title,
+    grant_amount: opp.minAmount && opp.maxAmount ? `$${opp.minAmount} - $${opp.maxAmount}` : (opp.maxAmount ? `Up to $${opp.maxAmount}` : null),
+    tags: opp.keywords && opp.keywords.length > 0 ? opp.keywords.join(', ') : null,
+    focus_area: opp.category,
+  };
+
+  const applicationData = {
+    stated_use_of_funds: app?.projectSummary || app?.executiveSummary,
+  };
+
+  const systemPrompt = `You are Ashlyn, an expert grant outreach AI. 
+
+Before writing, analyse the funder's mission statement, focus area, and eligibility criteria. Identify the language register they use (e.g. formal/policy-oriented, community-focused, technical/equipment-focused) and write the entire email in that register. Do not add a generic professional tone — match the funder's voice specifically. This alignment must happen automatically without any manual instruction from the agency.
+
+Write a compelling, personalised outreach email from ${senderName} at ${senderCompany} to ${contactName}. 
+Use exactly these six sections in this order:
+
+Section 1 — Opening
+Introduce the agency by name, jurisdiction (city, county, and state), department type (e.g. volunteer fire department, municipal fire department), and public safety role.
+Pull from: agency.organisation_name, agency.jurisdiction, agency.department_type.
+
+Section 2 — The Need
+Describe the specific equipment or resource gap the department is currently facing. This must be concrete and specific — not a generic statement about needing funding.
+Pull from: agency.current_equipment_status, agency.stated_needs.
+
+Section 3 — The Challenge
+Explain the budget or operational obstacles that prevent the department from addressing this need without external funding. This must feel real and grounded, not boilerplate.
+Pull from: agency.budget_constraints, agency.operational_challenges.
+
+Section 4 — The Ask
+State precisely what the grant funding will be used for and what the measurable expected outcome is. Be specific about items, quantities, or outcomes where the data supports it.
+Pull from: opportunity.grant_amount, application.stated_use_of_funds, agency.stated_needs.
+
+Section 5 — The Match
+Explain why this specific funder and grant aligns with the agency's eligibility, mission, and focus area. Reference the funder's own priorities back to them — this section should feel like it was written with knowledge of the funder, not copied from a template.
+Pull from: funder.mission, funder.eligibility_criteria, opportunity.tags, opportunity.focus_area.
+
+Section 6 — Call to Action
+Close with a single, clear next step. Options: confirm receipt, schedule a brief call, or request a meeting. Do not use multiple CTAs. Keep it direct and easy to act on.
+
+If any field is missing or null in the data below, skip that detail gracefully rather than hallucinating.
+
+Return ONLY valid JSON format: { "subject": "...", "body": "..." }`;
+
+  const dataContext = `
+AGENCY DATA:
+${JSON.stringify(agencyData, null, 2)}
+
+FUNDER DATA:
+${JSON.stringify(funderData, null, 2)}
+
+OPPORTUNITY DATA:
+${JSON.stringify(opportunityData, null, 2)}
+
+APPLICATION DATA:
+${JSON.stringify(applicationData, null, 2)}
+
+CONTACT NAME: ${contactName}
+SENDER NAME: ${senderName}
+SENDER COMPANY: ${senderCompany}
+`;
+
+  const result = await callOpenAI(`${systemPrompt}\n\nCONTEXT DATA:\n${dataContext}`, true);
 
   return result || {
     subject: `Grant Opportunity: ${opp.title}`,

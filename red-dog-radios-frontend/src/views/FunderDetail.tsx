@@ -420,14 +420,6 @@ export const FunderDetail = () => {
                 {generatingFor === "__single__" || applyMutation.isPending ? "Generating Application..." : "Generate Application"}
               </button>
             )}
-            <button
-              type="button"
-              onClick={() => outreachMutation.mutate()}
-              disabled={outreachMutation.isPending}
-              className="w-full rounded-lg border border-[#e5e7eb] bg-white px-4 py-3 text-sm font-semibold text-[#374151] [font-family:'Montserrat',Helvetica] hover:bg-[#f9fafb] disabled:opacity-50 transition-colors"
-            >
-              {outreachMutation.isPending ? "Generating..." : "Generate Outreach Email"}
-            </button>
           </div>
         </div>
       </div>
