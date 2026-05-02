@@ -37,6 +37,11 @@ router.patch('/applications/:id/status', protectAdmin, ctrl.updateApplicationSta
 router.post('/applications/:id/generate-ai', protectAdmin, ctrl.generateApplicationAI);
 router.delete('/applications/:id', protectAdmin, ctrl.deleteApplication);
 
+router.get('/scraping/runs', protectAdmin, ctrl.listScrapeRuns);
+router.get('/scraping/runs/:id', protectAdmin, ctrl.getScrapeRun);
+router.get('/scraping/health', protectAdmin, ctrl.scrapingHealth);
+router.post('/scraping/grants-gov/run', protectAdmin, ctrl.triggerGrantsGovRun);
+
 router.get('/matches', protectAdmin, ctrl.listMatches);
 router.get('/matches/:id', protectAdmin, ctrl.getMatch);
 router.post('/matches/recompute-all', protectAdmin, ctrl.recomputeMatches);

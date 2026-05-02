@@ -270,6 +270,96 @@ const listActivityLogs = asyncHandler(async (req, res) => {
   return paginate(res, result.docs, result, 'Activity logs retrieved');
 });
 
+// ============== SCRAPING ==============
+
+const ScrapeRun = require('../scraping/scrape-run.schema');
+
+// Track in-flight runs to prevent overlap
+const inFlightRuns = new Set();
+
+const listScrapeRuns = asyncHandler(async (req, res) => {
+  const { page = 1, limit = 30, source, status } = req.query;
+  const filter = {};
+  if (source) filter.source = source;
+  if (status) filter.status = status;
+
+  const result = await ScrapeRun.paginate(filter, {
+    page: parseInt(page, 10),
+    limit: parseInt(limit, 10),
+    sort: { startedAt: -1 },
+  });
+
+  res.json({ success: true, data: result });
+});
+
+const getScrapeRun = asyncHandler(async (req, res) => {
+  const run = await ScrapeRun.findById(req.params.id);
+  if (!run) {
+    return res.status(404).json({ success: false, message: 'Run not found' });
+  }
+  res.json({ success: true, data: run });
+});
+
+const scrapingHealth = asyncHandler(async (req, res) => {
+  const last = await ScrapeRun.findOne({ source: 'grants_gov' })
+    .sort({ startedAt: -1 })
+    .lean();
+
+  if (!last) {
+    return res.json({
+      success: true,
+      data: { healthy: false, reason: 'No runs recorded yet' },
+    });
+  }
+
+  const ageMs = Date.now() - new Date(last.startedAt).getTime();
+  const ageHours = ageMs / (1000 * 60 * 60);
+  const healthy = ageHours < 36 && last.status !== 'failed';
+
+  res.json({
+    success: true,
+    data: {
+      healthy,
+      lastRunAt: last.startedAt,
+      lastRunStatus: last.status,
+      lastRunStats: last.stats,
+      ageHours: Math.round(ageHours * 10) / 10,
+      reason: !healthy
+        ? ageHours >= 36
+          ? `Last run was ${Math.round(ageHours)}h ago`
+          : `Last run status: ${last.status}`
+        : 'OK',
+    },
+  });
+});
+
+const triggerGrantsGovRun = asyncHandler(async (req, res) => {
+  if (inFlightRuns.has('grants_gov')) {
+    return res.status(409).json({
+      success: false,
+      message: 'A Grants.gov run is already in progress',
+    });
+  }
+
+  inFlightRuns.add('grants_gov');
+  // Fire-and-forget — return immediately, log result
+  (async () => {
+    try {
+      const grantsGovService = require('../scraping/grants-gov/service');
+      await grantsGovService.runIngestion({ triggeredBy: 'manual_admin' });
+    } catch (err) {
+      // Already logged by service; nothing more to do here
+    } finally {
+      inFlightRuns.delete('grants_gov');
+    }
+  })();
+
+  res.status(202).json({
+    success: true,
+    message: 'Grants.gov ingestion started in background',
+  });
+});
+
 module.exports = {
   adminLogin,
   adminMe,
@@ -306,4 +396,8 @@ module.exports = {
   getActivityLog,
   updateUserRole,
   listActivityLogs,
+  listScrapeRuns,
+  getScrapeRun,
+  scrapingHealth,
+  triggerGrantsGovRun,
 };

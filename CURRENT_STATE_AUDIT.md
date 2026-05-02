@@ -1,7 +1,22 @@
 # Red Dog Grant Intelligence — Current State Audit
-**Generated**: 2026-05-02  
+**Originally generated**: 2026-05-02  
+**Last updated**: 2026-05-02 (post-fix pass)  
 **Branch**: main  
-**Scope**: Read-only audit of all implemented features across backend, frontend, cron jobs, and email systems.
+**Scope**: Complete feature inventory across backend, frontend, cron jobs, and email systems — updated to reflect all fixes applied in this session.
+
+---
+
+## Changelog (this session)
+
+| # | Fix | Files changed |
+|---|-----|--------------|
+| 1 | Coupon redemption end-to-end (success toast added) | `views/onboarding/Step4.tsx` |
+| 2 | Email signature injection centralized in `queueEmail` | `outbox.schema.js`, `outbox.service.js`, `ai.controller.js` |
+| 3 | Contact auto-fill confirmed working in ApplicationBuilder | no code change needed |
+| 4 | "via Gmail" / "via SMTP" badge added to Outbox list | `views/Outbox.tsx` |
+| 5 | Duplicate application prevention — backend `existing: true` flag | `application.service.js`, `application.controller.js` |
+| 6 | Duplicate application prevention — Opportunities card button | `views/Opportunities.tsx` |
+| 7 | Duplicate application prevention — OppDetailModal button | `views/Opportunities.tsx` |
 
 ---
 
@@ -15,8 +30,8 @@ Red Dog/
 │       ├── server.js           MongoDB connection, cron initialization
 │       ├── config/             Email, Gmail OAuth, OpenAI, Stripe, Cloudinary
 │       ├── jobs/               Reply polling job (15-min cron)
-│       ├── modules/            Feature modules (auth, onboarding, matches, outbox, gmail, replies, …)
-│       └── utils/              cron.jobs.js (main scheduler)
+│       ├── modules/            Feature modules (auth, onboarding, matches, outbox, gmail, replies, applications, …)
+│       └── utils/              cron.jobs.js (main scheduler), find-duplicates.js
 ├── red-dog-radios-frontend/    Next.js frontend (port 3000)
 │   └── src/
 │       ├── app/                Next.js App Router pages
@@ -61,14 +76,14 @@ Red Dog/
 | Step 2 — service area, mission | ✅ WORKING | Frontend: `app/onboarding/step2/page.tsx` |
 | Step 3 — challenges checkboxes | ✅ WORKING | Frontend: `app/onboarding/step3/page.tsx`; 6 challenge options |
 | Step 4 — budget, timeline, eligibility | ✅ WORKING | Frontend: `views/onboarding/Step4.tsx`; budget (4 options), timeline (3 options), eligibilityType radio |
-| Coupon input at Step 4 | ⚠️ PARTIAL | Input field exists in Step4.tsx; no backend validation/application logic found in `onboarding.service.js` or `coupon` routes |
+| Coupon input at Step 4 | ✅ WORKING | Input field validates via `GET /api/coupons/validate`; after `POST /api/onboarding/complete` succeeds, `POST /api/coupons/redeem` is called; success toast "Coupon applied — beta access granted" shown; `coupon.service.js` calls `grantBetaAccessFromCoupon` when `grantFullAccess === true` |
 | Step 5 / redirect to dashboard | ✅ WORKING | No explicit Step 5 page; `POST /api/onboarding/complete` returns sessionStorage payload; frontend redirects to `/onboarding/results` |
 | Gmail connect prompt on results page | ✅ WORKING | `OnboardingResults.tsx` shows "Connect Gmail" CTA; visible immediately after onboarding |
 | Match computation on completion | ✅ WORKING | `onboarding.service.js` calls `computeAllForOrganization()` after saving org data; matches available on results page |
 | Welcome email on completion | ✅ WORKING | Triggered inside `onboarding.service.js` after org/user update |
 
 **Key files**:  
-`modules/onboarding/onboarding.route.js`, `onboarding.service.js`, `views/onboarding/Step4.tsx`, `views/onboarding/OnboardingResults.tsx`
+`modules/onboarding/onboarding.route.js`, `onboarding.service.js`, `modules/coupons/coupon.service.js`, `views/onboarding/Step4.tsx`, `views/onboarding/OnboardingResults.tsx`
 
 **Onboarding data fields saved to Organization**:  
 `organizationName`, `location`, `website`, `missionStatement`, `agencyTypes[]`, `programAreas[]`, `focusAreas[]`, `specificRequest`, `budgetRange`, `timeline`, `goals[]`, `populationServed`, `coverageArea`, `numberOfStaff`, `currentEquipment`, `challenges[]`, `urgencyStatement`, `whobenefits`, `eligibilityType`, `annualVolume`, `serviceArea`, `staffSizeRange`, `mainProblems[]`, `fundingPriorities[]`
@@ -108,15 +123,15 @@ Red Dog/
 | SMTP fallback when Gmail not connected | ✅ WORKING | `emailProvider.config.js`: if no Gmail OAuth on org, falls back to Nodemailer SMTP |
 | Gmail OAuth send when connected | ✅ WORKING | `sendViaGmail()` in `gmail.config.js`: builds RFC-2822 raw message, sends via Gmail API |
 | `sentViaGmail` flag stored | ✅ WORKING | Boolean on Outbox record; set `true` if sent via Gmail API, `false` for SMTP |
-| "via Gmail" vs "via SMTP" label in Outbox UI | ⚠️ PARTIAL | `sentViaGmail` boolean stored on Outbox record; frontend display of the label not confirmed in `views/Outbox.tsx` |
-| `From` field shows correct sender name | ✅ WORKING | `senderName` field on Outbox record; SMTP sets `from: "Name <email>"` display format |
-| Signature formatted correctly | ❌ NOT BUILT | No signature injection found in `queueEmail()`, `email.config.js`, or `emailProvider.config.js` |
+| "via Gmail" / "via SMTP" badge in Outbox UI | ✅ WORKING | `Outbox.tsx` renders "via Gmail" (blue) or "via SMTP" (gray) badge on `status === 'sent'` emails only; pending/failed emails show no badge |
+| `From` field shows correct sender name | ✅ WORKING | `senderName` resolved in `ai.controller.js` from `org.contact_name \|\| req.user.fullName`; stored on Outbox; SMTP sets `from: "Name <email>"` |
+| Signature formatted correctly | ✅ WORKING | `queueEmail()` in `outbox.service.js` appends HTML signature block after `marked.parse()`; includes `senderName` (bold), `senderCompany`, `senderLocation`, `senderWebsite` (linked); separator `─────────────────` used as dedup guard; `ai.controller.js` passes all four fields from org |
 | Markdown links converted to HTML | ✅ WORKING | `queueEmail()` calls `marked.parse(body)` before storing `htmlBody` |
 | `[DATA NEEDED]` placeholders removed | ✅ WORKING | `queueEmail()` strips `[DATA NEEDED]` tokens from body before storing |
-| Contact email auto-filled from opportunity | 🔲 NOT CONFIRMED | Not found in outbox service; may exist in ApplicationBuilder or outreach builder |
-| Contact name auto-filled from opportunity | 🔲 NOT CONFIRMED | Same gap as above |
-| Sender name auto-filled from user | ⚠️ PARTIAL | `senderName` field exists on Outbox schema; auto-population logic from user record not confirmed |
-| Sender company auto-filled from org | ⚠️ PARTIAL | Same — field exists, population path unclear |
+| Contact email auto-filled from opportunity | ✅ WORKING | `ApplicationBuilder.tsx` reads `app.funder.contactEmail \|\| app.opportunity.contactEmail \|\| app.opportunity.funderId.contactEmail`; displayed in Generate Outreach Email modal; `application.service.js getOne()` populates opportunity fully (no select restriction) |
+| Contact name auto-filled from opportunity | ✅ WORKING | Same as above — `contactName` from same three-source chain |
+| Sender name auto-filled from user | ✅ WORKING | `ai.controller.js` resolves `senderName = org.contact_name \|\| req.user.fullName`; stored as `senderName` on Outbox |
+| Sender company auto-filled from org | ✅ WORKING | `ai.controller.js` resolves `senderCompany = org.name`; passed to `queueEmail` and stored on Outbox |
 | Dev email redirect | ✅ WORKING | If `NODE_ENV !== 'production'` and `DEV_REDIRECT_EMAIL` is set, all emails redirect to that address with `[DEV → original]` prefix |
 
 **Email selection logic** (`config/emailProvider.config.js`):
@@ -127,8 +142,17 @@ else
   → sendViaSmtp()    [sets sentViaGmail = false]
 ```
 
+**Signature injection logic** (`outbox.service.js` — `queueEmail`):
+```
+1. Strip [DATA NEEDED], clean whitespace
+2. marked.parse(cleanedBody) → finalHtml
+3. If (senderName || senderCompany) && !finalHtml.includes('─────────────────'):
+   Append: <br> + separator + senderName (bold) + senderCompany + senderLocation + senderWebsite (linked)
+4. Save finalHtml to Outbox.htmlBody
+```
+
 **Key files**:  
-`config/emailProvider.config.js`, `config/gmail.config.js`, `config/email.config.js`, `modules/outbox/outbox.service.js`
+`config/emailProvider.config.js`, `config/gmail.config.js`, `config/email.config.js`, `modules/outbox/outbox.service.js`, `modules/ai/ai.controller.js`
 
 ---
 
@@ -136,7 +160,7 @@ else
 
 | Feature | Status | Notes |
 |---------|--------|-------|
-| Email queuing | ✅ WORKING | `queueEmail(data)` creates Outbox record with `status = 'pending'`; Markdown→HTML, placeholder removal done here |
+| Email queuing | ✅ WORKING | `queueEmail(data)` creates Outbox record with `status = 'pending'`; Markdown→HTML, placeholder removal, signature injection all done here |
 | Hourly cron processing | ✅ WORKING | `processQueue()` runs every hour; processes up to 50 pending emails per run |
 | Manual send endpoint | ✅ WORKING | `POST /api/outbox/:id/send` — send a specific pending email immediately |
 | Status tracking (`pending`/`sent`/`failed`) | ✅ WORKING | Status updated on each send attempt; `sentAt` recorded on success |
@@ -145,10 +169,30 @@ else
 | Agency Outbox page (`/outbox`) | ✅ WORKING | `GET /api/outbox` scoped to user's org; page at `app/(agency)/outbox/page.tsx` |
 
 **Outbox Schema** (key fields):  
-`recipient`, `recipientName`, `subject`, `htmlBody` (required), `replyTo`, `senderEmail`, `senderName`, `sentViaGmail`, `emailType` (weekly_digest / alert_digest / outreach / manual / followup_reminder), `scheduledFor`, `status`, `retryCount`, `providerMessageId`, `errorMessage`, `sentAt`, `relatedOrganization`, `relatedAgency`, `relatedUser`, `relatedGrant`
+`recipient`, `recipientName`, `subject`, `htmlBody` (required), `replyTo`, `senderEmail`, `senderName`, `senderCompany`, `senderLocation`, `senderWebsite`, `sentViaGmail`, `emailType` (weekly_digest / alert_digest / outreach / manual / followup_reminder), `scheduledFor`, `status`, `retryCount`, `providerMessageId`, `errorMessage`, `sentAt`, `relatedOrganization`, `relatedAgency`, `relatedUser`, `relatedGrant`
 
 **Key files**:  
 `modules/outbox/outbox.route.js`, `outbox.controller.js`, `outbox.service.js`, `outbox.schema.js`
+
+---
+
+### APPLICATIONS & DUPLICATE PREVENTION
+
+| Feature | Status | Notes |
+|---------|--------|-------|
+| AI application generation (`POST /api/applications/generate`) | ✅ WORKING | `application.controller.js` → `createWithAI()`; builds full 9-section application with GPT-4o-mini |
+| Duplicate prevention — backend | ✅ WORKING | `createWithAI` checks `Application.findOne({ organization, opportunity })` before AI generation; returns existing app with `_isDuplicate: true`; controller emits HTTP 200 `{ success: true, data: app, existing: true }` instead of HTTP 201 |
+| Duplicate prevention — Opportunities card | ✅ WORKING | `Opportunities.tsx` fetches `GET /api/applications` on load; builds `appliedOpportunityIds` Set; card shows green "View Application" button (routes to existing app) instead of red "Draft Application" when opportunity already has an application |
+| Duplicate prevention — OppDetailModal | ✅ WORKING | Modal receives `hasExistingApp` + `existingAppId` props; footer shows green "View Application" (routes + closes modal) or red "Apply with Ashleen" accordingly |
+| `onSuccess` toast differentiation | ✅ WORKING | `generateMutation.onSuccess` checks `res.data.existing`; shows "Application already exists / Taking you to your existing application." for duplicates vs. "Ashleen is drafting your application" for new ones |
+| Existing duplicate check (DB) | ✅ WORKING | `node src/utils/find-duplicates.js` run — **0 duplicates found** in current database |
+| Application status tracking | ✅ WORKING | Statuses: draft / drafting / submitted / in_review / waiting_on_information / approved / awarded / rejected / denied / declined |
+| AI regenerate | ✅ WORKING | `POST /api/applications/:id/regenerate` — replaces all 9 sections with fresh AI content |
+| Export to text | ✅ WORKING | `GET /api/applications/:id/export` — returns plain text file |
+| Award response flow | ✅ WORKING | Agency submits equipment plans; post-award email sequence triggered; communication log updated |
+
+**Key files**:  
+`modules/applications/application.controller.js`, `application.service.js`, `application.schema.js`, `views/ApplicationBuilder.tsx`, `views/Opportunities.tsx`, `utils/find-duplicates.js`
 
 ---
 
@@ -234,10 +278,16 @@ else
 `organization`, `opportunity`, `fitScore`, `reasons[]`, `fitReasons[]`, `disqualifiers[]`, `breakdown` (8 sub-scores), `rubricScores` (9 sub-scores), `rubricTier`, `competitionLevel`, `competitionLabel`, `pastSuccessFactor`, `winProbability`, `status` (pending/approved/rejected), `lastUpdated`, `scoreVersion`
 
 ### Outbox
-*(see Section 1 — Outbox)*
+`recipient`, `recipientName`, `subject`, `htmlBody` (required), `replyTo`, `senderEmail`, `senderName`, `senderCompany`, `senderLocation`, `senderWebsite`, `sentViaGmail`, `emailType`, `scheduledFor`, `status`, `retryCount`, `providerMessageId`, `errorMessage`, `sentAt`, `isTest`, `emailKey`, `relatedOrganization`, `relatedAgency`, `relatedUser`, `relatedGrant`
 
 ### Reply
-*(see Section 1 — Reply Tracking)*
+`outboxId` (ref, required), `organizationId` (ref, required), `from` (required), `subject`, `body`, `htmlBody`, `receivedAt`, `gmailMessageId` (unique sparse), `adminViewed`
+
+### Application
+`organization`, `opportunity`, `funder`, `status` (14 enum values), `projectTitle`, `submittedBy`, `dateStarted`, `submittedAt`, `contactName`, `contactEmail`  
+**AI sections**: `executiveSummary`, `problemStatement`, `projectDescription`, `missionAlignment`, `budgetJustification`, `organizationalCapacity`, `outcomesAndImpact`, `evaluationPlan`, `sustainabilityPlan`  
+**Aligned version**: `alignedVersion` (same 9 keys + `generatedAt`)  
+**Post-award**: `postAwardSequence` (congratsSentAt, followUpScheduledFor, agencyResponse, agencyResponseAt), `isWinner`
 
 ---
 
@@ -300,10 +350,31 @@ else
 | PUT | `/:id/approve` | **DEPRECATED** — returns 403 |
 | PUT | `/:id/reject` | **DEPRECATED** — returns 403 |
 
+### Applications (`/api/applications`)
+| Method | Path | Notes |
+|--------|------|-------|
+| GET | `/` | Agency's own applications (paginated) |
+| POST | `/` | Manual create |
+| POST | `/generate` | AI generation; returns existing app + `existing: true` if duplicate |
+| GET | `/:id` | Application detail (fully populated) |
+| PUT | `/:id` | Update application fields |
+| PUT | `/:id/status` | Update status (admin-only statuses enforced) |
+| POST | `/:id/submit` | Mark as submitted |
+| POST | `/:id/regenerate` | Re-run AI on all 9 sections |
+| POST | `/:id/award-response` | Agency submits equipment plans after award |
+| GET | `/:id/export` | Download as plain text |
+| DELETE | `/:id` | Delete application |
+
 ### Onboarding (`/api/onboarding`)
 | Method | Path | Notes |
 |--------|------|-------|
 | POST | `/complete` | Submit 4-step data; triggers match compute + welcome email |
+
+### Coupons (`/api/coupons`)
+| Method | Path | Notes |
+|--------|------|-------|
+| GET | `/validate` | Validate code without redeeming (used by Step 4 UI) |
+| POST | `/redeem` | Redeem code; grants beta access if `grantFullAccess === true` |
 
 ---
 
@@ -335,17 +406,7 @@ else
 
 | Gap | Detail |
 |-----|--------|
-| **Coupon validation at Step 4** | `Step4.tsx` has a coupon input field. `onboarding.service.js` has no validation or application logic. A `couponRoutes` module exists (`/api/coupons`) but its integration with onboarding is missing. |
-| **Sender name/company auto-fill** | `senderName` field on Outbox schema exists. Code to automatically populate it from the user's name + organization at queue time is not confirmed. |
-| **"via Gmail" / "via SMTP" label in Outbox UI** | `sentViaGmail` boolean is stored on every Outbox record. Whether the agency Outbox page or admin Outbox dashboard visually renders a "via Gmail" badge has not been confirmed in the frontend code. |
-| **Admin Gmail connect UI** | `GET /api/gmail/oauth/connect?organizationId=X` route exists and is admin-gated. Whether the admin panel has a UI element to trigger this flow is not confirmed. |
-
-### ❌ NOT BUILT
-
-| Gap | Detail |
-|-----|--------|
-| **Email signature injection** | No signature appending found in `queueEmail()`, `email.config.js`, or `emailProvider.config.js`. Emails go out without a formatted org signature block. |
-| **Contact email/name auto-fill from opportunity** | Expected behavior: when composing outreach, `recipient` and `recipientName` are pre-populated from the opportunity's contact fields. Code path not found in outbox or outreach services. May be implemented in a client-side ApplicationBuilder component not audited. |
+| **Admin Gmail connect UI** | `GET /api/gmail/oauth/connect?organizationId=X` route exists and is admin-gated. Whether the admin panel has a UI element to trigger this flow has not been confirmed. |
 
 ### ❌ DEPRECATED / BROKEN
 
@@ -366,11 +427,19 @@ else
 | `utils/cron.jobs.js` | All scheduled jobs (8 total) |
 | `jobs/replyPolling.job.js` | 15-min reply polling cron |
 | `modules/onboarding/onboarding.service.js` | 4-step data mapping + match trigger + welcome email |
-| `modules/outbox/outbox.service.js` | Queue, Markdown→HTML, placeholder removal, send, retry |
+| `modules/coupons/coupon.service.js` | Coupon validate + redeem + `grantBetaAccessFromCoupon` |
+| `modules/outbox/outbox.service.js` | Queue, Markdown→HTML, signature injection, send, retry |
+| `modules/outbox/outbox.schema.js` | Outbox model (includes senderCompany / senderLocation / senderWebsite) |
+| `modules/applications/application.service.js` | AI generation, duplicate detection (`_isDuplicate`), status transitions |
+| `modules/applications/application.controller.js` | `generate` endpoint — emits `existing: true` for duplicates |
 | `modules/gmail/gmail.service.js` | Token refresh + OAuth flow |
-| `views/onboarding/Step4.tsx` | Step 4 form (coupon input field) |
+| `modules/ai/ai.controller.js` | Resolves senderName/senderCompany/senderLocation/senderWebsite; calls queueEmail |
+| `views/onboarding/Step4.tsx` | Step 4 form — coupon validate + redeem + success toast |
 | `views/onboarding/OnboardingResults.tsx` | Results display + Gmail connect CTA |
-| `views/Opportunities.tsx` | Opportunity list with fit scores + rubric breakdown |
+| `views/Opportunities.tsx` | Opportunity list, match scores, conditional Draft/View button (card + modal) |
+| `views/Outbox.tsx` | Outbox list — "via Gmail" / "via SMTP" badge on sent emails |
+| `views/ApplicationBuilder.tsx` | Application detail, outreach email generation, contact auto-fill |
+| `utils/find-duplicates.js` | One-shot script to report duplicate applications in DB |
 
 ---
 
@@ -380,19 +449,19 @@ else
 |------|--------|
 | Authentication (signup, OTP, login, reset) | ✅ Complete |
 | Onboarding (Steps 1–4, results, match trigger) | ✅ Complete |
-| Coupon validation at Step 4 | ⚠️ UI only — backend missing |
+| Coupon validation + redemption at Step 4 | ✅ Complete |
 | Gmail OAuth (connect, status, disconnect, token refresh) | ✅ Complete |
 | Match scoring algorithm | ✅ Complete |
 | Nightly match refresh cron | ✅ Complete |
 | Email queuing (Markdown→HTML, placeholder removal) | ✅ Complete |
+| Email signature injection (name, company, location, website) | ✅ Complete |
 | SMTP email sending | ✅ Complete |
 | Gmail API email sending | ✅ Complete |
 | Gmail vs. SMTP selection logic | ✅ Complete |
 | `sentViaGmail` flag storage | ✅ Complete |
-| "via Gmail" label in UI | ⚠️ Stored, display unconfirmed |
-| Email signature injection | ❌ Not built |
-| Contact auto-fill from opportunity | ❌ Not confirmed |
-| Sender name/company auto-fill | ⚠️ Field exists, logic unconfirmed |
+| "via Gmail" / "via SMTP" badge in Outbox UI | ✅ Complete |
+| Contact email/name auto-fill from opportunity | ✅ Complete |
+| Sender name/company auto-fill | ✅ Complete |
 | Outbox queuing + hourly cron | ✅ Complete |
 | Outbox retry logic (max 5) | ✅ Complete |
 | Agency Outbox page | ✅ Complete |
@@ -402,3 +471,10 @@ else
 | `gmailMessageId` dedup | ✅ Complete |
 | Manual poll endpoint | ✅ Complete |
 | Admin replies dashboard | ✅ Complete |
+| AI application generation | ✅ Complete |
+| Duplicate application prevention (backend) | ✅ Complete |
+| Duplicate application prevention (Opportunities card) | ✅ Complete |
+| Duplicate application prevention (OppDetailModal) | ✅ Complete |
+| Application status tracking + transitions | ✅ Complete |
+| Post-award email sequence | ✅ Complete |
+| Admin Gmail connect UI | ⚠️ Route exists, admin UI unconfirmed |

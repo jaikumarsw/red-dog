@@ -224,8 +224,28 @@ cron.schedule(
 logger.info('[PostAward] Cron scheduled: daily 9 AM MT');
 
 logger.info(
-  '✅ Cron jobs registered: match refresh (2am), deadline alerts (2:30am), high-fit alerts (2:45am), follow-up backfill (8am), priority flags (8am), outbox (hourly), post-award follow-up (9am MT)'
+  '✅ Cron jobs registered: match refresh (2am), deadline alerts (2:30am), high-fit alerts (2:45am), grants.gov ingestion (5:30am MT), follow-up backfill (8am), priority flags (8am), outbox (hourly), post-award follow-up (9am MT)'
 );
+
+// Daily 5:30 AM MT — Grants.gov ingestion
+cron.schedule(
+  '30 5 * * *',
+  async () => {
+    try {
+      logger.info('Cron: Starting Grants.gov ingestion');
+      const grantsGovService = require('../modules/scraping/grants-gov/service');
+      const run = await grantsGovService.runIngestion({ triggeredBy: 'cron' });
+      logger.info(
+        `Cron: Grants.gov ingestion ${run.status}. Inserted: ${run.stats.inserted}, Updated: ${run.stats.updated}, Closed: ${run.stats.closed}, Errors: ${run.stats.errors}`
+      );
+    } catch (err) {
+      logger.error('Cron: Grants.gov ingestion failed:', err.message);
+      await notifyCronError('Grants.gov ingestion', err);
+    }
+  },
+  { timezone: 'America/Denver' }
+);
+logger.info('[GrantsGov] Cron scheduled: daily 5:30 AM MT');
 
 try {
   require('../jobs/replyPolling.job');

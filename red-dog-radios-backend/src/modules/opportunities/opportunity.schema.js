@@ -30,6 +30,33 @@ const opportunitySchema = new mongoose.Schema(
     isLocked: { type: Boolean, default: false },
     funderId: { type: mongoose.Schema.Types.ObjectId, ref: 'Funder' },
     createdBy: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
+
+    // ----- Scraping / external source fields (added for Grants.gov pipeline) -----
+    externalSource: {
+      type: String,
+      enum: ['manual', 'grants_gov', 'cause_iq', 'instrumentl', 'zeffy', 'state_portal'],
+      default: 'manual',
+      index: true,
+    },
+    externalSourceId: { type: String, index: true },
+    externalSourceUrl: { type: String, default: null },
+    externalFirstSeenAt: { type: Date, default: null },
+    externalLastSeenAt: { type: Date, default: null },
+    isForecast: { type: Boolean, default: false },
+    rawSourceData: { type: mongoose.Schema.Types.Mixed, select: false },
+
+    // CFDA/Assistance Listing numbers (e.g., "97.044" for FEMA AFG)
+    cfdaNumbers: [{ type: String }],
+    fundingInstrument: { type: String, default: null },
+    eligibleApplicants: [{ type: String }],
+
+    // Geography — was previously read by match engine but not defined on Opportunity.
+    // Adding it here so scraped opportunities score on geography.
+    locationFocus: [{ type: String }],
+
+    // Public safety relevance — only opportunities with score >= threshold are saved
+    publicSafetyScore: { type: Number, default: 0 },
+    publicSafetyKeywordsMatched: [{ type: String }],
   },
   { timestamps: true }
 );
@@ -37,5 +64,12 @@ const opportunitySchema = new mongoose.Schema(
 opportunitySchema.plugin(mongoosePaginateV2);
 
 opportunitySchema.index({ status: 1, deadline: 1 });
+
+// Compound unique index for scraper dedup. Sparse so manual entries
+// without externalSourceId don't conflict.
+opportunitySchema.index(
+  { externalSource: 1, externalSourceId: 1 },
+  { unique: true, sparse: true }
+);
 
 module.exports = mongoose.model('Opportunity', opportunitySchema);
