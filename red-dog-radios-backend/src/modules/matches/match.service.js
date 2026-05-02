@@ -488,6 +488,73 @@ const computeAllForOrganization = async (organizationId) => {
   return { processed, upserted, errors, total: opportunities.length };
 };
 
+const computeAllForOpportunity = async (opportunityId) => {
+  const opp = await Opportunity.findById(opportunityId);
+  if (!opp) throw new AppError('Opportunity not found', 404);
+
+  const organizations = await Organization.find({ status: 'active' });
+  let processed = 0, errors = 0;
+
+  // Step 1: Initial pass to create/update match records with base scores
+  for (const org of organizations) {
+    try {
+      const scored = computeMatchScore(org, opp);
+      await Match.findOneAndUpdate(
+        { organization: org._id, opportunity: opp._id },
+        {
+          ...scored,
+          lastUpdated: new Date(),
+          scoreVersion: 'v3',
+          status: 'pending',
+        },
+        { upsert: true, new: true, setDefaultsOnInsert: true }
+      );
+      processed++;
+    } catch (err) {
+      console.error(`[Scoring] Initial pass failed for org ${org._id}:`, err);
+      errors++;
+    }
+  }
+
+  // Step 2: Calculate competition level based on all newly created matches
+  const { competitionLevel, competitionLabel } = await computeCompetition(opp._id);
+
+  // Step 3: Second pass to calculate win probability and rubric scores
+  for (const org of organizations) {
+    try {
+      const { pastSuccessFactor } = await computePastSuccessFactor(org._id);
+      const match = await Match.findOne({ organization: org._id, opportunity: opp._id });
+      if (!match) continue;
+
+      const rubricScores = computeRubricScores({
+        organization: org,
+        opportunity: opp,
+        breakdown: match.breakdown,
+        pastSuccessFactor,
+      });
+      const rubricTier = rubricTierFrom(rubricScores.normalizedScore);
+      const winProbability = computeWinProbability({ 
+        fitScore: match.fitScore, 
+        competitionLevel, 
+        pastSuccessFactor 
+      });
+
+      await Match.findByIdAndUpdate(match._id, {
+        rubricScores,
+        rubricTier,
+        competitionLevel,
+        competitionLabel,
+        pastSuccessFactor,
+        winProbability,
+      });
+    } catch (err) {
+      console.error(`[Scoring] Second pass failed for org ${org._id}:`, err);
+    }
+  }
+
+  return { processed, errors, total: organizations.length };
+};
+
 module.exports = {
   computeMatchScore,
   getAll,
@@ -497,4 +564,5 @@ module.exports = {
   approveMatch,
   rejectMatch,
   computeAllForOrganization,
+  computeAllForOpportunity,
 };

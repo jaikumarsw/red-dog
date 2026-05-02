@@ -6,7 +6,7 @@ const funderSchema = new mongoose.Schema(
     name: { type: String, required: true, trim: true },
     website: { type: String },
     contactName: { type: String },
-    contactEmail: { type: String },
+    contactEmail: { type: String, required: true },
     contactPhone: { type: String },
 
     missionStatement: { type: String },

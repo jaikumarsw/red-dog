@@ -42,6 +42,7 @@ export default function EditOpportunityPage() {
     setForm({
       title: String(d.title || ""),
       funder: String(d.funder || ""),
+      funderId: String(d.funderId || ""),
       deadline: d.deadline ? String(d.deadline).slice(0, 10) : "",
       minAmount: String(d.minAmount ?? ""),
       maxAmount: String(d.maxAmount ?? ""),
@@ -59,6 +60,7 @@ export default function EditOpportunityPage() {
       await adminApi.put(`admin/opportunities/${id}`, {
         title: form.title,
         funder: form.funder,
+        funderId: form.funderId || undefined,
         deadline: form.deadline || undefined,
         minAmount: parseMoney(form.minAmount),
         maxAmount: parseMoney(form.maxAmount),
@@ -79,7 +81,7 @@ export default function EditOpportunityPage() {
     <div className="max-w-xl space-y-4">
       <AdminBackLink href={`/admin/opportunities/${String(id)}`}>Back to opportunity</AdminBackLink>
       <h1 className="[font-family:'Montserrat',Helvetica] text-2xl font-bold text-[#111827]">Edit opportunity</h1>
-      {Object.keys(form).map((key) => (
+      {Object.keys(form).filter(k => k !== 'funderId').map((key) => (
         <div key={key}>
           <Label className="capitalize">
             {key === "sourceUrl"

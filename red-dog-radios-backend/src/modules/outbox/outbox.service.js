@@ -54,6 +54,7 @@ const getAllAdmin = async ({
     populate: [
       { path: 'relatedAgency', select: 'name' },
       { path: 'relatedUser', select: 'fullName firstName lastName email' },
+      { path: 'relatedGrant', select: 'projectTitle' },
     ],
   });
 };
@@ -68,6 +69,7 @@ const getOneAdmin = async (id) => {
   const record = await Outbox.findById(id)
     .populate({ path: 'relatedAgency' })
     .populate({ path: 'relatedOrganization' })
+    .populate({ path: 'relatedGrant', select: 'projectTitle' })
     .populate({ path: 'relatedUser', select: 'fullName firstName lastName email' });
   if (!record) throw new AppError('Outbox record not found', 404);
   return record;

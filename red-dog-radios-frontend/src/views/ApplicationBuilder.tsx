@@ -66,6 +66,12 @@ interface Application {
     contactName?: string | null;
     contactPhone?: string | null;
     applicationUrl?: string | null;
+    funderId?: {
+      _id: string;
+      contactEmail?: string;
+      contactName?: string;
+      contactPhone?: string;
+    } | null;
   };
   organization?: { name: string };
 }
@@ -440,8 +446,8 @@ export const ApplicationBuilder = () => {
 
   const generateEmailMutation = useMutation({
     mutationFn: async () => {
-      const funderEmail = app?.funder?.contactEmail || app?.opportunity?.contactEmail;
-      const funderName = app?.funder?.contactName || app?.opportunity?.contactName;
+      const funderEmail = app?.funder?.contactEmail || app?.opportunity?.contactEmail || app?.opportunity?.funderId?.contactEmail;
+      const funderName = app?.funder?.contactName || app?.opportunity?.contactName || app?.opportunity?.funderId?.contactName;
       
       if (!funderEmail) throw new Error("No contact email on file for this funder — please ask your admin to update the funder record.");
       if (!opportunityId) throw new Error("This application is missing an opportunityId, so outreach can't be generated here yet.");
@@ -457,6 +463,8 @@ export const ApplicationBuilder = () => {
     onSuccess: async () => {
       toast({ title: "Outreach email queued successfully" });
       setComposeOpen(false);
+      // Automatically mark application as submitted
+      statusMutation.mutate("submitted");
       await queryClient.invalidateQueries({ queryKey: ["outbox", "grant", id] });
     },
     onError: (err: unknown) => {
@@ -711,15 +719,6 @@ export const ApplicationBuilder = () => {
                 Outreach emails queued and sent for this application
               </p>
             </div>
-            <button
-              onClick={() => {
-                setComposeOpen(true);
-              }}
-              className="rounded-lg bg-[#ef3e34] px-4 py-2 text-sm font-bold text-white [font-family:'Montserrat',Helvetica] hover:bg-[#d63029] disabled:opacity-60"
-              disabled={generateEmailMutation.isPending}
-            >
-              Generate Outreach Email
-            </button>
           </div>
 
           {grantEmailHistory.isLoading ? (
@@ -960,20 +959,6 @@ export const ApplicationBuilder = () => {
         </div>
       </div>
 
-      {/* Bottom Actions */}
-      <div className="flex flex-wrap gap-3 border-t border-[#e5e7eb] pt-4">
-
-        {!isAdminControlled && app.status !== "submitted" && (
-          <button
-            onClick={() => statusMutation.mutate("submitted")}
-            disabled={statusMutation.isPending}
-            className="rounded-lg bg-[#22c55e] px-4 py-2.5 text-sm font-bold text-white [font-family:'Montserrat',Helvetica] hover:bg-green-600 disabled:opacity-50"
-          >
-            Mark as Submitted
-          </button>
-        )}
-      </div>
-
       {/* Aligned version timestamp */}
       {app.alignedVersion?.generatedAt && (
         <p className="text-xs text-[#9ca3af] [font-family:'Montserrat',Helvetica]">
@@ -1114,7 +1099,7 @@ export const ApplicationBuilder = () => {
               ) : null}
 
               <div className="pt-2">
-                {(!app?.funder?.contactEmail && !app?.opportunity?.contactEmail) ? (
+                {(!app?.funder?.contactEmail && !app?.opportunity?.contactEmail && !app?.opportunity?.funderId?.contactEmail) ? (
                   <div className="rounded-xl border border-[#fee2e2] bg-[#fff1f2] p-4 mb-4">
                     <p className="[font-family:'Montserrat',Helvetica] text-sm font-semibold text-[#991b1b]">
                       No contact email on file for this funder — please ask your admin to update the funder record.
@@ -1124,11 +1109,11 @@ export const ApplicationBuilder = () => {
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 pb-4">
                     <div className="flex flex-col gap-1">
                       <label className="text-xs font-semibold text-[#6b7280] [font-family:'Montserrat',Helvetica] uppercase tracking-wider">Contact email</label>
-                      <p className="text-sm font-medium text-[#111827] [font-family:'Montserrat',Helvetica]">{app?.funder?.contactEmail || app?.opportunity?.contactEmail}</p>
+                      <p className="text-sm font-medium text-[#111827] [font-family:'Montserrat',Helvetica]">{app?.funder?.contactEmail || app?.opportunity?.contactEmail || app?.opportunity?.funderId?.contactEmail}</p>
                     </div>
                     <div className="flex flex-col gap-1">
                       <label className="text-xs font-semibold text-[#6b7280] [font-family:'Montserrat',Helvetica] uppercase tracking-wider">Contact name</label>
-                      <p className="text-sm font-medium text-[#111827] [font-family:'Montserrat',Helvetica]">{app?.funder?.contactName || app?.opportunity?.contactName || "—"}</p>
+                      <p className="text-sm font-medium text-[#111827] [font-family:'Montserrat',Helvetica]">{app?.funder?.contactName || app?.opportunity?.contactName || app?.opportunity?.funderId?.contactName || "—"}</p>
                     </div>
                   </div>
                 )}
@@ -1170,7 +1155,7 @@ export const ApplicationBuilder = () => {
                   </button>
                   <button
                     onClick={() => generateEmailMutation.mutate()}
-                    disabled={generateEmailMutation.isPending || (!app?.funder?.contactEmail && !app?.opportunity?.contactEmail) || !opportunityId}
+                    disabled={generateEmailMutation.isPending || (!app?.funder?.contactEmail && !app?.opportunity?.contactEmail && !app?.opportunity?.funderId?.contactEmail) || !opportunityId}
                     className="rounded-lg bg-[#ef3e34] px-4 py-2 text-sm font-bold text-white [font-family:'Montserrat',Helvetica] hover:bg-[#d63029] disabled:opacity-60"
                   >
                     {generateEmailMutation.isPending ? "Generating…" : "Generate & Queue"}

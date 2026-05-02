@@ -43,6 +43,11 @@ interface Opportunity {
   category?: string;
   status: "open" | "closing" | "closed";
   createdAt?: string;
+  fitScore?: number | null;
+  matchTier?: string | null;
+  matchStatus?: string | null;
+  winProbability?: number | null;
+  matchReasons?: string[];
 }
 
 type RubricScores = {
@@ -123,8 +128,8 @@ const daysLeft = (d?: string) => {
   return Math.ceil((new Date(d).getTime() - Date.now()) / 86400000);
 };
 
-const scoreColor = (n: number | null) => {
-  if (n === null) return { border: "border-[#d1d5db]", text: "text-[#6b7280]", bg: "bg-[#f9fafb]" };
+const scoreColor = (n: number | null | undefined) => {
+  if (n === null || n === undefined) return { border: "border-[#d1d5db]", text: "text-[#6b7280]", bg: "bg-[#f9fafb]" };
   if (n >= 75) return { border: "border-[#22c55e]", text: "text-[#22c55e]", bg: "bg-[#f0fdf4]" };
   if (n >= 50) return { border: "border-[#f97316]", text: "text-[#f97316]", bg: "bg-[#fff7ed]" };
   return { border: "border-[#ef4444]", text: "text-[#ef4444]", bg: "bg-[#fff1f0]" };
@@ -183,8 +188,11 @@ function mergeRankedOpportunities(matches: ApiMatchRow[], opportunities: Opportu
     .filter((o) => !byOpp.has(String(o._id)))
     .map((o) => ({
       ...o,
-      fitScore: null,
-      matchReasons: [] as string[],
+      fitScore: o.fitScore ?? null,
+      winProbability: o.winProbability ?? null,
+      rubricTier: o.matchTier as any,
+      matchStatus: o.matchStatus ?? "pending",
+      matchReasons: o.matchReasons ?? [],
     }))
     .sort((a, b) => (a.title || "").localeCompare(b.title || ""));
 
@@ -428,9 +436,12 @@ export const Opportunities = () => {
                       <span className={cn("rounded-full border px-2 py-0.5 text-[10px] font-bold [font-family:'Montserrat',Helvetica] uppercase tracking-wide", STATUS_STYLES[opp.status] || STATUS_STYLES.open)}>
                         {opp.status === "closing" ? "Closing Soon" : opp.status}
                       </span>
-                      <div className={cn("flex h-7 min-w-[2.25rem] items-center justify-center rounded-full border-2 px-2", sc.border, sc.bg)} title={opp.fitScore === null ? "AI scoring pending" : "AI Fit Score"}>
+                      <div 
+                        className={cn("flex h-7 min-w-[2.25rem] items-center justify-center rounded-full border-2 px-2 transition-all", sc.border, sc.bg)} 
+                        title={opp.fitScore === null ? "Match analysis pending — click Refresh to force update" : "AI Fit Score"}
+                      >
                         <span className={cn("[font-family:'Montserrat',Helvetica] text-xs font-bold", sc.text)}>
-                          {opp.fitScore === null ? "—" : `${opp.fitScore}`}
+                          {opp.fitScore === null ? "..." : `${opp.fitScore}`}
                         </span>
                       </div>
                       {wb ? (

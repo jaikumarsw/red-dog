@@ -16,8 +16,11 @@ const opportunitySchema = new mongoose.Schema(
     equipmentTags: [{ type: String }],
     localMatchRequired: { type: Boolean, default: false },
     status: { type: String, enum: ['open', 'closing', 'closed'], default: 'open' },
+    /** @deprecated Use funderId.contactEmail */
     contactEmail:   { type: String, default: null },
+    /** @deprecated Use funderId.contactName */
     contactName:    { type: String, default: null },
+    /** @deprecated Use funderId.contactPhone */
     contactPhone:   { type: String, default: null },
     applicationUrl: { type: String, default: null },
     /** 0 = unlimited applications for this opportunity */
@@ -25,6 +28,7 @@ const opportunitySchema = new mongoose.Schema(
     currentApplicationCount: { type: Number, default: 0 },
     highScoreApplicationCount: { type: Number, default: 0 },
     isLocked: { type: Boolean, default: false },
+    funderId: { type: mongoose.Schema.Types.ObjectId, ref: 'Funder' },
     createdBy: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
   },
   { timestamps: true }

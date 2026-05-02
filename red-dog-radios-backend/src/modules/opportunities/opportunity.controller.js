@@ -1,9 +1,11 @@
 const asyncHandler = require('../../utils/asyncHandler');
 const { success, created, paginate } = require('../../utils/apiResponse');
 const oppService = require('./opportunity.service');
+const { resolveAgencyOrganizationId } = require('../../utils/resolveAgencyOrg');
 
 const getAll = asyncHandler(async (req, res) => {
-  const result = await oppService.getAll(req.query);
+  const organizationId = await resolveAgencyOrganizationId(req.user);
+  const result = await oppService.getAll({ ...req.query, organizationId });
   return paginate(res, result.docs, result, 'Opportunities retrieved');
 });
 
