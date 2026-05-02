@@ -114,7 +114,7 @@ export const OnboardingStep1 = () => {
   return (
     <div className="flex min-h-screen flex-col items-center justify-start bg-[#fafafa] px-4 pb-12 pt-6 sm:pt-8">
       <div className="mb-8 self-start">
-        <RedDogLogo />
+        <RedDogLogo className="w-48" />
       </div>
 
       <form

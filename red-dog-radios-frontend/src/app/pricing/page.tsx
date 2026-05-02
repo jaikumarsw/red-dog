@@ -73,7 +73,7 @@ export default function PricingPage() {
   return (
     <div className="flex min-h-screen flex-col items-center bg-white px-4 pb-20 pt-8 sm:pt-12">
       <div className="mb-12 self-start sm:self-center">
-        <RedDogLogo />
+        <RedDogLogo className="w-48 sm:w-56" />
       </div>
 
       <div className="mb-12 text-center">

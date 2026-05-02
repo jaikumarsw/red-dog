@@ -136,7 +136,7 @@ export const Login = () => {
 
       <div className="flex min-h-0 min-w-0 flex-1 flex-col items-stretch overflow-y-auto bg-white px-4 py-4 sm:px-8 sm:py-6">
         <div className="mx-auto flex min-h-full w-full max-w-[400px] flex-col items-start justify-center gap-5">
-          <RedDogLogo />
+          <RedDogLogo className="w-48" />
 
           <div className="w-full bg-[#f3f4f6] rounded-full p-1 flex gap-1">
             <button

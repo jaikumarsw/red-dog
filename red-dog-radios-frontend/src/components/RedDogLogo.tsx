@@ -1,21 +1,24 @@
-interface RedDogLogoProps {
-  dark?: boolean;
-}
+import { cn } from "@/lib/utils";
 
-export const RedDogLogo = ({ dark = false }: RedDogLogoProps) => {
-  const titleCls = dark
-    ? "text-neutral-50"
-    : "text-black";
-  const taglineCls = dark
-    ? "text-[#b8bcc4] [text-wrap:balance]"
-    : "text-[#6b7280] [text-wrap:balance]";
-
+export const RedDogLogo = ({ 
+  dark = false, 
+  className,
+  imgClassName 
+}: { 
+  dark?: boolean; 
+  className?: string;
+  imgClassName?: string;
+}) => {
   return (
-    <div className="flex items-center">
+    <div className={cn("flex items-center", className)}>
       <img 
         src="/logo.png" 
         alt="Red Dog Grant Intelligence" 
-        className={dark ? "w-full h-auto brightness-110" : "w-full h-auto"}
+        className={cn(
+          "h-auto w-full",
+          dark && "brightness-110",
+          imgClassName
+        )}
       />
     </div>
   );
