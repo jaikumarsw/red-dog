@@ -103,7 +103,7 @@ const SidebarContent = ({
       <div
         className={cn(
           "flex-shrink-0 border-b border-[#1f1f1f] px-4 min-w-0",
-          collapsed ? "flex h-20 items-center" : headerSubtitle ? "flex flex-col gap-2.5 py-3.5" : "flex h-20 items-center"
+          collapsed ? "flex h-16 items-center" : headerSubtitle ? "flex flex-col gap-2.5 py-3.5" : "flex h-16 items-center"
         )}
       >
         {collapsed ? (
@@ -168,7 +168,7 @@ const SidebarContent = ({
                 </div>
                 {!collapsed && (
                   <span
-                    className={`flex-1 [font-family:'Montserrat',Helvetica] text-base tracking-[0] leading-6 whitespace-nowrap ${isActive ? "font-bold text-[#ef3e34]" : "font-medium text-[#a6a6a6]"}`}
+                    className={`flex-1 [font-family:'Montserrat',Helvetica] text-sm tracking-[0] leading-6 whitespace-nowrap ${isActive ? "font-bold text-[#ef3e34]" : "font-medium text-[#a6a6a6]"}`}
                   >
                     {item.label}
                   </span>
@@ -253,7 +253,7 @@ const SidebarContent = ({
             aria-hidden
           />
           {!collapsed && (
-            <span className="[font-family:'Montserrat',Helvetica] font-normal text-[#ef3e34] text-base tracking-[0] leading-6 whitespace-nowrap">
+            <span className="[font-family:'Montserrat',Helvetica] font-normal text-[#ef3e34] text-sm tracking-[0] leading-6 whitespace-nowrap">
               Sign Out
             </span>
           )}
@@ -291,7 +291,7 @@ export function AppShellLayout({
 
   return (
     <div className="flex min-h-screen w-full overflow-x-hidden bg-neutral-50">
-      <nav className="z-10 hidden h-screen w-72 flex-col items-stretch overflow-hidden border-r border-solid border-[#1f1f1f] bg-[#0d0d0d] lg:fixed lg:inset-y-0 lg:left-0 lg:flex">
+      <nav className="z-10 hidden h-screen w-64 flex-col items-stretch overflow-hidden border-r border-solid border-[#1f1f1f] bg-[#0d0d0d] lg:fixed lg:inset-y-0 lg:left-0 lg:flex">
         <SidebarContent
           collapsed={false}
           menuItems={menuItems}
@@ -325,7 +325,7 @@ export function AppShellLayout({
         />
       )}
       <nav
-        className={`fixed left-0 top-0 z-50 flex h-[100dvh] max-h-[100dvh] w-72 flex-col overflow-hidden border-r border-[#1f1f1f] bg-[#0d0d0d] transition-transform duration-300 md:hidden
+        className={`fixed left-0 top-0 z-50 flex h-[100dvh] max-h-[100dvh] w-64 flex-col overflow-hidden border-r border-[#1f1f1f] bg-[#0d0d0d] transition-transform duration-300 md:hidden
           ${drawerOpen ? "translate-x-0" : "-translate-x-full"}`}
       >
         <SidebarContent
@@ -341,7 +341,7 @@ export function AppShellLayout({
         />
       </nav>
 
-      <main className="flex min-h-screen min-w-0 flex-1 flex-col md:pl-16 lg:pl-72">
+      <main className="flex min-h-screen min-w-0 flex-1 flex-col md:pl-16 lg:pl-64">
         <div className="flex h-14 flex-shrink-0 items-center gap-3 border-b border-[#f0f0f0] bg-white px-4 md:hidden">
           <button
             type="button"

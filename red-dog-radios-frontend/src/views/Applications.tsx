@@ -344,7 +344,7 @@ export const Applications = () => {
   ];
 
   return (
-    <div className="flex h-full min-w-0 flex-col gap-5 bg-neutral-50 p-4 sm:gap-6 sm:p-6 lg:p-8">
+    <div className="flex h-full min-w-0 flex-col gap-5 bg-neutral-50 p-4 sm:p-6">
       <div className="flex min-w-0 items-start justify-between gap-3">
         <div className="flex min-w-0 flex-col gap-1">
           <h1 className="[font-family:'Oswald',Helvetica] font-bold text-black text-2xl min-[400px]:text-3xl tracking-[0.5px] uppercase leading-tight break-words">

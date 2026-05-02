@@ -72,68 +72,68 @@ const EmailDetailsModal = ({
   onClose: () => void;
 }) => {
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40"
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-0 sm:p-6"
       onClick={(e) => e.target === e.currentTarget && onClose()}>
-      <div className="bg-white rounded-2xl shadow-[0_8px_40px_rgba(0,0,0,0.18)] w-full max-w-[920px] mx-4 flex flex-col">
-        <div className="flex items-center justify-between px-7 pt-7 pb-5 border-b border-[#f3f4f6]">
-          <h2 className="[font-family:'Oswald',Helvetica] font-bold text-black text-xl tracking-[0.5px] uppercase">Email Details</h2>
-          <button onClick={onClose} className="w-7 h-7 flex items-center justify-center rounded-lg border border-[#e5e7eb] hover:bg-[#f3f4f6] transition-colors">
-            <X size={14} className="text-[#6b7280]" />
+      <div className="bg-white shadow-[0_8px_40px_rgba(0,0,0,0.18)] w-full h-full sm:h-auto sm:max-w-[720px] sm:rounded-2xl flex flex-col">
+        <div className="flex items-center justify-between px-5 py-4 sm:px-6 sm:py-5 border-b border-[#f3f4f6] shrink-0">
+          <h2 className="[font-family:'Oswald',Helvetica] font-bold text-black text-lg tracking-[0.5px] uppercase">Email Details</h2>
+          <button onClick={onClose} className="w-8 h-8 flex items-center justify-center rounded-lg border border-[#e5e7eb] hover:bg-[#f3f4f6] transition-colors">
+            <X size={16} className="text-[#6b7280]" />
           </button>
         </div>
 
-        <div className="px-7 py-6 flex flex-col gap-5">
+        <div className="flex-1 overflow-y-auto px-5 py-5 sm:px-6 sm:py-6 flex flex-col gap-4">
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-            <div className="flex flex-col gap-1">
-              <span className="[font-family:'Montserrat',Helvetica] font-normal text-[#9ca3af] text-xs">To</span>
-              <span className="[font-family:'Montserrat',Helvetica] font-bold text-[#111827] text-sm">{email.to}</span>
+            <div className="flex flex-col gap-0.5">
+              <span className="[font-family:'Montserrat',Helvetica] text-[#9ca3af] text-[10px] uppercase tracking-wider font-bold">To</span>
+              <span className="[font-family:'Montserrat',Helvetica] font-semibold text-[#111827] text-sm break-all leading-tight">{email.to}</span>
             </div>
-            <div className="flex flex-col gap-1">
-              <span className="[font-family:'Montserrat',Helvetica] font-normal text-[#9ca3af] text-xs">Status</span>
-              <span className={`inline-flex w-fit items-center px-2.5 py-0.5 rounded-full [font-family:'Montserrat',Helvetica] font-semibold text-xs capitalize ${statusBadge(email.status)}`}>
-                {email.status.charAt(0).toUpperCase() + email.status.slice(1)}
+            <div className="flex flex-col gap-0.5">
+              <span className="[font-family:'Montserrat',Helvetica] text-[#9ca3af] text-[10px] uppercase tracking-wider font-bold">Status</span>
+              <span className={`inline-flex w-fit items-center px-2 py-0.5 rounded-full [font-family:'Montserrat',Helvetica] font-bold text-[9px] uppercase tracking-wider ${statusBadge(email.status)}`}>
+                {email.status}
               </span>
             </div>
           </div>
 
-          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 mt-4">
-            <div className="flex flex-col gap-1">
-              <span className="[font-family:'Montserrat',Helvetica] font-normal text-[#9ca3af] text-xs">Sent Via</span>
-              <span className="[font-family:'Montserrat',Helvetica] font-bold text-[#111827] text-sm">
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+            <div className="flex flex-col gap-0.5">
+              <span className="[font-family:'Montserrat',Helvetica] text-[#9ca3af] text-[10px] uppercase tracking-wider font-bold">Sent Via</span>
+              <span className="[font-family:'Montserrat',Helvetica] font-semibold text-[#111827] text-sm">
                 {email.sentViaGmail ? "Gmail (OAuth2)" : "SMTP"}
               </span>
             </div>
-            <div className="flex flex-col gap-1">
-              <span className="[font-family:'Montserrat',Helvetica] font-normal text-[#9ca3af] text-xs">Sender Email</span>
-              <span className="[font-family:'Montserrat',Helvetica] font-bold text-[#111827] text-sm break-all">
+            <div className="flex flex-col gap-0.5">
+              <span className="[font-family:'Montserrat',Helvetica] text-[#9ca3af] text-[10px] uppercase tracking-wider font-bold">Sender Email</span>
+              <span className="[font-family:'Montserrat',Helvetica] font-semibold text-[#111827] text-sm break-all leading-tight">
                 {email.senderEmail || "—"}
               </span>
             </div>
           </div>
 
-          <div className="flex flex-col gap-1 mt-4">
-            <span className="[font-family:'Montserrat',Helvetica] font-normal text-[#9ca3af] text-xs">Sent At</span>
-            <span className="[font-family:'Montserrat',Helvetica] font-bold text-[#111827] text-sm">{email.sentAt}</span>
+          <div className="flex flex-col gap-0.5">
+            <span className="[font-family:'Montserrat',Helvetica] text-[#9ca3af] text-[10px] uppercase tracking-wider font-bold">Sent At</span>
+            <span className="[font-family:'Montserrat',Helvetica] font-semibold text-[#111827] text-sm leading-tight">{email.sentAt}</span>
           </div>
 
-          <div className="flex flex-col gap-1 mt-4">
-            <span className="[font-family:'Montserrat',Helvetica] font-normal text-[#9ca3af] text-xs">Subject</span>
-            <span className="[font-family:'Montserrat',Helvetica] font-bold text-[#111827] text-sm">{email.subject}</span>
+          <div className="flex flex-col gap-0.5">
+            <span className="[font-family:'Montserrat',Helvetica] text-[#9ca3af] text-[10px] uppercase tracking-wider font-bold">Subject</span>
+            <span className="[font-family:'Montserrat',Helvetica] font-bold text-[#111827] text-[15px] leading-snug">{email.subject}</span>
           </div>
 
-          <div className="flex flex-col gap-1.5 mt-4">
-            <span className="[font-family:'Montserrat',Helvetica] font-normal text-[#9ca3af] text-xs">Email Body</span>
+          <div className="flex flex-col gap-1.5">
+            <span className="[font-family:'Montserrat',Helvetica] text-[#9ca3af] text-[10px] uppercase tracking-wider font-bold">Email Body</span>
             <iframe
               title="outreach-preview"
               sandbox="allow-same-origin"
               srcDoc={email.body || "<p>(empty)</p>"}
-              className="border border-[#e5e7eb] rounded-xl bg-white h-[320px] w-full"
+              className="border border-[#e5e7eb] rounded-xl bg-white h-[280px] w-full"
             />
           </div>
         </div>
 
-        <div className="flex items-center justify-end px-7 py-5 border-t border-[#f3f4f6]">
-          <button onClick={onClose} className="h-10 px-6 bg-[#ef3e34] hover:bg-[#d63530] text-white rounded-lg [font-family:'Montserrat',Helvetica] font-semibold text-sm transition-colors">
+        <div className="flex items-center justify-end px-5 py-4 sm:px-6 sm:py-4 border-t border-[#f3f4f6] shrink-0">
+          <button onClick={onClose} className="h-9 w-full sm:w-auto px-6 bg-[#ef3e34] hover:bg-[#d63530] text-white rounded-lg [font-family:'Montserrat',Helvetica] font-bold text-xs uppercase tracking-wider transition-colors">
             Close
           </button>
         </div>
@@ -238,31 +238,39 @@ export const Outbox = () => {
             ) : (
               <div className="divide-y divide-[#f9fafb]">
                 {emails.map((email) => (
-                  <div key={email.id} className="flex min-w-0 items-start justify-between gap-3 px-4 py-4 sm:px-5 hover:bg-[#fafafa] transition-colors">
+                  <div key={email.id} className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 px-4 py-4 sm:px-5 hover:bg-[#fafafa] transition-colors">
                     <div className="min-w-0 flex flex-col gap-1">
                       <div className="flex flex-wrap items-center gap-2">
-                        <span className="[font-family:'Montserrat',Helvetica] font-semibold text-[#111827] text-sm truncate max-w-[200px] sm:max-w-none">
+                        <span className="[font-family:'Montserrat',Helvetica] font-semibold text-[#111827] text-sm truncate max-w-full">
                           {email.subject}
                         </span>
-                        <span className={`inline-flex items-center px-2 py-0.5 rounded-full [font-family:'Montserrat',Helvetica] font-semibold text-xs flex-shrink-0 ${statusBadge(email.status)}`}>
-                          {email.status.charAt(0).toUpperCase() + email.status.slice(1)}
-                        </span>
-                        {email.sentViaGmail && (
-                          <span className="inline-flex items-center rounded-full bg-blue-50 px-2 py-0.5 text-xs font-semibold text-blue-700">
-                            Gmail
+                        <div className="flex flex-wrap items-center gap-2">
+                          <span className={`inline-flex items-center px-2 py-0.5 rounded-full [font-family:'Montserrat',Helvetica] font-semibold text-[10px] uppercase tracking-wide shrink-0 ${statusBadge(email.status)}`}>
+                            {email.status}
                           </span>
-                        )}
+                          {email.status === "sent" && (
+                            email.sentViaGmail ? (
+                              <span className="inline-flex items-center rounded-full bg-blue-100 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide text-blue-800 shrink-0">
+                                via Gmail
+                              </span>
+                            ) : (
+                              <span className="inline-flex items-center rounded-full bg-gray-100 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide text-gray-600 shrink-0">
+                                via SMTP
+                              </span>
+                            )
+                          )}
+                        </div>
                       </div>
-                      <span className="[font-family:'Montserrat',Helvetica] font-normal text-[#9ca3af] text-xs">To: {email.to}</span>
-                      <span className="[font-family:'Montserrat',Helvetica] font-normal text-[#9ca3af] text-xs">Created: {email.created}</span>
+                      <span className="[font-family:'Montserrat',Helvetica] font-normal text-[#9ca3af] text-xs truncate">To: {email.to}</span>
+                      <span className="[font-family:'Montserrat',Helvetica] font-normal text-[#9ca3af] text-[10px] font-bold uppercase tracking-wider">Created: {email.created}</span>
                     </div>
 
-                    <div className="flex flex-shrink-0 items-center gap-2">
+                    <div className="flex items-center gap-2 self-end sm:self-center">
                       {email.status === "failed" && (
                         <button
                           onClick={() => retryMutation.mutate(email.id)}
                           disabled={retryMutation.isPending && retryMutation.variables === email.id}
-                          className="flex items-center gap-1 h-8 px-3 rounded-lg border border-[#e5e7eb] bg-white hover:bg-[#f3f4f6] [font-family:'Montserrat',Helvetica] font-medium text-xs text-[#374151] transition-colors disabled:opacity-50"
+                          className="flex items-center gap-1.5 h-8 px-3 rounded-lg border border-[#e5e7eb] bg-white hover:bg-[#f3f4f6] [font-family:'Montserrat',Helvetica] font-bold text-[10px] uppercase tracking-wide text-[#374151] transition-colors disabled:opacity-50"
                         >
                           <RefreshCw size={12} className={retryMutation.isPending && retryMutation.variables === email.id ? "animate-spin" : ""} />
                           Retry
@@ -272,7 +280,7 @@ export const Outbox = () => {
                         <button
                           onClick={() => sendNowMutation.mutate(email.id)}
                           disabled={sendNowMutation.isPending && sendNowMutation.variables === email.id}
-                          className="flex items-center gap-1 h-8 px-3 rounded-lg border border-[#e5e7eb] bg-white hover:bg-[#f3f4f6] [font-family:'Montserrat',Helvetica] font-medium text-xs text-[#374151] transition-colors disabled:opacity-50"
+                          className="flex items-center gap-1.5 h-8 px-3 rounded-lg border border-[#e5e7eb] bg-white hover:bg-[#f3f4f6] [font-family:'Montserrat',Helvetica] font-bold text-[10px] uppercase tracking-wide text-[#374151] transition-colors disabled:opacity-50"
                         >
                           {sendNowMutation.isPending && sendNowMutation.variables === email.id ? (
                             <RefreshCw size={12} className="animate-spin" />
@@ -286,7 +294,7 @@ export const Outbox = () => {
                         onClick={() => {
                           setPreviewEmail(email);
                         }}
-                        className="h-8 px-3 rounded-lg bg-[#ef3e34] hover:bg-[#d63530] text-white [font-family:'Montserrat',Helvetica] font-semibold text-xs transition-colors"
+                        className="h-8 px-4 rounded-lg bg-[#ef3e34] hover:bg-[#d63530] text-white [font-family:'Montserrat',Helvetica] font-bold text-[10px] uppercase tracking-wide transition-colors"
                       >
                         View
                       </button>

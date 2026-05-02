@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
+import { useToast } from "@/hooks/use-toast";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { Input } from "@/components/ui/input";
@@ -95,6 +96,7 @@ function buildSuggestions(step1: Step1Saved, step2: Step2Saved, step3: Step3Save
 
 export const OnboardingStep4 = () => {
   const router = useRouter();
+  const { toast } = useToast();
   const [selectedBudget, setSelectedBudget] = useState<string>("");
   const [selectedTimeline, setSelectedTimeline] = useState<string>("");
   const [eligibilityType, setEligibilityType] = useState<string>("");
@@ -227,14 +229,17 @@ export const OnboardingStep4 = () => {
       if (appliedCoupon) {
         try {
           await api.post("/coupons/redeem", { code: appliedCoupon });
+          toast({ title: "Coupon applied — beta access granted" });
         } catch (couponRedeemErr) {
           console.error("Failed to redeem coupon:", couponRedeemErr);
-          // We don't block the onboarding success if coupon redemption fails silently
         }
       }
 
       // Store result to pass it to results page
       sessionStorage.setItem("rdg_onboarding_results", JSON.stringify(res));
+
+      // Trigger background recompute for matches now that profile is done
+      api.post("/matches/compute-all", {}).catch(() => {});
 
       router.push("/onboarding/results");
     } catch (err: unknown) {

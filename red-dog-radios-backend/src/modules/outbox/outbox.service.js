@@ -86,6 +86,9 @@ const queueEmail = async ({
   isTest,
   emailKey,
   senderName,
+  senderCompany,
+  senderLocation,
+  senderWebsite,
   relatedOrganization,
   relatedAgency,
   relatedUser,
@@ -100,7 +103,17 @@ const queueEmail = async ({
       .trim();
 
     // 2. Convert Markdown to proper HTML (handles [text](url) -> <a href="url">text</a>)
-    const finalHtml = marked.parse(cleanedBody);
+    let finalHtml = marked.parse(cleanedBody);
+
+    // 3. Append sender signature if any sender fields are provided
+    if ((senderName || senderCompany) && !finalHtml.includes('─────────────────')) {
+      const lines = [];
+      if (senderName) lines.push(`<p style="margin:0"><strong>${senderName}</strong></p>`);
+      if (senderCompany) lines.push(`<p style="margin:0">${senderCompany}</p>`);
+      if (senderLocation) lines.push(`<p style="margin:0">${senderLocation}</p>`);
+      if (senderWebsite) lines.push(`<p style="margin:0"><a href="${senderWebsite}">${senderWebsite}</a></p>`);
+      finalHtml += `\n<br>\n<p style="margin:0;color:#6b7280;font-size:13px">─────────────────</p>\n${lines.join('\n')}`;
+    }
 
     const record = new Outbox({
       recipient,
@@ -111,6 +124,9 @@ const queueEmail = async ({
       isTest: isTest || false,
       emailKey,
       senderName: senderName || undefined,
+      senderCompany: senderCompany || undefined,
+      senderLocation: senderLocation || undefined,
+      senderWebsite: senderWebsite || undefined,
       relatedOrganization,
       relatedAgency,
       relatedUser,

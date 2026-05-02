@@ -38,30 +38,22 @@ const generateEmail = asyncHandler(async (req, res) => {
   const sigCompany = (resolvedSenderCompany || '').trim();
 
   // Strip [DATA NEEDED] placeholders and excessive blank lines from the AI body.
+  // Signature injection is handled centrally by queueEmail.
   const cleanedBody = String(result.body || '')
     .replace(/\[DATA NEEDED\][^\n]*/g, '')
     .replace(/\n{3,}/g, '\n\n')
     .trim();
 
-  const signature = [
-    '<br><br>',
-    '<p style="margin:0;font-family:sans-serif;">Thank you,</p>',
-    '<br>',
-    sigName    ? `<p style="margin:0;font-family:sans-serif;"><strong>${sigName}</strong></p>`    : '',
-    sigCompany ? `<p style="margin:0;font-family:sans-serif;">${sigCompany}</p>`                 : '',
-  ].filter(Boolean).join('\n');
-
-  // Append the signature to the cleaned body (outboxService.queueEmail will run marked.parse
-  // on the combined content, so we keep the AI body as markdown and the signature as raw HTML).
-  const bodyWithSignature = cleanedBody + '\n\n' + signature;
-
   const queued = await outboxService.queueEmail({
     recipient: contactEmail,
     recipientName: contactName,
     subject: result.subject,
-    htmlBody: bodyWithSignature,
+    htmlBody: cleanedBody,
     emailType: 'outreach',
     senderName: sigName || undefined,
+    senderCompany: sigCompany || undefined,
+    senderLocation: org.location || null,
+    senderWebsite: org.websiteUrl || null,
     relatedOrganization: organizationId,
     relatedAgency: organizationId,
     relatedUser: req.user._id,

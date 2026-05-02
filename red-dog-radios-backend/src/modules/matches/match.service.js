@@ -216,14 +216,15 @@ const computeMatchScore = (organization, opportunity) => {
   const recommendedAction = buildRecommendedAction(fitScore, disqualifiers);
   const state = organization.location ? organization.location.split(',').map((s) => s.trim()).pop() : '';
 
-  const result = { fitScore, reasons, fitReasons: reasons, disqualifiers, recommendedAction, breakdown, state };
+  // Use distinct arrays to avoid duplication in UI
+  const result = { fitScore, reasons, fitReasons: [...reasons], disqualifiers, recommendedAction, breakdown, state };
 
   // Priority boost for long-term non-winning agencies
   if (organization?.priorityFlags?.isLongTermNoWin) {
     const PRIORITY_BOOST = 5;
     result.fitScore = Math.min(100, (result.fitScore || 0) + PRIORITY_BOOST);
-    result.reasons = result.reasons || [];
     result.reasons.push(`Priority boost (+${PRIORITY_BOOST}) — long-term agency, no recent wins`);
+    result.fitReasons.push(`Priority boost (+${PRIORITY_BOOST}) — long-term agency, no recent wins`);
   }
 
   return result;
@@ -259,9 +260,11 @@ const computeRubricScores = ({ organization, opportunity, breakdown, pastSuccess
   const priorityOverlap = overlap(orgPriorities.map((s) => s.toLowerCase()), oppKeywords);
   const programOverlap = orgPrograms.filter((p) => oppKeywords.some((k) => k.includes(p) || p.includes(k))).length;
 
-  const needBase = clamp(orgChallenges.length * 5, 0, 15);
+  // Need Score (max 25)
+  const needBase = clamp(orgChallenges.length * 5, 5, 15); // Baseline of 5 even if no challenges listed
   const needScore = clamp(needBase + clamp(priorityOverlap * 2, 0, 10), 0, 25);
 
+  // Project Design (max 25)
   const designFields = [
     opportunity?.description,
     opportunity?.deadline,
@@ -272,30 +275,36 @@ const computeRubricScores = ({ organization, opportunity, breakdown, pastSuccess
     opportunity?.locationFocus,
   ];
   const designPresent = designFields.filter((v) => v !== undefined && v !== null && v !== '' && v !== false).length;
-  const projectDesignScore = clamp(Math.round((designPresent / designFields.length) * 25), 0, 25);
+  const projectDesignScore = clamp(Math.round((designPresent / designFields.length) * 25), 5, 25); // Baseline 5
 
-  const budgetScore = clamp(Math.round((breakdown?.awardSizeFit || 0) * 1.5), 0, 15);
+  // Budget (max 15)
+  const budgetScore = clamp(Math.round((breakdown?.awardSizeFit || 5) * 1.5), 0, 15);
 
+  // Capacity (max 15)
   const staff = Number(organization?.numberOfStaff || 0);
-  const staffBase = staff >= 50 ? 10 : staff >= 25 ? 8 : staff >= 10 ? 6 : staff > 0 ? 4 : 3;
+  const staffBase = staff >= 50 ? 10 : staff >= 25 ? 8 : staff >= 10 ? 6 : staff > 0 ? 4 : 5; // Baseline 5
   const capacityScore = clamp(Math.round(staffBase + pastSuccessFactor * 5), 0, 15);
 
+  // Impact (max 20)
   const pop = Number(organization?.populationServed || 0);
-  const popBase = pop >= 50000 ? 10 : pop >= 20000 ? 8 : pop >= 5000 ? 6 : pop > 0 ? 4 : 2;
+  const popBase = pop >= 50000 ? 10 : pop >= 20000 ? 8 : pop >= 5000 ? 6 : pop > 0 ? 4 : 5; // Baseline 5
   const impactScore = clamp(popBase + clamp(programOverlap * 2, 0, 10), 0, 20);
 
-  const evaluationScore = clamp(Math.round((breakdown?.dataCompleteness || 0) * 2), 0, 10);
+  // Evaluation (max 10)
+  const evaluationScore = clamp(Math.round((breakdown?.dataCompleteness || 3) * 2), 0, 10);
 
+  // Sustainability (max 10)
   const sustainabilityScore = clamp(
-    (organization?.canMeetLocalMatch === true ? 3 : 0) +
-      (organization?.budgetRange ? 3 : 0) +
-      (organization?.currentEquipment ? 2 : 0) +
-      (organization?.numberOfStaff != null ? 2 : 0),
-    0,
+    (organization?.canMeetLocalMatch === true ? 3 : 1) +
+      (organization?.budgetRange ? 3 : 1) +
+      (organization?.currentEquipment ? 2 : 1) +
+      (organization?.numberOfStaff != null ? 2 : 1),
+    2,
     10
   );
 
-  const alignmentRaw = (breakdown?.agencyType || 0) + (breakdown?.geography || 0) + (breakdown?.programKeyword || 0);
+  // Alignment (max 15)
+  const alignmentRaw = (breakdown?.agencyType || 10) + (breakdown?.geography || 10) + (breakdown?.programKeyword || 5);
   const alignmentScore = clamp(Math.round((alignmentRaw / 65) * 15), 0, 15);
 
   const totalScore =
@@ -307,7 +316,8 @@ const computeRubricScores = ({ organization, opportunity, breakdown, pastSuccess
     evaluationScore +
     sustainabilityScore +
     alignmentScore;
-  const normalizedScore = clamp(Math.round((totalScore / 135) * 100), 0, 100);
+    
+  const normalizedScore = clamp(Math.round((totalScore / 135) * 100), 5, 100); // Minimum 5% normalized
 
   return {
     needScore,

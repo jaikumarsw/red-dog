@@ -1,12 +1,13 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useRouter } from "next/navigation";
-import { Search, X, ExternalLink, Loader2, Calendar, DollarSign, Tag, RefreshCw, Sparkles, Filter, ArrowRight } from "lucide-react";
+import { Search, X, ExternalLink, Loader2, Calendar, DollarSign, Tag, Sparkles, Filter, ArrowRight } from "lucide-react";
 import api from "@/lib/api";
 import { qk } from "@/lib/queryKeys";
 import { useToast } from "@/hooks/use-toast";
+
 import {
   Dialog,
   DialogContent,
@@ -239,19 +240,34 @@ export const Opportunities = () => {
 
   const opportunities = useMemo(() => oppPayload?.data ?? [], [oppPayload?.data]);
   const ranked = useMemo(() => mergeRankedOpportunities(matchRows, opportunities), [matchRows, opportunities]);
+  const isLoading = matchesLoading || oppsLoading;
 
   const computeMutation = useMutation({
-    mutationFn: () => api.post("/matches/compute-all", {}),
-    onSuccess: (res) => {
-      const msg = (res.data as { message?: string })?.message ?? "Scores updated.";
-      toast({ title: "Match scores updated", description: msg });
+    mutationFn: (options?: { silent?: boolean }) => api.post("/matches/compute-all", {}),
+    onSuccess: (res, variables) => {
+      const silent = variables?.silent ?? false;
+      if (!silent) {
+        const msg = (res.data as { message?: string })?.message ?? "Scores updated.";
+        toast({ title: "Match scores updated", description: msg });
+      }
       queryClient.invalidateQueries({ queryKey: qk.matches() });
+      refetch();
     },
-    onError: (err: unknown) => {
-      const msg = (err as { response?: { data?: { message?: string } } })?.response?.data?.message;
-      toast({ title: "Could not refresh scores", description: msg || "Try again.", variant: "destructive" });
+    onError: (err: unknown, variables) => {
+      const silent = variables?.silent ?? false;
+      if (!silent) {
+        const msg = (err as { response?: { data?: { message?: string } } })?.response?.data?.message;
+        toast({ title: "Could not refresh scores", description: msg || "Try again.", variant: "destructive" });
+      }
     },
   });
+
+  // Automatic computation if scores are missing
+  useEffect(() => {
+    if (!isLoading && opportunities.length > 0 && opportunities.some(o => o.fitScore === null)) {
+      computeMutation.mutate({ silent: true });
+    }
+  }, [isLoading, opportunities, computeMutation]);
 
   const generateMutation = useMutation({
     mutationFn: (opportunityId: string) => api.post("/applications/generate", { opportunityId }),
@@ -277,8 +293,6 @@ export const Opportunities = () => {
       });
     },
   });
-
-  const isLoading = matchesLoading || oppsLoading;
 
   // Filtered lists
   const filteredOpps = ranked.filter((o) => {
@@ -316,23 +330,13 @@ export const Opportunities = () => {
       {/* Header */}
       <div className="flex flex-col gap-5 sm:flex-row sm:items-start sm:justify-between">
         <div className="flex flex-col gap-1">
-          <h1 className="[font-family:'Oswald',Helvetica] font-bold text-black text-2xl sm:text-3xl tracking-[0.5px] uppercase leading-tight">
+          <h1 className="[font-family:'Oswald',Helvetica] font-bold text-black text-xl sm:text-2xl tracking-[0.5px] uppercase leading-tight">
             Grant Intelligence
           </h1>
           <p className="[font-family:'Montserrat',Helvetica] font-normal text-[#6b7280] text-sm max-w-xl">
             Browse, filter, and discover the best grant matches for your agency. Apply with Ashleen AI to start drafting.
           </p>
         </div>
-
-        <button
-          type="button"
-          onClick={() => computeMutation.mutate()}
-          disabled={computeMutation.isPending}
-          className="flex items-center justify-center gap-2 rounded-lg bg-[#ef3e34] px-4 py-2.5 text-sm font-bold text-white [font-family:'Montserrat',Helvetica] hover:bg-[#d63029] disabled:opacity-60 transition-colors shadow-sm self-start"
-        >
-          <RefreshCw size={16} className={computeMutation.isPending ? "animate-spin" : ""} />
-          {computeMutation.isPending ? "Updating scores…" : "Refresh Match Scores"}
-        </button>
       </div>
 
       {/* Unified Toolbar */}
@@ -416,7 +420,7 @@ export const Opportunities = () => {
           <p className="[font-family:'Montserrat',Helvetica] text-[#6b7280] text-sm max-w-sm text-center">Try adjusting your filters or search terms to find what you are looking for.</p>
         </div>
       ) : (
-        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+        <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
           {filteredOpps.map((opp) => {
             const days = daysLeft(opp.deadline);
             const urgentDeadline = days !== null && days >= 0 && days <= 14;
@@ -427,7 +431,7 @@ export const Opportunities = () => {
             return (
               <div
                 key={opp._id}
-                className="flex flex-col gap-4 rounded-xl border border-[#e5e7eb] bg-white p-5 shadow-[0_2px_8px_rgba(0,0,0,0.04)] hover:shadow-[0_12px_24px_rgba(0,0,0,0.08)] hover:-translate-y-1 hover:border-[#ef3e34]/30 transition-all duration-300 cursor-pointer group flex-1 relative"
+                className="flex flex-col gap-3 rounded-xl border border-[#e5e7eb] bg-white p-4 shadow-[0_2px_8px_rgba(0,0,0,0.04)] hover:shadow-[0_12px_24px_rgba(0,0,0,0.08)] hover:-translate-y-1 hover:border-[#ef3e34]/30 transition-all duration-300 cursor-pointer group flex-1 relative"
                 onClick={() => setSelectedOpp(opp)}
               >
                 <div className="flex items-start justify-between gap-3">
@@ -553,7 +557,7 @@ export const Opportunities = () => {
       )}
 
       <Dialog open={!!scoreOpp} onOpenChange={(v) => !v && setScoreOpp(null)}>
-        <DialogContent className="max-w-[820px]">
+        <DialogContent className="max-w-[820px] w-full h-full sm:h-auto overflow-y-auto">
           <DialogHeader>
             <DialogTitle>Score Breakdown</DialogTitle>
             <DialogDescription>
@@ -562,52 +566,52 @@ export const Opportunities = () => {
           </DialogHeader>
 
           {scoreOpp ? (
-            <div className="space-y-4">
+            <div className="space-y-4 pb-6 sm:pb-0">
               <div className="rounded-lg border border-[#e5e7eb] bg-[#fafafa] p-3">
-                <div className="flex flex-wrap items-center justify-between gap-2">
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
                   <div className="min-w-0">
                     <div className="text-sm font-semibold text-[#111827] line-clamp-1">{scoreOpp.title}</div>
                     <div className="text-xs text-[#6b7280] line-clamp-1">{scoreOpp.funder}</div>
                   </div>
-                  <div className="flex items-center gap-2">
-                    <span className="rounded-full border border-[#e5e7eb] bg-white px-2.5 py-1 text-xs font-semibold text-[#111827]">
+                  <div className="flex flex-wrap items-center gap-2">
+                    <span className="rounded-full border border-[#e5e7eb] bg-white px-2.5 py-1 text-[10px] sm:text-xs font-semibold text-[#111827] uppercase tracking-wide">
                       Total: {scoreOpp.rubricScores?.totalScore ?? "—"}/135 ({scoreOpp.rubricScores?.normalizedScore ?? "—"}%)
                     </span>
-                    <span className="rounded-full border border-[#e5e7eb] bg-white px-2.5 py-1 text-xs font-semibold text-[#111827]">
-                      Win Probability: {scoreOpp.winProbability ?? "—"}%
+                    <span className="rounded-full border border-[#e5e7eb] bg-white px-2.5 py-1 text-[10px] sm:text-xs font-semibold text-[#111827] uppercase tracking-wide">
+                      Win Prob: {scoreOpp.winProbability ?? "—"}%
                     </span>
                   </div>
                 </div>
               </div>
 
-              {[
-                { label: "Need / Problem", key: "needScore", max: 25 },
-                { label: "Project Design", key: "projectDesignScore", max: 25 },
-                { label: "Budget Justification", key: "budgetScore", max: 15 },
-                { label: "Organizational Capacity", key: "capacityScore", max: 15 },
-                { label: "Impact / Outcomes", key: "impactScore", max: 20 },
-                { label: "Evaluation", key: "evaluationScore", max: 10 },
-                { label: "Sustainability", key: "sustainabilityScore", max: 10 },
-                { label: "Mission Alignment", key: "alignmentScore", max: 15 },
-              ].map((row) => {
-                const v = Number((scoreOpp.rubricScores as Record<string, unknown> | null)?.[row.key] || 0);
-                const pct = barPct(v, row.max);
-                return (
-                  <div key={row.key} className="grid grid-cols-[1fr_auto] gap-3 items-center">
-                    <div className="min-w-0">
+              <div className="grid grid-cols-1 gap-4">
+                {[
+                  { label: "Need / Problem", key: "needScore", max: 25 },
+                  { label: "Project Design", key: "projectDesignScore", max: 25 },
+                  { label: "Budget Justification", key: "budgetScore", max: 15 },
+                  { label: "Organizational Capacity", key: "capacityScore", max: 15 },
+                  { label: "Impact / Outcomes", key: "impactScore", max: 20 },
+                  { label: "Evaluation", key: "evaluationScore", max: 10 },
+                  { label: "Sustainability", key: "sustainabilityScore", max: 10 },
+                  { label: "Mission Alignment", key: "alignmentScore", max: 15 },
+                ].map((row) => {
+                  const v = Number((scoreOpp.rubricScores as Record<string, unknown> | null)?.[row.key] || 0);
+                  const pct = barPct(v, row.max);
+                  return (
+                    <div key={row.key} className="flex flex-col gap-1.5">
                       <div className="flex items-center justify-between gap-3">
-                        <div className="text-sm font-semibold text-[#111827]">{row.label}</div>
-                        <div className="text-sm font-semibold text-[#111827] tabular-nums">
+                        <div className="text-xs font-bold text-[#111827] uppercase tracking-wider">{row.label}</div>
+                        <div className="text-xs font-bold text-[#111827] tabular-nums">
                           {v}/{row.max}
                         </div>
                       </div>
-                      <div className="mt-2 h-2 w-full rounded-full bg-[#e5e7eb] overflow-hidden">
+                      <div className="h-2 w-full rounded-full bg-[#e5e7eb] overflow-hidden">
                         <div className="h-full bg-[#ef3e34]" style={{ width: `${pct}%` }} />
                       </div>
                     </div>
-                  </div>
-                );
-              })}
+                  );
+                })}
+              </div>
             </div>
           ) : null}
         </DialogContent>
@@ -665,39 +669,39 @@ const OppDetailModal = ({
     /fema|doj|dhs|grants\.gov|department of justice|department of homeland security/i.test(opp.funder);
 
   return (
-    <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/60 p-4 transition-opacity animate-in fade-in" onClick={onClose}>
+    <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/60 p-0 sm:p-4 transition-opacity animate-in fade-in" onClick={onClose}>
       <div
-        className="relative flex max-h-[90vh] w-full max-w-2xl flex-col overflow-hidden rounded-2xl bg-white shadow-2xl animate-in zoom-in-95 duration-200"
+        className="relative flex h-full sm:h-auto max-h-[100dvh] sm:max-h-[90vh] w-full sm:max-w-[620px] flex-col overflow-hidden sm:rounded-2xl bg-white shadow-2xl animate-in zoom-in-95 duration-200"
         onClick={(e) => e.stopPropagation()}
       >
-        <div className="flex items-start justify-between gap-4 border-b border-[#e5e7eb] p-6 bg-[#fafafa] shrink-0">
+        <div className="flex items-start justify-between gap-4 border-b border-[#e5e7eb] p-5 sm:p-6 bg-[#fafafa] shrink-0">
           <div className="flex flex-col gap-2 min-w-0">
             <div className="flex flex-wrap items-center gap-2">
-              <span className={cn("self-start rounded-full border px-2.5 py-0.5 text-xs font-semibold uppercase tracking-wide [font-family:'Montserrat',Helvetica]", STATUS_STYLES[opp.status] || STATUS_STYLES.open)}>
+              <span className={cn("self-start rounded-full border px-2.5 py-0.5 text-[10px] font-bold uppercase tracking-wide [font-family:'Montserrat',Helvetica]", STATUS_STYLES[opp.status] || STATUS_STYLES.open)}>
                 {opp.status === "closing" ? "Closing Soon" : opp.status}
               </span>
-              <div className={cn("flex h-8 min-w-[2.5rem] items-center justify-center rounded-full border-2 px-2.5 bg-white", sc.border)}>
-                <span className={cn("[font-family:'Montserrat',Helvetica] text-xs font-bold", sc.text)}>
+              <div className={cn("flex h-7 min-w-[2.25rem] items-center justify-center rounded-full border-2 px-2.5 bg-white", sc.border)}>
+                <span className={cn("[font-family:'Montserrat',Helvetica] text-[10px] font-bold uppercase tracking-tight", sc.text)}>
                   {opp.fitScore === null ? "No score yet" : `${opp.fitScore}% AI Fit`}
                 </span>
               </div>
             </div>
-            <h2 className="[font-family:'Oswald',Helvetica] font-bold text-black text-2xl uppercase tracking-[0.3px] leading-tight shrink-0">
+            <h2 className="[font-family:'Oswald',Helvetica] font-bold text-black text-xl sm:text-2xl uppercase tracking-[0.3px] leading-tight shrink-0">
               {opp.title}
             </h2>
-            <p className="[font-family:'Montserrat',Helvetica] text-sm font-semibold text-[#6b7280]">{opp.funder}</p>
+            <p className="[font-family:'Montserrat',Helvetica] text-xs font-semibold text-[#6b7280]">{opp.funder}</p>
           </div>
           <button
             onClick={onClose}
-            className="shrink-0 rounded-lg p-1.5 text-[#9ca3af] hover:bg-[#e5e7eb] hover:text-[#111827] transition-colors border border-[#e5e7eb] bg-white"
+            className="shrink-0 rounded-lg p-2 text-[#9ca3af] hover:bg-[#e5e7eb] hover:text-[#111827] transition-colors border border-[#e5e7eb] bg-white"
           >
             <X size={18} />
           </button>
         </div>
 
-        <div className="flex-1 overflow-y-auto p-6 flex flex-col gap-6">
+        <div className="flex-1 overflow-y-auto p-5 sm:p-6 flex flex-col gap-6">
 
-          <div className="grid grid-cols-2 gap-4 rounded-xl border border-[#e5e7eb] bg-white p-4 shadow-sm shrink-0">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 rounded-xl border border-[#e5e7eb] bg-white p-4 shadow-sm shrink-0">
             {formatAmountRange(opp.minAmount, opp.maxAmount) && (
               <div className="flex flex-col gap-1">
                 <span className="[font-family:'Montserrat',Helvetica] text-[10px] text-[#9ca3af] uppercase tracking-wider font-bold">Award Amount</span>
