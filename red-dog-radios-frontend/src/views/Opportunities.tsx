@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useRouter } from "next/navigation";
-import { Search, X, ExternalLink, Loader2, Calendar, DollarSign, Tag, Sparkles, Filter, ArrowRight } from "lucide-react";
+import { Search, X, ExternalLink, Loader2, Calendar, DollarSign, Tag, Sparkles, Filter, ArrowRight, FileText } from "lucide-react";
 import api from "@/lib/api";
 import { qk } from "@/lib/queryKeys";
 import { useToast } from "@/hooks/use-toast";
@@ -79,6 +79,12 @@ type ApiMatchRow = {
   notes?: string;
   organization?: { name: string };
   opportunity?: Opportunity;
+};
+
+type ExistingApp = {
+  _id: string;
+  status: string;
+  opportunity?: { _id?: string } | string | null;
 };
 
 type RankedOpportunity = Opportunity & {
@@ -238,6 +244,25 @@ export const Opportunities = () => {
     },
   });
 
+  const { data: existingApps } = useQuery<ExistingApp[]>({
+    queryKey: ['applications', 'my'],
+    queryFn: async () => {
+      const r = await api.get('/applications', { params: { limit: 200 } });
+      return (r.data.data ?? []) as ExistingApp[];
+    },
+  });
+
+  const appliedOpportunityIds = useMemo(() => new Set(
+    (existingApps || [])
+      .filter(app => !['denied', 'rejected'].includes(app.status))
+      .map(app => {
+        const opp = app.opportunity;
+        if (!opp) return null;
+        return typeof opp === 'string' ? opp : (opp as { _id?: string })._id ?? null;
+      })
+      .filter(Boolean) as string[]
+  ), [existingApps]);
+
   const opportunities = useMemo(() => oppPayload?.data ?? [], [oppPayload?.data]);
   const ranked = useMemo(() => mergeRankedOpportunities(matchRows, opportunities), [matchRows, opportunities]);
   const isLoading = matchesLoading || oppsLoading;
@@ -273,8 +298,14 @@ export const Opportunities = () => {
     mutationFn: (opportunityId: string) => api.post("/applications/generate", { opportunityId }),
     onSuccess: (res) => {
       const id = res.data.data?._id ?? res.data.data?.id;
-      toast({ title: "Ashleen is drafting your application", description: "You can review and edit each section on the next screen." });
+      const isExisting = res.data.existing === true;
+      if (isExisting) {
+        toast({ title: "Application already exists", description: "Taking you to your existing application." });
+      } else {
+        toast({ title: "Ashleen is drafting your application", description: "Review and edit each section on the next screen." });
+      }
       queryClient.invalidateQueries({ queryKey: qk.applications() });
+      queryClient.invalidateQueries({ queryKey: ['applications', 'my'] });
       if (id) router.push(`/applications/${id}`);
     },
     onError: (err: unknown) => {
@@ -508,30 +539,43 @@ export const Opportunities = () => {
                     </button>
                   ) : null}
 
-                  <button
-                    className="w-full rounded-lg bg-[#ef3e34]/10 text-[#ef3e34] border border-[#ef3e34]/20 px-4 py-2.5 text-xs font-bold [font-family:'Montserrat',Helvetica] hover:bg-[#ef3e34] hover:text-white transition-all flex items-center justify-center gap-2 disabled:opacity-50 disabled:hover:bg-[#ef3e34]/10 disabled:hover:text-[#ef3e34]"
-                    disabled={opp.status === "closed" || generatingFor !== null}
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      if (generatingFor) return;
-                      setGeneratingFor(opp._id);
-                      generateMutation.mutate(opp._id, {
-                        onSettled: () => setGeneratingFor(null),
-                      });
-                    }}
-                  >
-                    {generatingFor === opp._id ? (
-                      <>
-                        <Loader2 size={13} className="animate-spin" /> Working…
-                      </>
-                    ) : opp.status === "closed" ? (
-                      "Closed to Applications"
-                    ) : (
-                      <>
-                        <Sparkles size={13} className="shrink-0" /> Draft Application
-                      </>
-                    )}
-                  </button>
+                  {appliedOpportunityIds.has(opp._id) ? (
+                    <button
+                      className="w-full rounded-lg bg-emerald-50 text-emerald-700 border border-emerald-200 px-4 py-2.5 text-xs font-bold [font-family:'Montserrat',Helvetica] hover:bg-emerald-100 transition-all flex items-center justify-center gap-2"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        const existingApp = (existingApps || []).find(a => {
+                          const oppId = typeof a.opportunity === 'string' ? a.opportunity : (a.opportunity as { _id?: string } | null)?._id;
+                          return oppId === opp._id && !['denied', 'rejected'].includes(a.status);
+                        });
+                        if (existingApp) router.push(`/applications/${existingApp._id}`);
+                      }}
+                    >
+                      <FileText size={13} className="shrink-0" />
+                      View Application
+                    </button>
+                  ) : (
+                    <button
+                      className="w-full rounded-lg bg-[#ef3e34]/10 text-[#ef3e34] border border-[#ef3e34]/20 px-4 py-2.5 text-xs font-bold [font-family:'Montserrat',Helvetica] hover:bg-[#ef3e34] hover:text-white transition-all flex items-center justify-center gap-2 disabled:opacity-50 disabled:hover:bg-[#ef3e34]/10 disabled:hover:text-[#ef3e34]"
+                      disabled={opp.status === "closed" || generatingFor !== null}
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        if (generatingFor) return;
+                        setGeneratingFor(opp._id);
+                        generateMutation.mutate(opp._id, {
+                          onSettled: () => setGeneratingFor(null),
+                        });
+                      }}
+                    >
+                      {generatingFor === opp._id ? (
+                        <><Loader2 size={13} className="animate-spin" /> Working…</>
+                      ) : opp.status === "closed" ? (
+                        "Closed to Applications"
+                      ) : (
+                        <><Sparkles size={13} className="shrink-0" /> Draft Application</>
+                      )}
+                    </button>
+                  )}
                 </div>
               </div>
             );
@@ -553,6 +597,15 @@ export const Opportunities = () => {
           }}
           applying={generatingFor === selectedOpp._id}
           applyLocked={generatingFor !== null}
+          hasExistingApp={appliedOpportunityIds.has(selectedOpp._id)}
+          existingAppId={
+            (existingApps || []).find(a => {
+              const oppId = typeof a.opportunity === 'string'
+                ? a.opportunity
+                : (a.opportunity as { _id?: string } | null)?._id;
+              return oppId === selectedOpp._id && !['denied', 'rejected'].includes(a.status);
+            })?._id
+          }
         />
       )}
 
@@ -649,13 +702,18 @@ const OppDetailModal = ({
   onApply,
   applying,
   applyLocked,
+  hasExistingApp,
+  existingAppId,
 }: {
   opp: RankedOpportunity;
   onClose: () => void;
   onApply: () => void;
   applying: boolean;
   applyLocked: boolean;
+  hasExistingApp: boolean;
+  existingAppId: string | undefined;
 }) => {
+  const router = useRouter();
   const days = daysLeft(opp.deadline);
   const urgentDeadline = days !== null && days >= 0 && days <= 14;
   const sc = scoreColor(opp.fitScore);
@@ -807,13 +865,28 @@ const OppDetailModal = ({
               >
                 Cancel
               </button>
-              <button
-                onClick={() => onApply()}
-                disabled={opp.status === "closed" || applying || applyLocked}
-                className="rounded-lg bg-[#ef3e34] px-5 py-2.5 text-sm font-bold text-white [font-family:'Montserrat',Helvetica] hover:bg-[#d63029] disabled:opacity-60 flex items-center justify-center gap-2 transition-all shadow-sm active:scale-[0.98]"
-              >
-                {applying ? (<><Loader2 size={16} className="animate-spin" /> Drafting…</>) : (<><Sparkles size={16} /> Apply with Ashleen</>)}
-              </button>
+              {hasExistingApp ? (
+                <button
+                  onClick={() => {
+                    if (existingAppId) {
+                      router.push(`/applications/${existingAppId}`);
+                      onClose();
+                    }
+                  }}
+                  className="rounded-lg bg-emerald-600 px-5 py-2.5 text-sm font-bold text-white [font-family:'Montserrat',Helvetica] hover:bg-emerald-700 flex items-center justify-center gap-2 transition-all shadow-sm active:scale-[0.98]"
+                >
+                  <FileText size={16} />
+                  View Application
+                </button>
+              ) : (
+                <button
+                  onClick={() => onApply()}
+                  disabled={opp.status === "closed" || applying || applyLocked}
+                  className="rounded-lg bg-[#ef3e34] px-5 py-2.5 text-sm font-bold text-white [font-family:'Montserrat',Helvetica] hover:bg-[#d63029] disabled:opacity-60 flex items-center justify-center gap-2 transition-all shadow-sm active:scale-[0.98]"
+                >
+                  {applying ? (<><Loader2 size={16} className="animate-spin" /> Drafting…</>) : (<><Sparkles size={16} /> Apply with Ashleen</>)}
+                </button>
+              )}
             </div>
           </div>
         </div>

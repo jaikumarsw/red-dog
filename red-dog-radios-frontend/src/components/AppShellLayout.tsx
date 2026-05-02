@@ -102,23 +102,23 @@ const SidebarContent = ({
     <div className="flex h-full min-h-0 flex-col">
       <div
         className={cn(
-          "flex-shrink-0 border-b border-[#1f1f1f] px-4 min-w-0",
-          collapsed ? "flex h-16 items-center" : headerSubtitle ? "flex flex-col gap-2.5 py-3.5" : "flex h-16 items-center"
+          "flex-shrink-0 border-b border-[#1f1f1f] min-w-0",
+          collapsed ? "flex h-16 items-center justify-center px-2" : "flex flex-col justify-center p-5 gap-3"
         )}
       >
         {collapsed ? (
-          <div className="mx-auto flex h-9 w-9 items-center justify-center rounded-lg bg-[#ef3e34]">
-            <span className="[font-family:'Oswald',Helvetica] text-sm font-bold tracking-[1px] text-white">RD</span>
+          <div className="mx-auto flex items-center justify-center">
+            <img src="/logo.png" alt="RD" className="w-10 h-auto" />
           </div>
-        ) : headerSubtitle ? (
+        ) : (
           <>
             <RedDogLogo dark />
-            <span className="inline-flex w-fit items-center rounded-full border border-[#ef3e34]/25 bg-[#ef3e34]/10 px-2.5 py-1 [font-family:'Montserrat',Helvetica] text-[10px] font-semibold uppercase tracking-[0.12em] text-[#ff6b62]">
-              {headerSubtitle}
-            </span>
+            {headerSubtitle && (
+              <span className="inline-flex w-fit items-center rounded-full border border-[#ef3e34]/25 bg-[#ef3e34]/10 px-2.5 py-1 [font-family:'Montserrat',Helvetica] text-[10px] font-semibold uppercase tracking-[0.12em] text-[#ff6b62]">
+                {headerSubtitle}
+              </span>
+            )}
           </>
-        ) : (
-          <RedDogLogo dark />
         )}
       </div>
 
@@ -351,13 +351,8 @@ export function AppShellLayout({
           >
             <Menu size={18} className="text-[#374151]" />
           </button>
-          <div className="flex items-center gap-2">
-            <div className="flex h-7 w-7 items-center justify-center rounded-md bg-[#ef3e34]">
-              <span className="[font-family:'Oswald',Helvetica] text-xs font-bold text-white">RD</span>
-            </div>
-            <span className="[font-family:'Oswald',Helvetica] text-sm font-bold tracking-[0.5px] text-black">
-              RED DOG GRANT INTELLIGENCE
-            </span>
+          <div className="flex items-center">
+            <img src="/logo.png" alt="Red Dog Grant Intelligence" className="h-10 w-auto" />
           </div>
         </div>
 

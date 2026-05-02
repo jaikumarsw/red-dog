@@ -52,6 +52,14 @@ const generate = asyncHandler(async (req, res) => {
     actorId: req.user._id,
     meta: { applicationId: app._id, organizationId, funderId, opportunityId },
   });
+  if (app._isDuplicate) {
+    return res.status(200).json({
+      success: true,
+      data: app,
+      existing: true,
+      message: 'Application already exists',
+    });
+  }
   return created(res, app, 'Application generated with AI');
 });
 

@@ -457,7 +457,11 @@ const createWithAI = async ({ opportunityId, funderId, organizationId, userId, a
     else if (finalFunderId) dupQ.funder = finalFunderId;
     if (dupQ.opportunity || finalFunderId) {
       const existingApp = await Application.findOne(dupQ);
-      if (existingApp && !['denied', 'rejected'].includes(existingApp.status)) return existingApp;
+      if (existingApp && !['denied', 'rejected'].includes(existingApp.status)) {
+        const asObj = existingApp.toObject ? existingApp.toObject() : existingApp;
+        asObj._isDuplicate = true;
+        return asObj;
+      }
     }
   }
 
@@ -514,7 +518,11 @@ const createWithAI = async ({ opportunityId, funderId, organizationId, userId, a
       if (opp) dupQ.opportunity = opp._id;
       else if (funderId) dupQ.funder = funderId;
       const existing = await Application.findOne(dupQ);
-      if (existing) return attachWarning(existing);
+      if (existing) {
+        const asObj = attachWarning(existing);
+        asObj._isDuplicate = true;
+        return asObj;
+      }
     }
     throw err;
   }

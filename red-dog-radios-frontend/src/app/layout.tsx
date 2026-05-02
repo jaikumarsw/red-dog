@@ -7,7 +7,7 @@ import { ConditionalAppShell } from "@/components/ConditionalAppShell";
 export const metadata: Metadata = {
   title: "Red Dog Grant Intelligence",
   description: "Real-time intelligence on grants",
-  icons: { icon: "/favicon.png" },
+  icons: { icon: "/favicon.ico" },
 };
 
 export default function RootLayout({
