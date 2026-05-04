@@ -119,18 +119,6 @@ export const FunderDetail = () => {
     },
   });
 
-  const outreachMutation = useMutation({
-    mutationFn: () => api.post("/outreach/generate", { funderId: id }),
-    onSuccess: (res) => {
-      toast({ title: "Outreach email generated" });
-      queryClient.invalidateQueries({ queryKey: qk.outreach() });
-      router.push(`/outreach/${res.data.data._id}`);
-    },
-    onError: () => {
-      toast({ title: "Error", description: "Failed to generate outreach email.", variant: "destructive" });
-    },
-  });
-
   const saveNotesMutation = useMutation({
     mutationFn: () => api.put(`/funders/${id}`, { notes }),
     onSuccess: () => {

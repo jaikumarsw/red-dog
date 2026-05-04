@@ -1,10 +1,10 @@
 "use client";
 
 import type { ElementType } from "react";
-import { useState, useRef, useEffect } from "react";
-import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { useState } from "react";
+import { useQuery } from "@tanstack/react-query";
 import { useRouter } from "next/navigation";
-import { FileText, Award, Clock, Eye, Pencil, CalendarClock, ChevronDown, Check, RefreshCw } from "lucide-react";
+import { FileText, Award, Clock, Eye, Pencil, CalendarClock, RefreshCw } from "lucide-react";
 import { MobileFilterSelect } from "@/components/MobileFilterSelect";
 import { useToast } from "@/hooks/use-toast";
 import api from "@/lib/api";
@@ -20,6 +20,10 @@ type AppItem = {
   category: string;
   status: string;
   ashleenMsg: string;
+  deadline?: string;
+  fitScore?: number;
+  pipelineStage?: string;
+  emailsSent?: number;
 };
 
 type ApiFunderRef = string | { _id?: string; name?: string; avgGrantMax?: number; deadline?: string } | null;
@@ -29,7 +33,13 @@ type ApiApp = {
   projectTitle?: string;
   title?: string;
   grant?: string;
-  opportunity?: { title?: string; funder?: string; maxAmount?: number; category?: string };
+  opportunity?: {
+    title?: string;
+    funder?: string;
+    maxAmount?: number;
+    category?: string;
+    deadline?: string;
+  };
   funder?: ApiFunderRef;
   amount?: number;
   amountRequested?: number;
@@ -41,6 +51,10 @@ type ApiApp = {
   category?: string;
   status?: string;
   notes?: string;
+  deadline?: string;
+  fitScore?: number;
+  pipelineStage?: string;
+  emailsSent?: number;
 };
 
 const ashleenMsgFor = (status: string): string => {
@@ -83,16 +97,32 @@ const resolveFunderName = (f: ApiFunderRef): string => {
   return f.name || "—";
 };
 
+const isDeadlineSoon = (deadline: string | undefined) => {
+  if (!deadline) return false;
+  const daysLeft = Math.ceil((new Date(deadline).getTime() - Date.now()) / (1000 * 60 * 60 * 24));
+  return daysLeft >= 0 && daysLeft <= 14;
+};
+
 const mapApp = (a: ApiApp): AppItem => ({
   id: a._id,
   grant: a.projectTitle ?? a.opportunity?.title ?? a.title ?? a.grant ?? "Unknown Grant",
   funder: a.opportunity?.funder ?? resolveFunderName(a.funder ?? null),
-  amount: a.amountRequested ? fmtAmount(a.amountRequested) : (a.amount ? fmtAmount(a.amount) : (a.opportunity?.maxAmount ? fmtAmount(a.opportunity.maxAmount) : "—")),
+  amount: a.amountRequested
+    ? fmtAmount(a.amountRequested)
+    : a.amount
+    ? fmtAmount(a.amount)
+    : a.opportunity?.maxAmount
+    ? fmtAmount(a.opportunity.maxAmount)
+    : "—",
   org: a.orgName ?? a.organization?.name ?? "—",
   appliedDate: fmtDate(a.submittedAt ?? a.appliedDate ?? a.createdAt),
   category: a.opportunity?.category ?? a.category ?? "—",
   status: a.status ?? "submitted",
   ashleenMsg: a.notes ?? ashleenMsgFor(a.status ?? "submitted"),
+  deadline: a.opportunity?.deadline ?? a.deadline,
+  fitScore: a.fitScore,
+  pipelineStage: a.pipelineStage,
+  emailsSent: undefined, // populated below if available
 });
 
 const statusConfig: Record<string, {
@@ -178,59 +208,25 @@ const defaultCfg = {
   msgBg: "bg-[#f8fafc] border-[#e2e8f0]",
 };
 
-const filterTabs: { label: string; value: string }[] = [
+const STATUS_TABS = [
   { label: "All", value: "all" },
-  { label: "Drafting", value: "drafting" },
-  { label: "Submitted", value: "submitted" },
-  { label: "Under Review", value: "under-review" },
-  { label: "Waiting on Info", value: "waiting_on_information" },
-  { label: "Awarded", value: "awarded" },
-  { label: "Declined", value: "declined" },
-  { label: "Rejected", value: "rejected" },
+  { label: "In Progress", values: ["drafting", "draft", "not_started", "ready_to_submit"] },
+  { label: "Submitted", values: ["submitted"] },
+  { label: "Under Review", values: ["in_review", "under_review"] },
+  { label: "Waiting on Info", values: ["waiting_on_information"] },
+  { label: "Awarded", values: ["awarded"] },
+  { label: "Declined", values: ["declined", "denied", "rejected"] },
+  { label: "Withdrawn", values: ["withdrawn"] },
 ];
 
-// Statuses an agency user may SET themselves
-const AGENCY_STATUS_OPTIONS = [
-  { value: "drafting", label: "Drafting" },
-  { value: "submitted", label: "Submitted" },
-  { value: "withdrawn", label: "Withdrawn" },
-];
 
-// Any status NOT in this list was set by an admin — show as read-only badge
-const AGENCY_EDITABLE_STATUSES = ["drafting", "submitted", "withdrawn"];
 
 const AppCard = ({ app }: { app: AppItem }) => {
   const cfg = statusConfig[app.status] ?? defaultCfg;
-  const isAgencyEditable = AGENCY_EDITABLE_STATUSES.includes(app.status);
   const router = useRouter();
   const { toast } = useToast();
-  const queryClient = useQueryClient();
-  const [pickerOpen, setPickerOpen] = useState(false);
-  const pickerRef = useRef<HTMLDivElement>(null);
+  // useQueryClient removed as it's no longer needed in AppCard
 
-  useEffect(() => {
-    const handler = (e: MouseEvent) => {
-      if (pickerRef.current && !pickerRef.current.contains(e.target as Node)) {
-        setPickerOpen(false);
-      }
-    };
-    if (pickerOpen) document.addEventListener("mousedown", handler);
-    return () => document.removeEventListener("mousedown", handler);
-  }, [pickerOpen]);
-
-  const statusMutation = useMutation({
-    mutationFn: (newStatus: string) =>
-      api.patch(`/applications/${app.id}/status`, { status: newStatus }),
-    onSuccess: (_, newStatus) => {
-      const label = AGENCY_STATUS_OPTIONS.find((o) => o.value === newStatus)?.label ?? newStatus;
-      toast({ title: "Status updated", description: `Application marked as "${label}".` });
-      queryClient.invalidateQueries({ queryKey: qk.applications() });
-      setPickerOpen(false);
-    },
-    onError: () => {
-      toast({ title: "Update failed", description: "Could not update status. Please try again.", variant: "destructive" });
-    },
-  });
 
   return (
     <div className="bg-white rounded-xl border border-[#f0f0f0] shadow-[0_1px_4px_rgba(0,0,0,0.05)] p-4 sm:p-5 flex flex-col gap-4">
@@ -256,6 +252,38 @@ const AppCard = ({ app }: { app: AppItem }) => {
         <span className="text-[#9ca3af]">Org: <span className="text-[#374151] font-medium">{app.org}</span></span>
         <span className="text-[#9ca3af]">Category: <span className="text-[#374151] font-medium">{app.category}</span></span>
         <span className="text-[#9ca3af]">Applied: <span className="text-[#374151] font-medium">{app.appliedDate}</span></span>
+
+        {/* Deadline */}
+        {(app.deadline) && (
+          <span className="text-[#9ca3af]">
+            Deadline:{" "}
+            <span className={isDeadlineSoon(app.deadline) ? "text-red-600 font-medium" : "text-[#374151] font-medium"}>
+              {fmtDate(app.deadline)}
+            </span>
+          </span>
+        )}
+
+        {/* Fit Score */}
+        {app.fitScore && (
+          <span className="bg-gray-100 text-gray-700 px-2 py-0.5 rounded-full font-medium">
+            {app.fitScore}% match
+          </span>
+        )}
+
+        {/* Outreach Sent */}
+        {app.pipelineStage === "outreach_sent" && (
+          <div className="flex items-center gap-2">
+            <span className="text-green-600 flex items-center gap-1 font-medium">
+              <span className="text-sm">✉</span> Outreach sent
+            </span>
+            <button
+              onClick={() => router.push("/outbox")}
+              className="text-xs text-blue-600 hover:underline"
+            >
+              View outbox →
+            </button>
+          </div>
+        )}
       </div>
 
       <div className={`flex items-start gap-2.5 rounded-xl border ${cfg.msgBg} px-3 py-2.5 sm:px-4 sm:py-3`}>
@@ -267,7 +295,7 @@ const AppCard = ({ app }: { app: AppItem }) => {
         </p>
       </div>
 
-      <div className="flex flex-wrap items-center justify-end gap-3 sm:gap-4 pt-1 border-t border-[#f3f4f6]">
+      <div className="flex flex-wrap items-center pt-1 border-t border-[#f3f4f6]">
         <button
           onClick={() => router.push(`/applications/${app.id}`)}
           className="flex items-center gap-1.5 [font-family:'Montserrat',Helvetica] font-medium text-xs text-[#6b7280] hover:text-[#374151] transition-colors"
@@ -275,38 +303,6 @@ const AppCard = ({ app }: { app: AppItem }) => {
           <Eye size={14} />
           View
         </button>
-
-        {isAgencyEditable ? (
-          <div className="relative" ref={pickerRef}>
-            <button
-              onClick={() => setPickerOpen((p) => !p)}
-              disabled={statusMutation.isPending}
-              className="flex items-center gap-1.5 [font-family:'Montserrat',Helvetica] font-medium text-xs text-[#ef3e34] hover:text-[#d63530] transition-colors disabled:opacity-50"
-            >
-              <Pencil size={13} />
-              {statusMutation.isPending ? "Updating…" : "Update Status"}
-              <ChevronDown size={12} className={`transition-transform ${pickerOpen ? "rotate-180" : ""}`} />
-            </button>
-            {pickerOpen && (
-              <div className="absolute bottom-full right-0 mb-2 w-48 bg-white rounded-xl border border-[#e5e7eb] shadow-[0_4px_20px_rgba(0,0,0,0.12)] z-20 overflow-hidden">
-                {AGENCY_STATUS_OPTIONS.map((opt) => (
-                  <button
-                    key={opt.value}
-                    onClick={() => statusMutation.mutate(opt.value)}
-                    className="w-full flex items-center justify-between gap-2 px-3 py-2.5 text-left [font-family:'Montserrat',Helvetica] text-xs font-medium text-[#374151] hover:bg-[#f9fafb] transition-colors"
-                  >
-                    {opt.label}
-                    {app.status === opt.value && <Check size={13} className="text-[#ef3e34] flex-shrink-0" />}
-                  </button>
-                ))}
-              </div>
-            )}
-          </div>
-        ) : (
-          <span className="[font-family:'Montserrat',Helvetica] text-xs text-[#9ca3af] italic">
-            Status set by Red Dog staff
-          </span>
-        )}
       </div>
     </div>
   );
@@ -329,18 +325,28 @@ export const Applications = () => {
 
   const apps = rawApps;
 
-  const filtered = apps.filter(
-    (a) => activeFilter === "all" || a.status === activeFilter || (activeFilter === "under-review" && a.status === "in_review")
-  );
+  const filtered = apps.filter((a) => {
+    if (activeFilter === "all") return true;
+    const tab = STATUS_TABS.find((t) => t.value === activeFilter);
+    if (tab && tab.values) return tab.values.includes(a.status);
+    return a.status === activeFilter;
+  });
 
-  const totalApplied = apps.filter((a) => ["submitted", "in_review", "under-review", "awarded"].includes(a.status)).length;
-  const awarded = apps.filter((a) => a.status === "awarded").length;
-  const underReview = apps.filter((a) => a.status === "in_review" || a.status === "under-review").length;
+  // Total Drafting — applications being worked on
+  const totalDrafting = apps.filter((a) => ["drafting", "draft", "not_started", "ready_to_submit"].includes(a.status)).length;
+
+  // Total Submitted — applications sent to funders
+  const totalSubmitted = apps.filter((a) =>
+    ["submitted", "in_review", "under_review", "waiting_on_information", "approved", "awarded", "rejected", "denied", "declined"].includes(a.status)
+  ).length;
+
+  // Awarded — won grants
+  const totalAwarded = apps.filter((a) => a.status === "awarded").length;
 
   const stats = [
-    { label: "Total Applied", value: totalApplied, Icon: FileText, iconBg: "bg-[#eff6ff]", iconCls: "text-[#3b82f6]", valueCls: "text-[#3b82f6]" },
-    { label: "Awarded", value: awarded, Icon: Award, iconBg: "bg-[#f0fdf4]", iconCls: "text-[#16a34a]", valueCls: "text-[#16a34a]" },
-    { label: "Under Review", value: underReview, Icon: Clock, iconBg: "bg-[#fff7ed]", iconCls: "text-[#f59e0b]", valueCls: "text-[#f59e0b]" },
+    { label: "In Progress", value: totalDrafting, Icon: FileText, iconBg: "bg-[#eff6ff]", iconCls: "text-[#3b82f6]", valueCls: "text-[#3b82f6]" },
+    { label: "Submitted", value: totalSubmitted, Icon: Clock, iconBg: "bg-[#fff7ed]", iconCls: "text-[#f59e0b]", valueCls: "text-[#f59e0b]" },
+    { label: "Awarded", value: totalAwarded, Icon: Award, iconBg: "bg-[#f0fdf4]", iconCls: "text-[#16a34a]", valueCls: "text-[#16a34a]" },
   ];
 
   return (
@@ -390,18 +396,18 @@ export const Applications = () => {
             label="Status"
             value={activeFilter}
             onChange={setActiveFilter}
-            options={filterTabs.map((t) => ({ value: t.value, label: t.label }))}
+            options={STATUS_TABS.map((t) => ({ value: t.value || (t as any).value, label: t.label }))}
             dataTestId="select-filter-applications"
           />
           <div className="hidden flex-wrap items-center gap-1.5 md:flex">
-            {filterTabs.map((t) => (
+            {STATUS_TABS.map((t) => (
               <button
-                key={t.value}
+                key={t.value || (t as any).value}
                 type="button"
-                onClick={() => setActiveFilter(t.value)}
-                data-testid={`tab-${t.value}`}
+                onClick={() => setActiveFilter(t.value || (t as any).value)}
+                data-testid={`tab-${t.value || (t as any).value}`}
                 className={`h-8 rounded-lg px-4 [font-family:'Montserrat',Helvetica] text-sm font-semibold transition-all ${
-                  activeFilter === t.value
+                  activeFilter === (t.value || (t as any).value)
                     ? "bg-[#ef3e34] text-white"
                     : "border border-[#e5e7eb] bg-white text-[#6b7280] hover:border-[#ef3e34]/40"
                 }`}

@@ -395,6 +395,10 @@ const create = async (data) => {
       opportunity: opp._id
     }).select('fitScore').lean();
     fitScore = matchDoc?.fitScore ?? null;
+    if (fitScore !== null) {
+      await Application.findByIdAndUpdate(app._id, { $set: { fitScore } });
+      app.fitScore = fitScore;
+    }
   }
   await bumpOpportunityCountAndMaybeLock(opp, fitScore);
   await bumpFunderCountAndMaybeLock(data.funder, funder.maxApplicationsAllowed);
@@ -507,6 +511,7 @@ const createWithAI = async ({ opportunityId, funderId, organizationId, userId, a
           : 'Grant Application',
       contactName: org.name,
       dateStarted: new Date(),
+      fitScore: agencyFitScore ?? undefined,
       ...parsed,
       ...legacyDerived,
     });
