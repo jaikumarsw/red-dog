@@ -122,13 +122,24 @@ async function runIngestion({ triggeredBy = 'cron' } = {}) {
           run.stats.parsed += 1;
 
           if (action === 'inserted') {
-            const inserted = await Opportunity.findOne({
+            // Use the result of the upsert directly instead of re-querying
+            const insertedDoc = await Opportunity.findOne({
               externalSource: normalized.externalSource,
               externalSourceId: normalized.externalSourceId,
             })
               .select('_id')
               .lean();
-            if (inserted?._id) newOpportunityIds.push(inserted._id);
+            if (insertedDoc?._id) {
+              newOpportunityIds.push(insertedDoc._id);
+              // Trigger match computation immediately for this opportunity
+              try {
+                await matchService.computeAllForOpportunity(insertedDoc._id);
+              } catch (matchErr) {
+                logger.warn(
+                  `[grantsGov] inline match compute failed for ${insertedDoc._id}: ${matchErr.message}`
+                );
+              }
+            }
           }
         } catch (err) {
           run.stats.errors += 1;

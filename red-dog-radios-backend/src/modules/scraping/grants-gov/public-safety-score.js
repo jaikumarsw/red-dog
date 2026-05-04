@@ -61,7 +61,7 @@ const KEYWORD_WEIGHTS = {
   'law enforcement': 10,
   'police department': 10,
   'police officer': 8,
-  'sheriff': 7,
+  'sheriff': 6,
   'corrections': 6,
   'correctional': 6,
   'criminal justice': 8,
@@ -78,7 +78,7 @@ const KEYWORD_WEIGHTS = {
   // EMS / 911
   'emergency medical services': 10,
   'emergency medical': 6,
-  'ems': 5,
+  'ems': 3,
   'paramedic': 7,
   'ambulance': 6,
   '911': 8,
@@ -88,9 +88,9 @@ const KEYWORD_WEIGHTS = {
   'psap': 8,
 
   // ===== Tier 3: Supporting / equipment context =====
-  'radio': 4,
+  'radio': 3,
   'repeater': 6,
-  'communications': 3,
+  'communications': 2,
   'dispatch': 5,
   'tactical equipment': 6,
   'protective equipment': 4,
@@ -138,10 +138,27 @@ function scoreOpportunity(opp) {
   const matched = [];
 
   for (const [keyword, weight] of Object.entries(KEYWORD_WEIGHTS)) {
-    if (haystack.includes(keyword)) {
+    // Build a word-boundary regex. Escape special regex chars in keyword.
+    const escaped = keyword.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    const pattern = new RegExp(`\\b${escaped}\\b`, 'i');
+    if (pattern.test(haystack)) {
       score += weight;
       matched.push(keyword);
     }
+  }
+
+  // Disqualifier: foreign-aid grants are for non-U.S. governments and 
+  // shouldn't appear in our public-safety pipeline regardless of keyword hits.
+  const foreignAidSignals = [
+    'department of state',
+    'bureau of counterterrorism',
+    'embassy',
+    'u.s. mission to',
+  ];
+  const isLikelyForeignAid = foreignAidSignals.some((sig) => haystack.includes(sig));
+  if (isLikelyForeignAid) {
+    // Heavy penalty — drop below threshold
+    return { score: Math.max(0, score - 20), matched, disqualifier: 'foreign_aid' };
   }
 
   return { score, matched };
