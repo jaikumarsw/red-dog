@@ -139,7 +139,7 @@ export const OnboardingResults = () => {
             </div>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               {matches.slice(0, 4).map((match, i) => (
-                <div key={i} className="flex flex-col gap-3 p-5 rounded-xl border border-gray-200 bg-white hover:border-[#ef3e34] hover:shadow-md transition-all group cursor-pointer">
+                <div key={i} className="flex flex-col gap-3 p-5 rounded-xl border border-gray-200 bg-white">
                   <div className="flex justify-between items-start">
                     <span className="inline-flex items-center gap-1.5 rounded-full bg-[#ef3e34] px-2.5 py-1 text-xs font-bold text-white">
                       <Target className="w-3.5 h-3.5" />

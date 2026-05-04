@@ -29,7 +29,6 @@ type Digest = {
 };
 
 type TrackerStats = {
-  totalMatchedFunders: number;
   applicationsInProgress: number;
   submittedApplications: number;
   waitingOnInformation: number;
@@ -144,7 +143,6 @@ const LivePreview = ({ digest, stats }: { digest: Digest | null; stats?: Tracker
         <div className="px-4 py-4 flex flex-col gap-3">
           <div className="grid grid-cols-5 gap-2">
             {[
-              { label: "Matched", value: stats.totalMatchedFunders, color: "text-[#50a2ff]" },
               { label: "In Progress", value: stats.applicationsInProgress, color: "text-[#c17aff]" },
               { label: "Submitted", value: stats.submittedApplications, color: "text-[#00d491]" },
               { label: "Waiting", value: stats.waitingOnInformation, color: "text-[#b45309]" },

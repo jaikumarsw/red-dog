@@ -5,6 +5,7 @@ import { useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { useAdminAuth } from "@/lib/AdminAuthContext";
 import { AppShellLayout, type ShellMenuItem } from "@/components/AppShellLayout";
+import { Mail } from "lucide-react";
 
 const ADMIN_MENU: ShellMenuItem[] = [
   { id: "admin-dashboard", label: "Dashboard", icon: "/figmaAssets/svg-8.svg", path: "/admin/dashboard" },
@@ -13,6 +14,7 @@ const ADMIN_MENU: ShellMenuItem[] = [
   { id: "admin-funders", label: "Funders", icon: "/figmaAssets/svg-12.svg", path: "/admin/funders" },
   { id: "admin-applications", label: "Applications", icon: "/figmaAssets/svg-11.svg", path: "/admin/applications" },
   { id: "admin-outbox", label: "Outbox", icon: "/figmaAssets/svg-9.svg", path: "/admin/outbox" },
+  { id: "admin-communications", label: "Communications", icon: Mail, path: "/admin/communications" },
   { id: "admin-users", label: "Users", icon: "/figmaAssets/svg-5.svg", path: "/admin/users" },
   { id: "admin-coupons", label: "Coupons", icon: "/figmaAssets/svg-13.svg", path: "/admin/coupons" },
 ];

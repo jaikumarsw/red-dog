@@ -13,6 +13,7 @@ const Reply = require('./reply.schema');
 const Outbox = require('../outbox/outbox.schema');
 const Application = require('../applications/application.schema');
 const Organization = require('../organizations/organization.schema');
+const Opportunity = require('../opportunities/opportunity.schema');
 const logger = require('../../utils/logger');
 
 const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });

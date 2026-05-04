@@ -20,6 +20,7 @@ type ReplyItem = {
   ashleenSuggestion: string | null;
   ashleenError: string | null;
   ashleenGeneratedAt: string | null;
+  ashleenReady?: boolean;
   body: string | null;
   htmlBody: string | null;
   grantTitle: string;
@@ -80,12 +81,12 @@ const ReplyCard = ({
           <span className="text-[10px] text-[#9ca3af] [font-family:'Montserrat',Helvetica] whitespace-nowrap">
             {fmtDate(reply.receivedAt)}
           </span>
-          {reply.ashleenSuggestion && (
+          {reply.ashleenReady && (
             <span className="inline-flex items-center gap-1 rounded-full bg-[#dcfce7] px-2 py-0.5 text-[9px] font-bold uppercase tracking-wide text-[#16a34a]">
               ✦ Ashleen ready
             </span>
           )}
-          {!reply.ashleenSuggestion && !reply.ashleenError && (
+          {!reply.ashleenReady && !reply.ashleenError && (
             <span className="inline-flex items-center rounded-full bg-[#fef9c3] px-2 py-0.5 text-[9px] font-bold uppercase tracking-wide text-[#b45309]">
               Analyzing...
             </span>
@@ -308,6 +309,7 @@ export const Inbox = () => {
     ashleenSuggestion: r.ashleenSuggestion ?? null,
     ashleenError: r.ashleenError ?? null,
     ashleenGeneratedAt: r.ashleenGeneratedAt ?? null,
+    ashleenReady: r.ashleenReady ?? false,
     body: r.body ?? null,
     htmlBody: r.htmlBody ?? null,
     grantTitle: r.outboxId?.relatedGrant?.projectTitle

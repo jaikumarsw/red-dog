@@ -159,13 +159,19 @@ const agencyReplies = asyncHandler(async (req, res) => {
     .sort({ receivedAt: -1 })
     .skip((page - 1) * limit)
     .limit(limit)
-    .select('-htmlBody -body -ashleenSuggestion') // summaries only in list
+    .select('-htmlBody -body') // summaries only in list
     .lean();
+
+  const repliesWithFlag = replies.map(r => ({
+    ...r,
+    ashleenReady: !!(r.ashleenSuggestion),
+    ashleenSuggestion: undefined, // still exclude the full text from list
+  }));
 
   const total = await Reply.countDocuments({ organizationId });
   const unread = await Reply.countDocuments({ organizationId, agencyViewed: false });
 
-  return success(res, { replies, total, unread, page, totalPages: Math.ceil(total / limit) });
+  return success(res, { replies: repliesWithFlag, total, unread, page, totalPages: Math.ceil(total / limit) });
 });
 
 /**

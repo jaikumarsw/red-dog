@@ -377,7 +377,7 @@ export const Opportunities = () => {
           <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-[#9ca3af]" />
           <input
             className={cn(inputCls, "pl-9 h-10 w-full")}
-            placeholder="Search grants, funders, or keywords..."
+            placeholder="Search grants or keywords..."
             value={search}
             onChange={(e) => setSearch(e.target.value)}
           />

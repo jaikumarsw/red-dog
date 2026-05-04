@@ -11,7 +11,6 @@ import { qk } from "@/lib/queryKeys";
 import { useAuth } from "@/lib/AuthContext";
 
 type TrackerStats = {
-  totalMatchedFunders: number;
   applicationsInProgress: number;
   submittedApplications: number;
   waitingOnInformation: number;
@@ -60,14 +59,6 @@ const priorityStyle = (priority: string) => {
 };
 
 const statCards = [
-  {
-    key: "totalMatchedFunders" as keyof TrackerStats,
-    label: "Matched Funders",
-    icon: Target,
-    color: "text-[#50a2ff]",
-    bg: "bg-[#eef5fe]",
-    format: (v: number) => String(v),
-  },
   {
     key: "applicationsInProgress" as keyof TrackerStats,
     label: "In Progress",
@@ -172,7 +163,7 @@ export const PlatformDashboardSection = () => {
               WELCOME BACK, {firstName.toUpperCase()}
             </h1>
             <p className="[font-family:'Montserrat',Helvetica] font-normal text-black text-sm tracking-[0] leading-5 max-w-prose break-words">
-              Your grant intelligence snapshot — funders matched, applications in motion, and dollars on the table.
+              Your grant intelligence snapshot — applications in motion and dollars on the table.
             </p>
           </div>
 
