@@ -55,6 +55,18 @@ const { scoreOpportunity, shouldIngest, MIN_SCORE_TO_INGEST } = require('../modu
         console.log(`Eligible: ${(normalized.eligibleApplicants || []).join(', ')}`);
         console.log(`PublicSafetyScore: ${score} (matched: ${matched.join(', ') || 'none'})`);
         console.log(`Would ingest: ${shouldIngest(score) ? '✅ YES' : '❌ NO (below threshold)'}`);
+        if (shouldIngest(score)) {
+          try {
+            const { getOpportunity } = require('../modules/scraping/grants-gov/client');
+            const { mergeDetail } = require('../modules/scraping/grants-gov/normalizer');
+            const detail = await getOpportunity(normalized.externalSourceId);
+            const enriched = mergeDetail(normalized, detail);
+            console.log(`ContactEmail: ${enriched.contactEmail || '(none in detail either)'}`);
+            console.log(`ContactName:  ${enriched.contactName || '(none)'}`);
+          } catch (e) {
+            console.log(`Detail fetch error: ${e.message}`);
+          }
+        }
       } catch (err) {
         console.log(`❌ Normalization failed: ${err.message}`);
       }

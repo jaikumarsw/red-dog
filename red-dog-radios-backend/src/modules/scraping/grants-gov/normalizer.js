@@ -132,4 +132,42 @@ function normalize(rec) {
   };
 }
 
-module.exports = { normalize };
+/**
+ * Merge fields from the detail API response into an already-normalized record.
+ * Only overwrites fields that are currently null/empty in normalized.
+ * @param {Object} normalized - output of normalize()
+ * @param {Object} detail - raw response from getOpportunity()
+ * @returns {Object} merged record
+ */
+function mergeDetail(normalized, detail) {
+  if (!detail) return normalized;
+
+  const summary = detail.summary || detail;
+
+  // Contact info — primary reason we fetch detail
+  const contactEmail =
+    summary.agency_email_address || detail.agency_email_address || null;
+
+  const contactName =
+    summary.agency_contact_description || detail.agency_contact_description || null;
+
+  // Clean up contact name — the description field is often
+  // "Name\nPhone: xxx\nEmail: xxx" — extract just the first line
+  const cleanContactName = contactName
+    ? String(contactName).split(/[\n\r]/)[0].trim().slice(0, 100) || null
+    : null;
+
+  // Additional info URL sometimes only appears in detail
+  const detailSourceUrl =
+    summary.additional_info_url || detail.additional_info_url || normalized.externalSourceUrl;
+
+  return {
+    ...normalized,
+    contactEmail: normalized.contactEmail || contactEmail,
+    contactName: normalized.contactName || cleanContactName,
+    externalSourceUrl: normalized.externalSourceUrl || detailSourceUrl,
+    applicationUrl: normalized.applicationUrl || detailSourceUrl,
+  };
+}
+
+module.exports = { normalize, mergeDetail };

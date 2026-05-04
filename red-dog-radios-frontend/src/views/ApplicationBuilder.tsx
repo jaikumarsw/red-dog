@@ -258,6 +258,17 @@ export const ApplicationBuilder = () => {
   const [awardResponseSubmitted, setAwardResponseSubmitted] = useState(false);
   const [threadOutbox, setThreadOutbox] = useState<GrantOutbox | null>(null);
   const [composeOpen, setComposeOpen] = useState(false);
+  const [emailPhase, setEmailPhase] = useState<"idle" | "generating" | "preview" | "sending" | "success">("idle");
+  const [emailContent, setEmailContent] = useState({
+    subject: "",
+    htmlBody: "",
+    recipient: "",
+    recipientName: "",
+    senderEmail: "",
+    senderName: "",
+  });
+  const [scheduleTime, setScheduleTime] = useState<string>("");
+  const [sendResult, setSendResult] = useState<{ mode: string; scheduledFor?: string } | null>(null);
 
   const { data: app, isLoading, isError, refetch } = useQuery<Application>({
     queryKey: qk.application(id),
@@ -446,28 +457,42 @@ export const ApplicationBuilder = () => {
 
   const generateEmailMutation = useMutation({
     mutationFn: async () => {
-      const funderEmail = app?.funder?.contactEmail || app?.opportunity?.contactEmail || app?.opportunity?.funderId?.contactEmail;
-      const funderName = app?.funder?.contactName || app?.opportunity?.contactName || app?.opportunity?.funderId?.contactName;
-      
-      if (!funderEmail) throw new Error("No contact email on file for this funder — please ask your admin to update the funder record.");
-      if (!opportunityId) throw new Error("This application is missing an opportunityId, so outreach can't be generated here yet.");
-      
-      const res = await api.post(`/ai/generate-email`, {
+      const funderEmail =
+        app?.funder?.contactEmail || app?.opportunity?.contactEmail || app?.opportunity?.funderId?.contactEmail;
+      const funderName =
+        app?.funder?.contactName || app?.opportunity?.contactName || app?.opportunity?.funderId?.contactName;
+
+      if (!funderEmail)
+        throw new Error(
+          "No contact email on file for this funder — please ask your admin to update the funder record."
+        );
+      if (!opportunityId)
+        throw new Error(
+          "This application is missing an opportunityId, so outreach can't be generated here yet."
+        );
+
+      setEmailPhase("generating");
+      const res = await api.post(`/ai/generate-email?previewOnly=true`, {
         opportunityId,
         contactEmail: funderEmail.trim(),
         contactName: funderName?.trim() || undefined,
         grantId: id,
       });
-      return res.data.data as { generated: { subject?: string; body?: string }; outbox: GrantOutbox };
+      return res.data.data as {
+        subject: string;
+        htmlBody: string;
+        recipient: string;
+        recipientName: string;
+        senderEmail: string;
+        senderName: string;
+      };
     },
-    onSuccess: async () => {
-      toast({ title: "Outreach email queued successfully" });
-      setComposeOpen(false);
-      // Automatically mark application as submitted
-      statusMutation.mutate("submitted");
-      await queryClient.invalidateQueries({ queryKey: ["outbox", "grant", id] });
+    onSuccess: (data) => {
+      setEmailContent(data);
+      setEmailPhase("preview");
     },
     onError: (err: unknown) => {
+      setEmailPhase("idle");
       const msg =
         (err as { response?: { data?: { message?: string } } })?.response?.data?.message ??
         (err as Error)?.message ??
@@ -475,6 +500,51 @@ export const ApplicationBuilder = () => {
       toast({ title: "Error", description: msg, variant: "destructive" });
     },
   });
+
+  const handleSendEmail = async (sendMode: "now" | "scheduled" | "draft") => {
+    setEmailPhase("sending");
+    try {
+      await api.post("/outbox/send-or-schedule", {
+        ...emailContent,
+        sendMode,
+        scheduledFor: sendMode === "scheduled" ? scheduleTime : undefined,
+        relatedGrant: id,
+        emailType: "outreach",
+      });
+      setSendResult({
+        mode: sendMode,
+        scheduledFor: sendMode === "scheduled" ? scheduleTime : undefined,
+      });
+      setEmailPhase("success");
+
+      // Automatically mark application as submitted if sent or scheduled
+      if (sendMode !== "draft") {
+        statusMutation.mutate("submitted");
+      }
+
+      setTimeout(() => {
+        setEmailPhase("idle");
+        setEmailContent({
+          subject: "",
+          htmlBody: "",
+          recipient: "",
+          recipientName: "",
+          senderEmail: "",
+          senderName: "",
+        });
+        setSendResult(null);
+        setComposeOpen(false);
+        queryClient.invalidateQueries({ queryKey: ["outbox", "grant", id] });
+      }, 2000);
+    } catch (err: unknown) {
+      setEmailPhase("preview");
+      const msg =
+        (err as { response?: { data?: { message?: string } } })?.response?.data?.message ??
+        (err as Error)?.message ??
+        "Failed to send email.";
+      toast({ title: "Error", description: msg, variant: "destructive" });
+    }
+  };
 
   if (isLoading) {
     return (
@@ -996,11 +1066,16 @@ export const ApplicationBuilder = () => {
           className="fixed inset-0 z-50 flex items-center justify-center bg-black/40"
           onClick={(e) => e.target === e.currentTarget && setComposeOpen(false)}
         >
-          <div className="bg-white rounded-2xl shadow-[0_8px_40px_rgba(0,0,0,0.18)] w-full max-w-[640px] mx-4 flex flex-col">
+          <div
+            className={cn(
+              "bg-white rounded-2xl shadow-[0_8px_40px_rgba(0,0,0,0.18)] w-full mx-4 flex flex-col transition-all duration-300",
+              emailPhase === "preview" ? "max-w-[800px]" : "max-w-[640px]"
+            )}
+          >
             <div className="flex items-center justify-between px-7 pt-7 pb-5 border-b border-[#f3f4f6]">
               <div>
                 <h2 className="[font-family:'Oswald',Helvetica] font-bold text-black text-xl tracking-[0.5px] uppercase">
-                  Generate Outreach Email
+                  {emailPhase === "preview" ? "Review Outreach" : "Generate Outreach Email"}
                 </h2>
               </div>
               <button
@@ -1012,156 +1087,290 @@ export const ApplicationBuilder = () => {
             </div>
 
             <div className="p-6 space-y-3 max-h-[70vh] overflow-y-auto">
-              <p className="text-sm text-[#6b7280] mb-3">
-                This will queue an email in your Outbox and link it to this application.
-              </p>
-
-              <div className="bg-amber-50 border border-amber-200 rounded-lg p-3 mb-4">
-                <div className="flex items-start gap-2">
-                  <span className="text-amber-600 text-base">⚠️</span>
-                  <div className="text-sm">
-                    <p className="font-bold text-amber-900 mb-1">
-                      For inquiries and follow-ups only
-                    </p>
-                    <p className="text-amber-800">
-                      Federal grants like FEMA, DHS, DOJ, and COPS Office 
-                      require submission through{" "}
-                      <a 
-                        href="https://www.grants.gov" 
-                        target="_blank" 
-                        rel="noopener noreferrer"
-                        className="underline font-medium"
-                      >
-                        Grants.gov
-                      </a>. 
-                      This email feature is for asking funder questions, 
-                      following up after submission, or contacting small 
-                      foundations that accept email applications.
-                    </p>
-                  </div>
-                </div>
-              </div>
-
-              {isFederalFunder && (
-                <div className="bg-red-50 border-2 border-red-300 rounded-lg p-3 mb-4">
-                  <p className="font-bold text-red-900">
-                    🚨 This is a federal grant
-                  </p>
-                  <p className="text-sm text-red-800 mt-1">
-                    Sending an email here does NOT submit your application. 
-                    You must submit through the funder&apos;s official portal. 
-                    Use this only for asking the funder questions.
+              {emailPhase === "generating" && (
+                <div className="py-20 flex flex-col items-center justify-center gap-4 text-center">
+                  <RefreshCw className="animate-spin text-[#ef3e34]" size={32} />
+                  <p className="[font-family:'Montserrat',Helvetica] text-sm font-medium text-[#374151]">
+                    Ashleen is drafting your outreach email...
                   </p>
                 </div>
               )}
 
-              {!gmailConnected && (
-                <div className="bg-blue-50 border border-blue-200 rounded-lg p-3 mb-4">
-                  <div className="flex items-start gap-2">
-                    <Mail size={16} className="text-blue-600 mt-0.5" />
-                    <div className="text-sm">
-                      <p className="font-medium text-blue-900 mb-1">
-                        Gmail not connected
+              {emailPhase === "idle" && (
+                <>
+                  <p className="text-sm text-[#6b7280] mb-3">
+                    This will draft an outreach email based on your application content and funder priorities.
+                  </p>
+
+                  <div className="bg-amber-50 border border-amber-200 rounded-lg p-3 mb-4">
+                    <div className="flex items-start gap-2">
+                      <span className="text-amber-600 text-base">⚠️</span>
+                      <div className="text-sm">
+                        <p className="font-bold text-amber-900 mb-1">For inquiries and follow-ups only</p>
+                        <p className="text-amber-800">
+                          Federal grants like FEMA, DHS, DOJ, and COPS Office require submission through{" "}
+                          <a
+                            href="https://www.grants.gov"
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="underline font-medium"
+                          >
+                            Grants.gov
+                          </a>
+                          . This email feature is for asking funder questions, following up after submission, or
+                          contacting small foundations that accept email applications.
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+
+                  {isFederalFunder && (
+                    <div className="bg-red-50 border-2 border-red-300 rounded-lg p-3 mb-4">
+                      <p className="font-bold text-red-900">🚨 This is a federal grant</p>
+                      <p className="text-sm text-red-800 mt-1">
+                        Sending an email here does NOT submit your application. You must submit through the
+                        funder&apos;s official portal. Use this only for asking the funder questions.
                       </p>
-                      <p className="text-blue-800 mb-2">
-                        This email will be sent from a Red Dog Grant Intelligence 
-                        system address with your contact info in the body. 
-                        Connect your Gmail to send from your own address instead.
-                      </p>
-                      <button
-                        className="text-blue-700 font-semibold underline"
-                        onClick={() => router.push("/settings/agency")}
-                      >
-                        Connect Gmail in Settings
-                      </button>
                     </div>
+                  )}
+
+                  {!gmailConnected && (
+                    <div className="bg-blue-50 border border-blue-200 rounded-lg p-3 mb-4">
+                      <div className="flex items-start gap-2">
+                        <Mail size={16} className="text-blue-600 mt-0.5" />
+                        <div className="text-sm">
+                          <p className="font-medium text-blue-900 mb-1">Gmail not connected</p>
+                          <p className="text-blue-800 mb-2">
+                            This email will be sent from a Red Dog Grant Intelligence system address with your
+                            contact info in the body. Connect your Gmail to send from your own address instead.
+                          </p>
+                          <button
+                            className="text-blue-700 font-semibold underline"
+                            onClick={() => router.push("/settings/agency")}
+                          >
+                            Connect Gmail in Settings
+                          </button>
+                        </div>
+                      </div>
+                    </div>
+                  )}
+
+                  {gmailConnected && (
+                    <div className="bg-emerald-50 border border-emerald-200 rounded-lg p-3 mb-4">
+                      <p className="text-sm text-emerald-900">
+                        ✓ This will send from <strong>{gmailStatus?.senderEmail}</strong>
+                      </p>
+                    </div>
+                  )}
+
+                  {!opportunityId ? (
+                    <div className="rounded-xl border border-[#fee2e2] bg-[#fff1f2] p-4">
+                      <p className="[font-family:'Montserrat',Helvetica] text-sm font-semibold text-[#991b1b]">
+                        This application record doesn&apos;t include an opportunityId yet.
+                      </p>
+                      <p className="mt-1 [font-family:'Montserrat',Helvetica] text-xs text-[#991b1b]">
+                        We can still show email history, but generating outreach from this page needs the
+                        opportunity ID.
+                      </p>
+                    </div>
+                  ) : null}
+
+                  <div className="pt-2">
+                    {!app?.funder?.contactEmail &&
+                    !app?.opportunity?.contactEmail &&
+                    !app?.opportunity?.funderId?.contactEmail ? (
+                      <div className="rounded-xl border border-[#fee2e2] bg-[#fff1f2] p-4 mb-4">
+                        <p className="[font-family:'Montserrat',Helvetica] text-sm font-semibold text-[#991b1b]">
+                          No contact email on file for this funder — please ask your admin to update the funder
+                          record.
+                        </p>
+                      </div>
+                    ) : (
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 pb-4">
+                        <div className="flex flex-col gap-1">
+                          <label className="text-xs font-semibold text-[#6b7280] [font-family:'Montserrat',Helvetica] uppercase tracking-wider">
+                            Contact email
+                          </label>
+                          <p className="text-sm font-medium text-[#111827] [font-family:'Montserrat',Helvetica]">
+                            {app?.funder?.contactEmail ||
+                              app?.opportunity?.contactEmail ||
+                              app?.opportunity?.funderId?.contactEmail}
+                          </p>
+                        </div>
+                        <div className="flex flex-col gap-1">
+                          <label className="text-xs font-semibold text-[#6b7280] [font-family:'Montserrat',Helvetica] uppercase tracking-wider">
+                            Contact name
+                          </label>
+                          <p className="text-sm font-medium text-[#111827] [font-family:'Montserrat',Helvetica]">
+                            {app?.funder?.contactName ||
+                              app?.opportunity?.contactName ||
+                              app?.opportunity?.funderId?.contactName ||
+                              "—"}
+                          </p>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                </>
+              )}
+
+              {emailPhase === "preview" && (
+                <div className="space-y-4">
+                  <div className="space-y-2 border-b border-[#f3f4f6] pb-4">
+                    <div className="flex text-sm">
+                      <span className="w-16 shrink-0 text-[#6b7280] [font-family:'Montserrat',Helvetica]">To:</span>
+                      <span className="font-semibold text-[#111827] [font-family:'Montserrat',Helvetica]">
+                        {emailContent.recipientName} &lt;{emailContent.recipient}&gt;
+                      </span>
+                    </div>
+                    <div className="flex text-sm">
+                      <span className="w-16 shrink-0 text-[#6b7280] [font-family:'Montserrat',Helvetica]">From:</span>
+                      <span className="text-[#374151] [font-family:'Montserrat',Helvetica]">
+                        {emailContent.senderName} ({emailContent.senderEmail})
+                      </span>
+                    </div>
+                  </div>
+
+                  <div className="space-y-1">
+                    <label className="text-[10px] font-bold uppercase tracking-wider text-[#6b7280] [font-family:'Montserrat',Helvetica]">
+                      Subject Line
+                    </label>
+                    <input
+                      value={emailContent.subject}
+                      onChange={(e) => setEmailContent({ ...emailContent, subject: e.target.value })}
+                      className="w-full border-b border-[#e5e7eb] pb-2 text-sm font-bold text-[#111827] focus:border-[#ef3e34] focus:outline-none [font-family:'Montserrat',Helvetica]"
+                      placeholder="Enter subject..."
+                    />
+                  </div>
+
+                  <div className="space-y-1">
+                    <label className="text-[10px] font-bold uppercase tracking-wider text-[#6b7280] [font-family:'Montserrat',Helvetica]">
+                      Message Body
+                    </label>
+                    <textarea
+                      value={emailContent.htmlBody}
+                      onChange={(e) => setEmailContent({ ...emailContent, htmlBody: e.target.value })}
+                      className="w-full min-h-[320px] rounded-xl border border-[#e5e7eb] p-4 text-sm leading-relaxed text-[#374151] focus:border-[#ef3e34] focus:outline-none [font-family:'Montserrat',Helvetica]"
+                      placeholder="Write your message here..."
+                    />
                   </div>
                 </div>
               )}
 
-              {gmailConnected && (
-                <div className="bg-emerald-50 border border-emerald-200 rounded-lg p-3 mb-4">
-                  <p className="text-sm text-emerald-900">
-                    ✓ This will send from <strong>{gmailStatus?.senderEmail}</strong>
+              {emailPhase === "sending" && (
+                <div className="py-20 flex flex-col items-center justify-center gap-4 text-center">
+                  <RefreshCw className="animate-spin text-[#ef3e34]" size={32} />
+                  <p className="[font-family:'Montserrat',Helvetica] text-sm font-medium text-[#374151]">
+                    Sending your message...
                   </p>
                 </div>
               )}
 
-              {!opportunityId ? (
-                <div className="rounded-xl border border-[#fee2e2] bg-[#fff1f2] p-4">
-                  <p className="[font-family:'Montserrat',Helvetica] text-sm font-semibold text-[#991b1b]">
-                    This application record doesn&apos;t include an opportunityId yet.
-                  </p>
-                  <p className="mt-1 [font-family:'Montserrat',Helvetica] text-xs text-[#991b1b]">
-                    We can still show email history, but generating outreach from this page needs the opportunity ID.
-                  </p>
-                </div>
-              ) : null}
-
-              <div className="pt-2">
-                {(!app?.funder?.contactEmail && !app?.opportunity?.contactEmail && !app?.opportunity?.funderId?.contactEmail) ? (
-                  <div className="rounded-xl border border-[#fee2e2] bg-[#fff1f2] p-4 mb-4">
-                    <p className="[font-family:'Montserrat',Helvetica] text-sm font-semibold text-[#991b1b]">
-                      No contact email on file for this funder — please ask your admin to update the funder record.
+              {emailPhase === "success" && (
+                <div className="py-20 flex flex-col items-center justify-center gap-4 text-center">
+                  <CheckCircle className="text-green-500" size={64} />
+                  <div>
+                    <h3 className="[font-family:'Oswald',Helvetica] text-2xl font-bold text-[#111827] uppercase">
+                      {sendResult?.mode === "now"
+                        ? "Email Sent!"
+                        : sendResult?.mode === "scheduled"
+                        ? "Email Scheduled"
+                        : "Draft Saved"}
+                    </h3>
+                    <p className="mt-2 [font-family:'Montserrat',Helvetica] text-sm text-[#6b7280]">
+                      {sendResult?.mode === "now"
+                        ? "Your outreach has been dispatched successfully."
+                        : sendResult?.mode === "scheduled"
+                        ? `Your outreach is set to send on ${new Date(
+                            sendResult.scheduledFor || ""
+                          ).toLocaleString()}.`
+                        : "Your outreach has been saved to the outbox as a draft."}
+                    </p>
+                    <p className="mt-6 text-xs text-[#9ca3af] animate-pulse [font-family:'Montserrat',Helvetica]">
+                      Closing in 2 seconds...
                     </p>
                   </div>
-                ) : (
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 pb-4">
-                    <div className="flex flex-col gap-1">
-                      <label className="text-xs font-semibold text-[#6b7280] [font-family:'Montserrat',Helvetica] uppercase tracking-wider">Contact email</label>
-                      <p className="text-sm font-medium text-[#111827] [font-family:'Montserrat',Helvetica]">{app?.funder?.contactEmail || app?.opportunity?.contactEmail || app?.opportunity?.funderId?.contactEmail}</p>
-                    </div>
-                    <div className="flex flex-col gap-1">
-                      <label className="text-xs font-semibold text-[#6b7280] [font-family:'Montserrat',Helvetica] uppercase tracking-wider">Contact name</label>
-                      <p className="text-sm font-medium text-[#111827] [font-family:'Montserrat',Helvetica]">{app?.funder?.contactName || app?.opportunity?.contactName || app?.opportunity?.funderId?.contactName || "—"}</p>
-                    </div>
-                  </div>
-                )}
-              </div>
+                </div>
+              )}
             </div>
 
-            <div className="px-6 pb-6 flex flex-col gap-3">
-              <div className="bg-[#eff6ff] border border-[#dbeafe] rounded-xl p-4 flex items-start gap-3">
-                <div className="mt-0.5 rounded-full bg-blue-100 p-1">
-                  <Mail size={14} className="text-blue-600" />
-                </div>
-                <p className="text-xs text-blue-800 [font-family:'Montserrat',Helvetica] leading-relaxed">
-                  Replies from the funder will appear in your Application Inbox and are visible to your Red Dog advisor.
-                </p>
-              </div>
+            <div className="px-7 pb-7 flex flex-col gap-4 border-t border-[#f3f4f6] pt-5">
+              {emailPhase === "idle" && (
+                <div className="flex flex-col gap-4">
+                  <div className="bg-[#eff6ff] border border-[#dbeafe] rounded-xl p-4 flex items-start gap-3">
+                    <div className="mt-0.5 rounded-full bg-blue-100 p-1">
+                      <Mail size={14} className="text-blue-600" />
+                    </div>
+                    <p className="text-xs text-blue-800 [font-family:'Montserrat',Helvetica] leading-relaxed">
+                      Replies from the funder will appear in your Application Inbox and are visible to your Red Dog
+                      advisor.
+                    </p>
+                  </div>
 
-              {app?.opportunity?.applicationUrl && (
-                <a
-                  href={app.opportunity.applicationUrl}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="inline-flex items-center gap-2 rounded-lg border border-blue-200 bg-blue-50 px-4 py-2 text-sm font-semibold text-blue-700 [font-family:'Montserrat',Helvetica] hover:bg-blue-100 transition-colors"
-                >
-                  <ExternalLink size={14} />
-                  Apply on Official Portal ↗
-                </a>
+                  <div className="flex items-center justify-end gap-3">
+                    <button
+                      onClick={() => setComposeOpen(false)}
+                      className="rounded-lg border border-[#e5e7eb] bg-white px-5 py-2.5 text-sm font-semibold [font-family:'Montserrat',Helvetica] text-[#374151] hover:bg-[#f9fafb] transition-colors"
+                    >
+                      Cancel
+                    </button>
+                    <button
+                      onClick={() => generateEmailMutation.mutate()}
+                      disabled={
+                        generateEmailMutation.isPending ||
+                        (!app?.funder?.contactEmail &&
+                          !app?.opportunity?.contactEmail &&
+                          !app?.opportunity?.funderId?.contactEmail) ||
+                        !opportunityId
+                      }
+                      className="rounded-lg bg-[#ef3e34] px-6 py-2.5 text-sm font-bold text-white [font-family:'Montserrat',Helvetica] hover:bg-[#d63029] disabled:opacity-60 transition-colors"
+                    >
+                      {generateEmailMutation.isPending ? "Generating…" : "Generate Preview"}
+                    </button>
+                  </div>
+                </div>
               )}
 
-              <div className="flex flex-col gap-3">
-                <p className="text-[10px] text-[#9ca3af] [font-family:'Montserrat',Helvetica]">
-                  By sending this email, you agree not to contact this funder outside the Red Dog platform for this application.
-                </p>
-                <div className="flex items-center justify-end gap-2">
-                  <button
-                    onClick={() => setComposeOpen(false)}
-                    className="rounded-lg border border-[#e5e7eb] bg-white px-4 py-2 text-sm font-semibold [font-family:'Montserrat',Helvetica] text-[#374151] hover:bg-[#f9fafb]"
-                  >
-                    Cancel
-                  </button>
-                  <button
-                    onClick={() => generateEmailMutation.mutate()}
-                    disabled={generateEmailMutation.isPending || (!app?.funder?.contactEmail && !app?.opportunity?.contactEmail && !app?.opportunity?.funderId?.contactEmail) || !opportunityId}
-                    className="rounded-lg bg-[#ef3e34] px-4 py-2 text-sm font-bold text-white [font-family:'Montserrat',Helvetica] hover:bg-[#d63029] disabled:opacity-60"
-                  >
-                    {generateEmailMutation.isPending ? "Generating…" : "Generate & Queue"}
-                  </button>
+              {emailPhase === "preview" && (
+                <div className="flex flex-col gap-5">
+                  <div className="flex flex-wrap items-center justify-between gap-4">
+                    <div className="flex items-center gap-3">
+                      <label className="text-xs font-bold text-[#6b7280] uppercase tracking-wider [font-family:'Montserrat',Helvetica]">
+                        Schedule:
+                      </label>
+                      <input
+                        type="datetime-local"
+                        value={scheduleTime}
+                        onChange={(e) => setScheduleTime(e.target.value)}
+                        className="rounded-lg border border-[#e5e7eb] bg-white px-3 py-1.5 text-xs font-medium focus:border-[#ef3e34] focus:outline-none [font-family:'Montserrat',Helvetica]"
+                      />
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <button
+                        onClick={() => handleSendEmail("draft")}
+                        className="rounded-lg border border-[#e5e7eb] bg-white px-4 py-2.5 text-sm font-semibold text-[#374151] hover:bg-[#f9fafb] [font-family:'Montserrat',Helvetica] transition-colors"
+                      >
+                        Save Draft
+                      </button>
+                      {scheduleTime ? (
+                        <button
+                          onClick={() => handleSendEmail("scheduled")}
+                          className="rounded-lg bg-blue-600 px-5 py-2.5 text-sm font-bold text-white hover:bg-blue-700 [font-family:'Montserrat',Helvetica] shadow-sm transition-colors"
+                        >
+                          Schedule Outreach
+                        </button>
+                      ) : (
+                        <button
+                          onClick={() => handleSendEmail("now")}
+                          className="rounded-lg bg-[#ef3e34] px-6 py-2.5 text-sm font-bold text-white hover:bg-[#d63029] [font-family:'Montserrat',Helvetica] shadow-sm transition-colors"
+                        >
+                          Send Now →
+                        </button>
+                      )}
+                    </div>
+                  </div>
                 </div>
-              </div>
+              )}
             </div>
           </div>
         </div>

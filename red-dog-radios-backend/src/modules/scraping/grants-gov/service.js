@@ -17,8 +17,8 @@ const ScrapeRun = require('../scrape-run.schema');
 const matchService = require('../../matches/match.service');
 const logger = require('../../../utils/logger');
 
-const { searchOpportunities } = require('./client');
-const { normalize } = require('./normalizer');
+const { searchOpportunities, getOpportunity } = require('./client');
+const { normalize, mergeDetail } = require('./normalizer');
 const { scoreOpportunity, shouldIngest } = require('./public-safety-score');
 
 const PAGE_SIZE = 100;
@@ -102,7 +102,7 @@ async function runIngestion({ triggeredBy = 'cron' } = {}) {
       for (const rec of records) {
         run.stats.fetched += 1;
         try {
-          const normalized = normalize(rec);
+          let normalized = normalize(rec);
           const { score, matched } = scoreOpportunity({
             title: normalized.title,
             funder: normalized.funder,
@@ -117,6 +117,18 @@ async function runIngestion({ triggeredBy = 'cron' } = {}) {
           }
 
           seenSourceIds.add(normalized.externalSourceId);
+
+          // Fetch full detail to get contact email and other enriched fields
+          try {
+            const detail = await getOpportunity(normalized.externalSourceId);
+            normalized = mergeDetail(normalized, detail);
+          } catch (detailErr) {
+            // Non-fatal — log and continue with what we have
+            logger.warn(
+              `[grantsGov] detail fetch failed for ${normalized.externalSourceId}: ${detailErr.message}`
+            );
+          }
+
           const action = await upsertOpportunity(normalized, score, matched);
           run.stats[action] += 1;
           run.stats.parsed += 1;

@@ -44,6 +44,23 @@ const generateEmail = asyncHandler(async (req, res) => {
     .replace(/\n{3,}/g, '\n\n')
     .trim();
 
+  const previewOnly = req.query.previewOnly === 'true';
+
+  if (previewOnly) {
+    return success(
+      res,
+      {
+        subject: result.subject,
+        htmlBody: cleanedBody,
+        recipient: contactEmail,
+        recipientName: contactName,
+        senderEmail: req.user.email,
+        senderName: resolvedSenderName,
+      },
+      'Outreach email preview generated'
+    );
+  }
+
   const queued = await outboxService.queueEmail({
     recipient: contactEmail,
     recipientName: contactName,

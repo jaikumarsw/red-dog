@@ -85,6 +85,27 @@ async function request(path, body) {
 }
 
 /**
+ * Generic retry wrapper.
+ */
+async function withRetry(fn, label = 'operation') {
+  let lastErr;
+  for (let attempt = 1; attempt <= MAX_RETRIES; attempt++) {
+    try {
+      return await fn();
+    } catch (err) {
+      lastErr = err;
+      if (attempt < MAX_RETRIES) {
+        logger.warn(
+          `[grantsGov] ${label} failed attempt ${attempt}: ${err.message}`
+        );
+        await new Promise((r) => setTimeout(r, 2000 * attempt));
+      }
+    }
+  }
+  throw lastErr;
+}
+
+/**
  * Search opportunities. Paginated.
  * Filters: posted_status, opportunity_status, funding_categories, etc.
  */
@@ -104,4 +125,35 @@ async function searchOpportunities({
   });
 }
 
-module.exports = { searchOpportunities };
+/**
+ * Fetch full detail for one opportunity.
+ * @param {string} opportunityId - the UUID from search results
+ * @returns {Promise<Object>} full opportunity detail record
+ */
+async function getOpportunity(opportunityId) {
+  await pace();
+  return withRetry(async () => {
+    const res = await fetchWithTimeout(
+      `${BASE_URL}/v1/opportunities/${opportunityId}`,
+      {
+        method: 'GET',
+        headers: {
+          'X-API-Key': getApiKey(),
+          'User-Agent': 'RedDogGrantIntelligence/1.0',
+        },
+      }
+    );
+    if (res.status === 404) return null; // opportunity may have been removed
+    if (!res.ok) {
+      const txt = await res.text();
+      throw new Error(
+        `Grants.gov detail HTTP ${res.status}: ${txt.slice(0, 200)}`
+      );
+    }
+    const json = await res.json();
+    // Detail endpoint wraps in { data: {...} }
+    return json?.data || json;
+  }, `getOpportunity(${opportunityId})`);
+}
+
+module.exports = { searchOpportunities, getOpportunity };

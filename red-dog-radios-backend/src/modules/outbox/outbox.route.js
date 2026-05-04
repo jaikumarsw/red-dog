@@ -9,6 +9,7 @@ const {
   adminDeleteOne,
   queueEmail,
   sendEmail,
+  sendOrSchedule,
   retryFailed,
 } = require('./outbox.controller');
 const { protect, restrictTo } = require('../../middlewares/auth.middleware');
@@ -59,6 +60,7 @@ router.get('/grant/:grantId', protect, getGrantHistory);
  *               emailType: { type: string }
  */
 router.post('/queue', protect, queueEmail);
+router.post('/send-or-schedule', protect, sendOrSchedule);
 
 /**
  * @swagger
