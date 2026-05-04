@@ -36,9 +36,9 @@ function SidebarNavIcon({ src, isActive }: { src: string; isActive: boolean }) {
 export type ShellMenuItem = {
   id: string;
   label: string;
-  icon: string;
+  icon: string | any;
   path: string;
-  badge?: string;
+  badge?: string | number;
 };
 
 export type ShellUser = {
@@ -159,7 +159,17 @@ const SidebarContent = ({
                   />
                 )}
                 <div className="relative flex h-5 w-5 flex-shrink-0 items-center justify-center">
-                  <SidebarNavIcon src={item.icon} isActive={isActive} />
+                  {typeof item.icon === "string" ? (
+                    <SidebarNavIcon src={item.icon} isActive={isActive} />
+                  ) : (
+                    <item.icon
+                      size={20}
+                      className={cn(
+                        "h-5 w-5 shrink-0 transition-colors duration-200",
+                        isActive ? "text-[#ef3e34]" : "text-[#a6a6a6] group-hover:text-[#c8c8c8]"
+                      )}
+                    />
+                  )}
                   {item.badge && collapsed && (
                     <span className="absolute -top-1.5 -right-1.5 w-4 h-4 bg-white rounded-full flex items-center justify-center">
                       <span className="[font-family:'Inter',Helvetica] font-bold text-[#ef3e34] text-[9px]">{item.badge}</span>

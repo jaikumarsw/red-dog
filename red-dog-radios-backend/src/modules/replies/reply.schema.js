@@ -22,7 +22,18 @@ const replySchema = new mongoose.Schema({
   // Gmail message ID for dedup (one reply = one record)
   gmailMessageId: { type: String, unique: true, sparse: true },
   // Admin tracking
-  adminViewed: { type: Boolean, default: false }
+  adminViewed: { type: Boolean, default: false },
+
+  // Ashleen AI analysis — populated after reply is detected
+  ashleenSuggestion: { type: String, default: null },
+  ashleenSuggestedSubject: { type: String, default: null },
+  ashleenAnalysis: { type: String, default: null },
+  ashleenGeneratedAt: { type: Date, default: null },
+  ashleenError: { type: String, default: null },
+
+  // Agency tracking
+  agencyViewed: { type: Boolean, default: false },
+  agencyViewedAt: { type: Date, default: null }
 }, { timestamps: true });
 
 replySchema.index({ organizationId: 1, receivedAt: -1 });

@@ -118,7 +118,7 @@ app.use('/api/followups', followupRoutes);
 app.use('/api/tracker', trackerRoutes);
 app.use('/api/ashleen', ashleenRoutes);
 app.use('/api/admin', adminRoutes);
-app.use('/api/admin/replies', require('./modules/replies/reply.route'));
+app.use('/api/replies', require('./modules/replies/reply.route'));
 app.use('/api/gmail', gmailRoutes);
 app.use('/api/grants', grantPipelineRoutes);
 app.use('/api/coupons', couponRoutes);

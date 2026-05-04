@@ -5,6 +5,8 @@ const Reply = require('./reply.schema');
 const { getValidAccessToken } = require('../../config/gmail.config');
 const logger = require('../../utils/logger');
 
+const { generateAshleenSuggestion } = require('./reply.ai.service');
+
 /**
  * For each connected agency, fetch recent inbox messages and 
  * detect any that are replies to emails we sent.
@@ -140,7 +142,7 @@ async function pollAgencyInbox(org) {
       const { textBody, htmlBody } = extractBodies(msgResp.data.payload);
 
       // Save reply
-      await Reply.create({
+      const savedReply = await Reply.create({
         outboxId: matchedOutboxId,
         organizationId: org._id,
         from,
@@ -153,6 +155,11 @@ async function pollAgencyInbox(org) {
 
       foundCount++;
       logger.info(`[ReplyPoll] Logged reply for org ${org._id}: ${subject}`);
+
+      // Fire Ashleen analysis — non-blocking, non-fatal
+      generateAshleenSuggestion(savedReply._id.toString()).catch((err) => {
+        logger.warn(`[AshleenReply] Background analysis failed: ${err.message}`);
+      });
     } catch (err) {
       // Per-message errors don't kill the whole poll
       logger.error(`[ReplyPoll] Failed message ${messageId}: ${err.message}`);

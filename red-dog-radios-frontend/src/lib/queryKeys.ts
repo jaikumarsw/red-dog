@@ -21,4 +21,6 @@ export const qk = {
   followups: () => ["followups"] as const,
   tracker: () => ["tracker"] as const,
   trackerStats: () => ["tracker/stats"] as const,
+  agencyReplies: () => ['agency-replies'] as const,
+  agencyReplyDetail: (id: string) => ['agency-reply-detail', id] as const,
 };

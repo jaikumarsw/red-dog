@@ -69,15 +69,42 @@ const adminCommunications = asyncHandler(async (req, res) => {
   const outboxIds = outboxRecords.map(r => r._id);
   const replyCounts = await Reply.aggregate([
     { $match: { outboxId: { $in: outboxIds } } },
-    { $group: { _id: '$outboxId', count: { $sum: 1 } } }
+    { $sort: { receivedAt: -1 } },
+    {
+      $group: {
+        _id: '$outboxId',
+        count: { $sum: 1 },
+        latestReplyId: { $first: '$_id' },
+        latestReplyFrom: { $first: '$from' },
+        latestReplySubject: { $first: '$subject' },
+        latestReplyAt: { $first: '$receivedAt' },
+        latestAshleenAnalysis: { $first: '$ashleenAnalysis' },
+        latestAshleenSuggestion: { $first: '$ashleenSuggestion' },
+        latestAshleenError: { $first: '$ashleenError' },
+        adminViewed: { $first: '$adminViewed' },
+      }
+    }
   ]);
 
-  const replyCountMap = new Map();
-  replyCounts.forEach(rc => replyCountMap.set(rc._id.toString(), rc.count));
+  const replyDataMap = new Map();
+  replyCounts.forEach(rc => {
+    replyDataMap.set(rc._id.toString(), {
+      count: rc.count,
+      replyId: rc.latestReplyId,
+      from: rc.latestReplyFrom,
+      subject: rc.latestReplySubject,
+      receivedAt: rc.latestReplyAt,
+      ashleenAnalysis: rc.latestAshleenAnalysis,
+      ashleenSuggestion: rc.latestAshleenSuggestion,
+      ashleenError: rc.latestAshleenError,
+      adminViewed: rc.adminViewed,
+    });
+  });
 
   const enriched = outboxRecords.map(r => ({
     ...r,
-    replyCount: replyCountMap.get(r._id.toString()) || 0
+    replyCount: (replyDataMap.get(r._id.toString())?.count) || 0,
+    latestReply: replyDataMap.get(r._id.toString()) || null,
   }));
 
   const total = await Outbox.countDocuments({ ...filter, status: 'sent' });
@@ -106,10 +133,92 @@ const adminRepliesByOutbox = asyncHandler(async (req, res) => {
   return success(res, replies);
 });
 
+/**
+ * Agency: list all replies to this org's outreach emails
+ * Sorted newest first. Includes Ashleen suggestion status.
+ */
+const agencyReplies = asyncHandler(async (req, res) => {
+  const organizationId = req.user.organizationId;
+  if (!organizationId) {
+    return res.status(400).json({ success: false, message: 'No organization linked to account' });
+  }
+
+  const page = parseInt(req.query.page) || 1;
+  const limit = parseInt(req.query.limit) || 20;
+
+  const replies = await Reply.find({ organizationId })
+    .populate({
+      path: 'outboxId',
+      select: 'subject sentAt relatedGrant',
+      populate: {
+        path: 'relatedGrant',
+        select: 'projectTitle opportunity',
+        populate: { path: 'opportunity', select: 'title funder' },
+      },
+    })
+    .sort({ receivedAt: -1 })
+    .skip((page - 1) * limit)
+    .limit(limit)
+    .select('-htmlBody -body -ashleenSuggestion') // summaries only in list
+    .lean();
+
+  const total = await Reply.countDocuments({ organizationId });
+  const unread = await Reply.countDocuments({ organizationId, agencyViewed: false });
+
+  return success(res, { replies, total, unread, page, totalPages: Math.ceil(total / limit) });
+});
+
+/**
+ * Agency: get single reply with full Ashleen suggestion
+ */
+const agencyReplyDetail = asyncHandler(async (req, res) => {
+  const organizationId = req.user.organizationId;
+  const reply = await Reply.findOne({ _id: req.params.id, organizationId })
+    .populate({
+      path: 'outboxId',
+      select: 'subject sentAt senderName senderEmail relatedGrant',
+      populate: {
+        path: 'relatedGrant',
+        select: 'projectTitle opportunity organization',
+        populate: [
+          { path: 'opportunity', select: 'title funder contactEmail' },
+          { path: 'organization', select: 'name' },
+        ],
+      },
+    })
+    .lean();
+
+  if (!reply) {
+    return res.status(404).json({ success: false, message: 'Reply not found' });
+  }
+
+  // Mark as viewed
+  await Reply.findByIdAndUpdate(req.params.id, {
+    $set: { agencyViewed: true, agencyViewedAt: new Date() },
+  });
+
+  return success(res, { reply });
+});
+
+/**
+ * Agency: explicitly mark reply as viewed
+ */
+const markAgencyViewed = asyncHandler(async (req, res) => {
+  const organizationId = req.user.organizationId;
+  await Reply.updateOne(
+    { _id: req.params.id, organizationId },
+    { $set: { agencyViewed: true, agencyViewedAt: new Date() } }
+  );
+  return success(res, { marked: true });
+});
+
 module.exports = {
   adminListReplies,
   adminGetReply,
   adminCommunications,
   triggerPoll,
-  adminRepliesByOutbox
+  adminRepliesByOutbox,
+  agencyReplies,
+  agencyReplyDetail,
+  markAgencyViewed
 };
