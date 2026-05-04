@@ -8,6 +8,7 @@ const opportunitySchema = new mongoose.Schema(
     deadline: { type: Date },
     minAmount: { type: Number },
     maxAmount: { type: Number },
+    awardAmount: { type: Number },
     sourceUrl: { type: String },
     keywords: [{ type: String }],
     agencyTypes: [{ type: String }],
@@ -17,11 +18,11 @@ const opportunitySchema = new mongoose.Schema(
     localMatchRequired: { type: Boolean, default: false },
     status: { type: String, enum: ['open', 'closing', 'closed'], default: 'open' },
     /** @deprecated Use funderId.contactEmail */
-    contactEmail:   { type: String, default: null },
+    contactEmail: { type: String, default: null },
     /** @deprecated Use funderId.contactName */
-    contactName:    { type: String, default: null },
+    contactName: { type: String, default: null },
     /** @deprecated Use funderId.contactPhone */
-    contactPhone:   { type: String, default: null },
+    contactPhone: { type: String, default: null },
     applicationUrl: { type: String, default: null },
     /** 0 = unlimited applications for this opportunity */
     maxApplicationsAllowed: { type: Number, default: 0 },
@@ -65,11 +66,14 @@ opportunitySchema.plugin(mongoosePaginateV2);
 
 opportunitySchema.index({ status: 1, deadline: 1 });
 
-// Compound unique index for scraper dedup. Sparse so manual entries
+// Compound unique index for scraper dedup. Partial so manual entries
 // without externalSourceId don't conflict.
 opportunitySchema.index(
   { externalSource: 1, externalSourceId: 1 },
-  { unique: true, sparse: true }
+  { 
+    unique: true, 
+    partialFilterExpression: { externalSourceId: { $type: 'string' } }
+  }
 );
 
 module.exports = mongoose.model('Opportunity', opportunitySchema);

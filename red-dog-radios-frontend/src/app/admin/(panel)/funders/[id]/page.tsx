@@ -16,6 +16,15 @@ function formatList(val: unknown) {
   return "—";
 }
 
+const parseMoney = (raw: string | undefined): number | undefined => {
+  const s = String(raw ?? "").trim();
+  if (!s) return undefined;
+  const cleaned = s.replace(/[^0-9.\-]/g, "");
+  if (!cleaned) return undefined;
+  const n = Number(cleaned);
+  return Number.isFinite(n) ? n : undefined;
+};
+
 type ApplicantRow = {
   organization?: { name?: string; location?: string };
   status?: string;
@@ -30,6 +39,8 @@ export default function AdminFunderDetailPage() {
   const { toast, dismiss } = useToast();
   const id = typeof params.id === "string" ? params.id : params.id?.[0] ?? "";
   const [limitInput, setLimitInput] = useState("0");
+  const [awardAmountInput, setAwardAmountInput] = useState("");
+  const [deadlineInput, setDeadlineInput] = useState("");
   const savingToastIdRef = useRef<string | null>(null);
   const unlockingToastIdRef = useRef<string | null>(null);
 
@@ -46,6 +57,8 @@ export default function AdminFunderDetailPage() {
     if (!data) return;
     const current = (data.maxApplicationsAllowed as number | undefined) ?? 0;
     setLimitInput(String(current));
+    setAwardAmountInput(String(data.awardAmount ?? ""));
+    setDeadlineInput(data.deadline ? String(data.deadline).slice(0, 10) : "");
   }, [data]);
 
   const del = useMutation({
@@ -70,6 +83,23 @@ export default function AdminFunderDetailPage() {
       savingToastIdRef.current = null;
       const msg =
         (err as { response?: { data?: { message?: string } } })?.response?.data?.message ?? "Save failed";
+      toast({ title: "Error", description: msg, variant: "destructive" });
+    },
+  });
+
+  const saveQuickFields = useMutation({
+    mutationFn: () =>
+      adminApi.put(`admin/funders/${id}`, {
+        awardAmount: parseMoney(awardAmountInput),
+        deadline: deadlineInput || undefined,
+      }),
+    onSuccess: async () => {
+      await qc.invalidateQueries({ queryKey: ["admin", "funder", id] });
+      toast({ title: "Fields updated" });
+    },
+    onError: (err: unknown) => {
+      const msg =
+        (err as { response?: { data?: { message?: string } } })?.response?.data?.message ?? "Update failed";
       toast({ title: "Error", description: msg, variant: "destructive" });
     },
   });
@@ -115,6 +145,7 @@ export default function AdminFunderDetailPage() {
       "Grant range",
       `$${Number(data.avgGrantMin || 0).toLocaleString()} – $${Number(data.avgGrantMax || 0).toLocaleString()}`,
     ],
+    ["Award amount", data.awardAmount !== undefined && data.awardAmount !== null ? `$${Number(data.awardAmount).toLocaleString()}` : "—"],
     ["Deadline", data.deadline ? new Date(String(data.deadline)).toLocaleDateString() : "—"],
     ["Cycles per year", String(data.cyclesPerYear ?? "—")],
     ["Past grants", formatList(data.pastGrantsAwarded)],
@@ -151,12 +182,76 @@ export default function AdminFunderDetailPage() {
         </div>
       </div>
 
-      <div className="rounded-lg border border-[#e5e7eb] bg-white p-6 shadow-sm space-y-4">
-        <h2 className="[font-family:'Montserrat',Helvetica] text-sm font-bold uppercase tracking-wide text-[#111827]">
-          Application Control
-        </h2>
+      <div className="rounded-lg border border-[#e5e7eb] bg-white p-6 shadow-sm space-y-6">
+        <div className="flex items-center justify-between">
+          <h2 className="[font-family:'Montserrat',Helvetica] text-sm font-bold uppercase tracking-wide text-[#111827]">
+            Quick Settings
+          </h2>
+        </div>
 
-        <div className="flex flex-wrap items-center justify-between gap-3">
+        <div className="grid grid-cols-1 gap-6 sm:grid-cols-3">
+          {/* Max Applications */}
+          <div className="space-y-2">
+            <label className="block text-xs font-medium text-[#374151]">Max Applications Allowed</label>
+            <div className="flex gap-2">
+              <Input
+                type="number"
+                min={0}
+                className="w-full border-[#e5e7eb]"
+                value={limitInput}
+                onChange={(e) => setLimitInput(e.target.value)}
+              />
+              <Button
+                type="button"
+                variant="secondary"
+                className="border-[#e5e7eb]"
+                disabled={setLimit.isPending}
+                onClick={() => {
+                  const n = parseInt(limitInput, 10);
+                  if (Number.isNaN(n) || n < 1) {
+                    toast({ title: "Enter a valid number (min 1)", variant: "destructive" });
+                    return;
+                  }
+                  if (savingToastIdRef.current) dismiss(savingToastIdRef.current);
+                  const t = toast({ title: "Saving limit..." });
+                  savingToastIdRef.current = t.id;
+                  setLimit.mutate(n);
+                }}
+              >
+                Save
+              </Button>
+            </div>
+          </div>
+
+          {/* Award Amount */}
+          <div className="space-y-2">
+            <label className="block text-xs font-medium text-[#374151]">Award Amount</label>
+            <div className="flex gap-2">
+              <Input
+                type="text"
+                placeholder="$50,000"
+                className="w-full border-[#e5e7eb]"
+                value={awardAmountInput}
+                onChange={(e) => setAwardAmountInput(e.target.value)}
+              />
+            </div>
+          </div>
+
+          {/* Deadline */}
+          <div className="space-y-2">
+            <label className="block text-xs font-medium text-[#374151]">Deadline</label>
+            <div className="flex gap-2">
+              <Input
+                type="date"
+                className="w-full border-[#e5e7eb]"
+                value={deadlineInput}
+                onChange={(e) => setDeadlineInput(e.target.value)}
+              />
+            </div>
+          </div>
+        </div>
+
+        <div className="flex flex-wrap items-center justify-between gap-3 border-t border-[#f0f0f0] pt-4">
           <div className="flex items-center gap-2">
             {isLocked ? (
               <>
@@ -185,37 +280,13 @@ export default function AdminFunderDetailPage() {
             )}
           </div>
 
-          <div className="flex flex-wrap items-end gap-3">
-            <div>
-              <label className="mb-1 block text-xs font-medium text-[#374151]">Max Applications Allowed</label>
-              <Input
-                type="number"
-                min={0}
-                className="w-40 border-[#e5e7eb]"
-                value={limitInput}
-                onChange={(e) => setLimitInput(e.target.value)}
-              />
-            </div>
-            <Button
-              type="button"
-              variant="secondary"
-              className="border-[#e5e7eb]"
-              disabled={setLimit.isPending}
-              onClick={() => {
-                const n = parseInt(limitInput, 10);
-                if (Number.isNaN(n) || n < 1) {
-                  toast({ title: "Enter a valid number (min 1)", variant: "destructive" });
-                  return;
-                }
-                if (savingToastIdRef.current) dismiss(savingToastIdRef.current);
-                const t = toast({ title: "Saving limit..." });
-                savingToastIdRef.current = t.id;
-                setLimit.mutate(n);
-              }}
-            >
-              {setLimit.isPending ? "Saving..." : "Save Limit"}
-            </Button>
-          </div>
+          <Button
+            className="bg-[#ef3e34] hover:bg-[#d63530] text-white"
+            disabled={saveQuickFields.isPending}
+            onClick={() => saveQuickFields.mutate()}
+          >
+            {saveQuickFields.isPending ? "Saving..." : "Save details"}
+          </Button>
         </div>
       </div>
 

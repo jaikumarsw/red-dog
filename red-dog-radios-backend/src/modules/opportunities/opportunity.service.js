@@ -69,6 +69,10 @@ const getAll = async ({ page = 1, limit = 20, search, status, category, organiza
 };
 
 const create = async (data, userId) => {
+  // Normalize externalSourceId: remove if empty string to avoid unique index conflict
+  if (data.externalSourceId === '') {
+    delete data.externalSourceId;
+  }
   const status = computeStatus(data.deadline ? new Date(data.deadline) : null);
   const opp = await Opportunity.create({ ...data, status, createdBy: userId });
   

@@ -38,7 +38,12 @@ type OpportunityDetail = {
   category?: string;
   minAmount?: number;
   maxAmount?: number;
+  awardAmount?: number;
   sourceUrl?: string;
+  applicationUrl?: string;
+  contactEmail?: string | null;
+  contactName?: string | null;
+  contactPhone?: string | null;
   keywords?: string[];
   equipmentTags?: string[];
   localMatchRequired?: boolean;
@@ -166,6 +171,10 @@ export default function AdminOpportunityDetailPage() {
             </h2>
             <dl className="grid gap-3 sm:grid-cols-2">
               <div>
+                <dt className="text-[#6b7280]">ID</dt>
+                <dd className="font-medium text-[#111827] break-all">{data._id}</dd>
+              </div>
+              <div>
                 <dt className="text-[#6b7280]">Title</dt>
                 <dd className="font-medium text-[#111827]">{data.title}</dd>
               </div>
@@ -190,6 +199,57 @@ export default function AdminOpportunityDetailPage() {
               <div>
                 <dt className="text-[#6b7280]">Amount range</dt>
                 <dd className="text-[#111827]">{formatAmountRange(data.minAmount, data.maxAmount)}</dd>
+              </div>
+              <div>
+                <dt className="text-[#6b7280]">Award amount</dt>
+                <dd className="text-[#111827]">
+                  {data.awardAmount !== undefined && data.awardAmount !== null ? `$${Number(data.awardAmount).toLocaleString()}` : "—"}
+                </dd>
+              </div>
+              <div className="sm:col-span-2">
+                <dt className="text-[#6b7280]">Application URL</dt>
+                <dd className="text-[#111827]">
+                  {data.applicationUrl ? (
+                    <a
+                      href={data.applicationUrl}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="break-all text-[#ef3e34] hover:underline"
+                    >
+                      {data.applicationUrl}
+                    </a>
+                  ) : (
+                    "—"
+                  )}
+                </dd>
+              </div>
+              <div>
+                <dt className="text-[#6b7280]">Contact name</dt>
+                <dd className="text-[#111827] break-all">{data.contactName || "—"}</dd>
+              </div>
+              <div>
+                <dt className="text-[#6b7280]">Contact email</dt>
+                <dd className="text-[#111827] break-all">
+                  {data.contactEmail ? (
+                    <a href={`mailto:${data.contactEmail}`} className="text-[#ef3e34] hover:underline">
+                      {data.contactEmail}
+                    </a>
+                  ) : (
+                    "—"
+                  )}
+                </dd>
+              </div>
+              <div>
+                <dt className="text-[#6b7280]">Contact phone</dt>
+                <dd className="text-[#111827] break-all">
+                  {data.contactPhone ? (
+                    <a href={`tel:${data.contactPhone}`} className="text-[#ef3e34] hover:underline">
+                      {data.contactPhone}
+                    </a>
+                  ) : (
+                    "—"
+                  )}
+                </dd>
               </div>
                   <div>
                     <dt className="text-[#6b7280]">Local match required</dt>

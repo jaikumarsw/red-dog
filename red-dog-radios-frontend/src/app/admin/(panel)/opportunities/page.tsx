@@ -28,6 +28,7 @@ type OpportunityRow = {
   category?: string;
   minAmount?: number;
   maxAmount?: number;
+  awardAmount?: number;
   keywords?: string[];
   sourceUrl?: string;
   description?: string;
@@ -44,9 +45,14 @@ const emptyCreateForm = {
   deadline: "",
   minAmount: "",
   maxAmount: "",
+  awardAmount: "",
   sourceUrl: "",
+  applicationUrl: "",
   keywords: "",
   description: "",
+  contactName: "",
+  contactEmail: "",
+  contactPhone: "",
   localMatchRequired: false,
 };
 
@@ -96,6 +102,9 @@ export default function AdminOpportunitiesPage() {
       if (!selected?.name) {
         throw new Error("Please select a funder from the list.");
       }
+      if (!String(form.contactEmail || "").trim()) {
+        throw new Error("Contact email is required.");
+      }
       await adminApi.post("admin/opportunities", {
         title: form.title,
         funder: selected.name,
@@ -103,7 +112,9 @@ export default function AdminOpportunitiesPage() {
         deadline: form.deadline || undefined,
         minAmount: parseMoney(form.minAmount),
         maxAmount: parseMoney(form.maxAmount),
+        awardAmount: parseMoney(form.awardAmount),
         sourceUrl: form.sourceUrl,
+        applicationUrl: form.applicationUrl || undefined,
         keywords: form.keywords
           .split(",")
           .map((s) => s.trim())
@@ -111,6 +122,9 @@ export default function AdminOpportunitiesPage() {
         equipmentTags: selectedEquipmentTags,
         category: selectedCategory,
         description: form.description,
+        contactName: form.contactName || undefined,
+        contactEmail: form.contactEmail,
+        contactPhone: form.contactPhone || undefined,
         localMatchRequired: form.localMatchRequired,
       });
     },
@@ -122,7 +136,9 @@ export default function AdminOpportunitiesPage() {
       refetch();
     },
     onError: (err: unknown) => {
-      const msg = err instanceof Error ? err.message : "Could not create opportunity.";
+      const msg =
+        (err as { response?: { data?: { message?: string } } })?.response?.data?.message ??
+        (err instanceof Error ? err.message : "Could not create opportunity.");
       toast({ title: "Error", description: msg, variant: "destructive" });
     },
   });
@@ -169,6 +185,7 @@ export default function AdminOpportunitiesPage() {
               <th className="p-3">Title</th>
               <th className="p-3">Funder</th>
               <th className="p-3">Deadline</th>
+              <th className="p-3">Award Amount</th>
               <th className="p-3">Status</th>
               <th className="w-14 p-3 text-center" aria-label="View details" />
             </tr>
@@ -187,6 +204,9 @@ export default function AdminOpportunitiesPage() {
                   <td className="p-3 text-[#6b7280]">{r.funder}</td>
                   <td className={`whitespace-nowrap p-3 ${urgent ? "font-medium text-[#ef3e34]" : "text-[#6b7280]"}`}>
                     {r.deadline ? new Date(String(r.deadline)).toLocaleDateString() : "—"}
+                  </td>
+                  <td className="p-3 text-[#6b7280]">
+                    {r.awardAmount !== undefined && r.awardAmount !== null ? `$${Number(r.awardAmount).toLocaleString()}` : "—"}
                   </td>
                   <td className="p-3 text-[#6b7280]">{r.status}</td>
                   <td className="p-3 text-center">
@@ -257,11 +277,12 @@ export default function AdminOpportunitiesPage() {
                 onChange={(e) => setForm({ ...form, deadline: e.target.value })}
               />
             </div>
-            <div className="grid grid-cols-2 gap-2">
+            <div className="grid grid-cols-3 gap-2">
               <div>
                 <Label>Min amount</Label>
                 <Input
                   className="border-[#e5e7eb]"
+                  placeholder="$25,000"
                   value={form.minAmount}
                   onChange={(e) => setForm({ ...form, minAmount: e.target.value })}
                 />
@@ -270,8 +291,18 @@ export default function AdminOpportunitiesPage() {
                 <Label>Max amount</Label>
                 <Input
                   className="border-[#e5e7eb]"
+                  placeholder="$150,000"
                   value={form.maxAmount}
                   onChange={(e) => setForm({ ...form, maxAmount: e.target.value })}
+                />
+              </div>
+              <div>
+                <Label>Award amount</Label>
+                <Input
+                  className="border-[#e5e7eb]"
+                  placeholder="$50,000"
+                  value={form.awardAmount}
+                  onChange={(e) => setForm({ ...form, awardAmount: e.target.value })}
                 />
               </div>
             </div>
@@ -283,6 +314,43 @@ export default function AdminOpportunitiesPage() {
                 value={form.sourceUrl}
                 onChange={(e) => setForm({ ...form, sourceUrl: e.target.value })}
               />
+            </div>
+            <div>
+              <Label>Application URL</Label>
+              <Input
+                className="border-[#e5e7eb]"
+                placeholder="https://…"
+                value={form.applicationUrl}
+                onChange={(e) => setForm({ ...form, applicationUrl: e.target.value })}
+              />
+            </div>
+            <div className="grid grid-cols-1 gap-2 sm:grid-cols-3">
+              <div>
+                <Label>Contact name</Label>
+                <Input
+                  className="border-[#e5e7eb]"
+                  value={form.contactName}
+                  onChange={(e) => setForm({ ...form, contactName: e.target.value })}
+                />
+              </div>
+              <div>
+                <Label>Contact email</Label>
+                <Input
+                  className="border-[#e5e7eb]"
+                  type="email"
+                  value={form.contactEmail}
+                  onChange={(e) => setForm({ ...form, contactEmail: e.target.value })}
+                  required
+                />
+              </div>
+              <div>
+                <Label>Contact phone</Label>
+                <Input
+                  className="border-[#e5e7eb]"
+                  value={form.contactPhone}
+                  onChange={(e) => setForm({ ...form, contactPhone: e.target.value })}
+                />
+              </div>
             </div>
             <TagSelect
               label="Equipment tags"
@@ -340,6 +408,7 @@ export default function AdminOpportunitiesPage() {
                 create.isPending ||
                 !form.title.trim() ||
                 !form.funderId ||
+                !String(form.contactEmail || "").trim() ||
                 fundersLoading ||
                 funders.length === 0
               }

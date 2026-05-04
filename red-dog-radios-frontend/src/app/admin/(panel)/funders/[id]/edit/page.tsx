@@ -64,6 +64,7 @@ export default function EditFunderPage() {
       localMatchRequired: d.localMatchRequired === true ? "yes" : "no",
       avgGrantMin: String(d.avgGrantMin ?? ""),
       avgGrantMax: String(d.avgGrantMax ?? ""),
+      awardAmount: String(d.awardAmount ?? ""),
       deadline: d.deadline ? String(d.deadline).slice(0, 10) : "",
       cyclesPerYear: String(d.cyclesPerYear ?? "1"),
       pastGrantsAwarded: Array.isArray(d.pastGrantsAwarded)
@@ -93,6 +94,7 @@ export default function EditFunderPage() {
         localMatchRequired: form.localMatchRequired === "yes",
         avgGrantMin: parseMoney(form.avgGrantMin),
         avgGrantMax: parseMoney(form.avgGrantMax),
+        awardAmount: parseMoney(form.awardAmount),
         deadline: form.deadline || undefined,
         cyclesPerYear: form.cyclesPerYear ? Number(form.cyclesPerYear) : 1,
         pastGrantsAwarded: form.pastGrantsAwarded,
@@ -117,7 +119,26 @@ export default function EditFunderPage() {
     <div className="max-w-xl space-y-3">
       <AdminBackLink href={`/admin/funders/${String(id)}`}>Back to funder</AdminBackLink>
       <h1 className="[font-family:'Montserrat',Helvetica] text-2xl font-bold text-[#111827]">Edit funder</h1>
-      {Object.keys(form).map((key) => (
+      {(
+        [
+          "name",
+          "website",
+          "contactName",
+          "contactEmail",
+          "contactPhone",
+          "missionStatement",
+          "locationFocus",
+          "awardAmount",
+          "avgGrantMin",
+          "avgGrantMax",
+          "deadline",
+          "cyclesPerYear",
+          "pastGrantsAwarded",
+          "notes",
+          "maxApplicationsAllowed",
+          "localMatchRequired",
+        ] as const
+      ).map((key) => (
         <div key={key}>
           <Label className="text-xs capitalize">
             {key === "localMatchRequired"
@@ -133,7 +154,7 @@ export default function EditFunderPage() {
           {key === "localMatchRequired" ? (
             <select
               className="mt-1 w-full rounded-md border border-[#e5e7eb] bg-white px-3 py-2 text-sm"
-              value={form[key]}
+              value={form[key] || "no"}
               onChange={(e) => setForm({ ...form, [key]: e.target.value })}
             >
               <option value="no">No</option>
@@ -142,13 +163,14 @@ export default function EditFunderPage() {
           ) : ["missionStatement", "notes", "pastGrantsAwarded"].includes(key) ? (
             <Textarea
               className="mt-1 border-[#e5e7eb]"
-              value={form[key]}
+              value={form[key] || ""}
               onChange={(e) => setForm({ ...form, [key]: e.target.value })}
             />
           ) : (
             <Input
+              type={key === "deadline" ? "date" : "text"}
               className={`mt-1 border-[#e5e7eb] ${attemptedSubmit && errors[key] ? "border-red-500" : ""}`}
-              value={form[key]}
+              value={form[key] || ""}
               onChange={(e) => setForm({ ...form, [key]: e.target.value })}
             />
           )}

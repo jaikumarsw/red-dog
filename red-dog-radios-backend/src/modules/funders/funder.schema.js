@@ -20,6 +20,7 @@ const funderSchema = new mongoose.Schema(
 
     avgGrantMin: { type: Number },
     avgGrantMax: { type: Number },
+    awardAmount: { type: Number },
     deadline: { type: Date },
     cyclesPerYear: { type: Number },
 

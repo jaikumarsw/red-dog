@@ -5,7 +5,7 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
-import { RefreshCw, AlertTriangle, TrendingUp, FileText, CheckCircle, Trophy, DollarSign, Target } from "lucide-react";
+import { RefreshCw, AlertTriangle, TrendingUp, FileText, CheckCircle, Trophy, DollarSign, Clock, Zap, X } from "lucide-react";
 import api from "@/lib/api";
 import { qk } from "@/lib/queryKeys";
 import { useAuth } from "@/lib/AuthContext";
@@ -41,10 +41,50 @@ type SettingsData = {
   } | null;
 };
 
+type ApiOutboxEmail = {
+  _id: string;
+  recipient?: string;
+  to?: string;
+  recipientEmail?: string;
+  subject?: string;
+  status?: string;
+  createdAt?: string;
+  sentAt?: string;
+};
+
+type OutboxEmail = {
+  id: string;
+  to: string;
+  subject: string;
+  status: string;
+  createdAt?: string;
+};
+
 const fmtDollars = (n: number) => {
   if (n >= 1_000_000) return "$" + (n / 1_000_000).toFixed(1) + "M";
   if (n >= 1_000) return "$" + (n / 1_000).toFixed(0) + "K";
   return "$" + n.toLocaleString();
+};
+
+const fmtDate = (s: string | undefined) => {
+  if (!s) return "—";
+  try {
+    return new Date(s).toLocaleString("en-US", {
+      month: "short",
+      day: "numeric",
+      hour: "2-digit",
+      minute: "2-digit",
+      hour12: false,
+    });
+  } catch {
+    return s;
+  }
+};
+
+const statusBadge = (s: string) => {
+  if (s === "sent") return "bg-[#dcfce7] text-[#16a34a]";
+  if (s === "failed") return "bg-[#fee2e2] text-[#dc2626]";
+  return "bg-[#fef9c3] text-[#b45309]";
 };
 
 const SkeletonBox = ({ className }: { className?: string }) => (
@@ -137,11 +177,28 @@ export const PlatformDashboardSection = () => {
     },
   });
 
+  const { data: outboxEmails = [], isLoading: outboxLoading } = useQuery<OutboxEmail[]>({
+    queryKey: qk.outbox(),
+    queryFn: async () => {
+      const res = await api.get("/outbox", { params: { limit: 25 } });
+      const raw: ApiOutboxEmail[] = res.data.data ?? [];
+      return raw.map((e) => ({
+        id: String(e._id),
+        to: e.recipient ?? e.to ?? e.recipientEmail ?? "—",
+        subject: e.subject ?? "—",
+        status: e.status ?? "pending",
+        createdAt: e.createdAt,
+      }));
+    },
+    staleTime: 30_000,
+  });
+
   const handleRefresh = async () => {
     setRefreshing(true);
     await Promise.all([
       queryClient.invalidateQueries({ queryKey: qk.trackerStats() }),
       queryClient.invalidateQueries({ queryKey: qk.dashboard() }),
+      queryClient.invalidateQueries({ queryKey: qk.outbox() }),
     ]);
     await refetchStats();
     setTimeout(() => setRefreshing(false), 600);
@@ -152,6 +209,17 @@ export const PlatformDashboardSection = () => {
 
   const firstName = user?.firstName || user?.fullName?.split(" ")[0] || "there";
   const isPriorityAgency = Boolean(settingsData?.organizationId?.priorityFlags?.isLongTermNoWin);
+
+  const outboxPending = outboxEmails.filter((e) => e.status === "pending" || e.status === "queued").length;
+  const outboxSent = outboxEmails.filter((e) => e.status === "sent").length;
+  const outboxFailed = outboxEmails.filter((e) => e.status === "failed").length;
+  const recentOutbox = [...outboxEmails]
+    .sort((a, b) => {
+      const at = a.createdAt ? new Date(String(a.createdAt)).getTime() : 0;
+      const bt = b.createdAt ? new Date(String(b.createdAt)).getTime() : 0;
+      return bt - at;
+    })
+    .slice(0, 4);
 
   return (
     <div className="flex w-full flex-1 flex-col items-start overflow-y-auto px-4 pb-0 pt-6 sm:px-6 sm:pt-8 lg:px-8">
@@ -340,18 +408,18 @@ export const PlatformDashboardSection = () => {
             </CardContent>
           </Card>
 
-          {/* Application Status Breakdown */}
+          {/* Outbox Status */}
           <Card className="lg:col-span-1 flex flex-col items-start rounded-xl overflow-hidden border border-solid border-[#0000001a] shadow-none bg-white lg:self-start">
             <CardHeader className="flex flex-row items-center p-4 sm:p-6 self-stretch w-full bg-white border-b border-[#0000000d] space-y-0">
               <div className="flex min-w-0 items-center gap-2 self-stretch w-full">
-                <img className="w-5 h-5 flex-shrink-0" alt="Applications" src="/figmaAssets/svg-2.svg" />
+                <img className="w-5 h-5 flex-shrink-0" alt="Outbox" src="/figmaAssets/svg-2.svg" />
                 <span className="[font-family:'Oswald',Helvetica] font-semibold text-black text-base sm:text-lg tracking-[-0.45px] leading-snug sm:leading-7 break-words">
-                  APPLICATION STATUS
+                  OUTBOX STATUS
                 </span>
               </div>
             </CardHeader>
             <CardContent className="flex flex-col items-start gap-3 p-4 sm:p-5 self-stretch w-full bg-white">
-              {loading ? (
+              {outboxLoading ? (
                 <div className="flex flex-col gap-3 w-full">
                   {[1, 2, 3, 4].map((i) => (
                     <div key={i} className="flex items-center justify-between w-full">
@@ -363,33 +431,56 @@ export const PlatformDashboardSection = () => {
               ) : (
                 <>
                   {[
-                    { label: "Draft", key: "draft", color: "bg-gray-400" },
-                    { label: "Submitted", key: "submitted", color: "bg-orange-400" },
-                    { label: "In Review", key: "in_review", color: "bg-yellow-400" },
-
-                    { label: "Awarded", key: "awarded", color: "bg-green-500" },
-                    { label: "Denied", key: "denied", color: "bg-red-400" },
-                  ].map(({ label, key, color }) => {
-                    const count = trackerStats?.statusCounts?.[key] ?? 0;
-                    if (count === 0) return null;
+                    { label: "Pending", value: outboxPending, color: "bg-yellow-400", Icon: Clock },
+                    { label: "Sent", value: outboxSent, color: "bg-green-500", Icon: Zap },
+                    { label: "Failed", value: outboxFailed, color: "bg-red-400", Icon: X },
+                  ].map(({ label, value, color, Icon }) => {
+                    if (value === 0) return null;
                     return (
-                      <div key={key} className="flex items-center justify-between self-stretch w-full">
+                      <div key={label} className="flex items-center justify-between self-stretch w-full">
                         <div className="flex items-center gap-2">
                           <div className={`w-2 h-2 rounded-full ${color} shrink-0`} />
                           <span className="[font-family:'Montserrat',Helvetica] text-sm text-[#374151]">{label}</span>
                         </div>
-                        <span className="[font-family:'Oswald',Helvetica] font-bold text-[#111827] text-base">{count}</span>
+                        <span className="[font-family:'Oswald',Helvetica] font-bold text-[#111827] text-base tabular-nums">{value}</span>
                       </div>
                     );
                   })}
-                  {Object.values(trackerStats?.statusCounts ?? {}).every((v) => v === 0) && (
-                    <p className="[font-family:'Montserrat',Helvetica] text-sm text-[#9ca3af]">No applications yet</p>
+
+                  {outboxEmails.length === 0 ? (
+                    <p className="[font-family:'Montserrat',Helvetica] text-sm text-[#9ca3af]">No outbox messages yet</p>
+                  ) : (
+                    <div className="mt-1 flex w-full flex-col gap-2">
+                      <span className="[font-family:'Montserrat',Helvetica] text-[10px] font-bold uppercase tracking-wider text-[#9ca3af]">
+                        Recent
+                      </span>
+                      <div className="flex w-full flex-col gap-2">
+                        {recentOutbox.map((e) => (
+                          <div key={e.id} className="flex w-full flex-col gap-0.5 rounded-lg border border-[#f3f4f6] bg-[#fafafa] p-3">
+                            <div className="flex items-center justify-between gap-2">
+                              <span className="[font-family:'Montserrat',Helvetica] text-xs font-semibold text-[#111827] line-clamp-1">
+                                {e.subject}
+                              </span>
+                              <span className={`shrink-0 inline-flex items-center px-2 py-0.5 rounded-full [font-family:'Montserrat',Helvetica] font-bold text-[9px] uppercase tracking-wider ${statusBadge(e.status)}`}>
+                                {e.status}
+                              </span>
+                            </div>
+                            <span className="[font-family:'Montserrat',Helvetica] text-[11px] text-[#6b7280] truncate">
+                              To: {e.to}
+                            </span>
+                            <span className="[font-family:'Montserrat',Helvetica] text-[10px] text-[#9ca3af]">
+                              {fmtDate(e.createdAt)}
+                            </span>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
                   )}
                   <button
-                    onClick={() => router.push("/applications")}
+                    onClick={() => router.push("/outbox")}
                     className="mt-2 w-full rounded-lg border border-[#e5e7eb] bg-[#f9fafb] px-4 py-2 text-sm font-semibold text-[#374151] [font-family:'Montserrat',Helvetica] hover:bg-[#f3f4f6] transition-colors"
                   >
-                    View All Applications
+                    View Outbox
                   </button>
                 </>
               )}

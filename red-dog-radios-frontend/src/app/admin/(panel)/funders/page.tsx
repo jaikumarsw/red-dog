@@ -36,6 +36,7 @@ const EMPTY_FUNDER_FORM = {
   pastGrantsAwarded: "",
   notes: "",
   maxApplicationsAllowed: "5",
+  awardAmount: "",
 };
 
 const parseMoney = (raw: string | undefined): number | undefined => {
@@ -145,12 +146,16 @@ export default function AdminFundersPage() {
 
     const min = parseMoney(form.avgGrantMin);
     const max = parseMoney(form.avgGrantMax);
-    if (!isMoneyLike(form.avgGrantMin)) errors.avgGrantMin = "Enter a valid minimum amount (e.g. $25,000)";
-    else if (min === undefined) errors.avgGrantMin = "Enter a valid minimum amount";
-    else if (min < 0) errors.avgGrantMin = "Minimum must be 0 or greater";
-    if (!isMoneyLike(form.avgGrantMax)) errors.avgGrantMax = "Enter a valid maximum amount (e.g. $150,000)";
-    else if (max === undefined) errors.avgGrantMax = "Enter a valid maximum amount";
-    else if (max < 0) errors.avgGrantMax = "Maximum must be 0 or greater";
+    const award = parseMoney(form.awardAmount);
+    if (!isMoneyLike(form.avgGrantMin) && form.avgGrantMin) errors.avgGrantMin = "Enter a valid minimum amount (e.g. $25,000)";
+    else if (min !== undefined && min < 0) errors.avgGrantMin = "Minimum must be 0 or greater";
+    
+    if (!isMoneyLike(form.avgGrantMax) && form.avgGrantMax) errors.avgGrantMax = "Enter a valid maximum amount (e.g. $150,000)";
+    else if (max !== undefined && max < 0) errors.avgGrantMax = "Maximum must be 0 or greater";
+    
+    if (!isMoneyLike(form.awardAmount) && form.awardAmount) errors.awardAmount = "Enter a valid award amount (e.g. $50,000)";
+    else if (award !== undefined && award < 0) errors.awardAmount = "Award amount must be 0 or greater";
+    
     if (min !== undefined && max !== undefined && min > max) errors.avgGrantMax = "Maximum must be greater than or equal to minimum";
 
     const cycles = parsePositiveIntStrict(form.cyclesPerYear);
@@ -185,6 +190,7 @@ export default function AdminFundersPage() {
         localMatchRequired: form.localMatchRequired,
         avgGrantMin: parseMoney(form.avgGrantMin),
         avgGrantMax: parseMoney(form.avgGrantMax),
+        awardAmount: parseMoney(form.awardAmount),
         deadline: parseDateInput(form.deadline),
         cyclesPerYear: form.cyclesPerYear ? Number(form.cyclesPerYear) : 1,
         pastGrantsAwarded: form.pastGrantsAwarded,
@@ -231,6 +237,8 @@ export default function AdminFundersPage() {
             <tr>
               <th className="p-3">Name</th>
               <th className="p-3">Grant range</th>
+              <th className="p-3">Award Amount</th>
+              <th className="p-3">Deadline</th>
               <th className="p-3">Applications</th>
               <th className="p-3">Status</th>
               <th className="w-14 p-3 text-center" aria-label="View details" />
@@ -243,6 +251,12 @@ export default function AdminFundersPage() {
                 <td className="p-3 text-[#6b7280]">
                   ${Number(r.avgGrantMin || 0).toLocaleString()} – $
                   {Number(r.avgGrantMax || 0).toLocaleString()}
+                </td>
+                <td className="p-3 text-[#6b7280]">
+                  {r.awardAmount !== undefined && r.awardAmount !== null ? `$${Number(r.awardAmount).toLocaleString()}` : "—"}
+                </td>
+                <td className="p-3 text-[#6b7280]">
+                  {r.deadline ? new Date(String(r.deadline)).toLocaleDateString() : "—"}
                 </td>
                 <td className="p-3 text-[#6b7280]">
                   {String(r.currentApplicationCount ?? 0)} / {String(r.maxApplicationsAllowed ?? 5)}
@@ -290,6 +304,7 @@ export default function AdminFundersPage() {
                 "contactPhone",
                 "missionStatement",
                 "locationFocus",
+                "awardAmount",
                 "avgGrantMin",
                 "avgGrantMax",
                 "deadline",
@@ -317,13 +332,12 @@ export default function AdminFundersPage() {
                   />
                 ) : (
                   <Input
+                    type={key === "deadline" ? "date" : "text"}
                     className="border-[#e5e7eb] text-sm"
                     placeholder={
-                      key === "avgGrantMin" || key === "avgGrantMax"
+                      key === "avgGrantMin" || key === "avgGrantMax" || key === "awardAmount"
                         ? "$25,000"
-                        : key === "deadline"
-                          ? "mm/dd/yyyy"
-                          : undefined
+                        : undefined
                     }
                     inputMode={
                       key === "cyclesPerYear" || key === "maxApplicationsAllowed"
