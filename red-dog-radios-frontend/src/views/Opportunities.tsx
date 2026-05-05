@@ -38,6 +38,10 @@ interface Opportunity {
   minAmount?: number;
   maxAmount?: number;
   sourceUrl?: string;
+  applicationUrl?: string;
+  contactEmail?: string | null;
+  contactName?: string | null;
+  contactPhone?: string | null;
   keywords?: string[];
   agencyTypes?: string[];
   description?: string;
@@ -726,6 +730,12 @@ const OppDetailModal = ({
     opp.funder &&
     /fema|doj|dhs|grants\.gov|department of justice|department of homeland security/i.test(opp.funder);
 
+  const applicationUrl = (opp.applicationUrl || "").trim();
+  const sourceUrl = (opp.sourceUrl || "").trim();
+  const contactName = (opp.contactName ?? "").toString().trim();
+  const contactEmail = (opp.contactEmail ?? "").toString().trim();
+  const contactPhone = (opp.contactPhone ?? "").toString().trim();
+
   return (
     <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/60 p-0 sm:p-4 transition-opacity animate-in fade-in" onClick={onClose}>
       <div
@@ -786,7 +796,72 @@ const OppDetailModal = ({
                 <span className="[font-family:'Montserrat',Helvetica] text-sm font-medium text-[#374151]">{opp.agencyTypes.join(", ")}</span>
               </div>
             )}
+            <div className="flex flex-col gap-1 sm:col-span-2">
+              <span className="[font-family:'Montserrat',Helvetica] text-[10px] text-[#9ca3af] uppercase tracking-wider font-bold">Opportunity ID</span>
+              <span className="[font-family:'Montserrat',Helvetica] text-sm font-semibold text-[#374151] break-all">{opp._id}</span>
+            </div>
           </div>
+
+          {(applicationUrl || contactEmail || contactName || contactPhone) && (
+            <div className="flex flex-col gap-3 rounded-xl border border-[#e5e7eb] bg-white p-4 shadow-sm shrink-0">
+              <h4 className="[font-family:'Montserrat',Helvetica] font-bold text-[#111827] text-sm uppercase tracking-wide border-b border-[#f3f4f6] pb-2">
+                How to Apply & Contact
+              </h4>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div className="flex flex-col gap-1">
+                  <span className="[font-family:'Montserrat',Helvetica] text-[10px] text-[#9ca3af] uppercase tracking-wider font-bold">Application URL</span>
+                  <span className="[font-family:'Montserrat',Helvetica] text-sm font-medium text-[#374151] break-all">
+                    {applicationUrl ? (
+                      <a
+                        href={applicationUrl}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="text-[#ef3e34] hover:underline"
+                      >
+                        {applicationUrl}
+                      </a>
+                    ) : (
+                      "—"
+                    )}
+                  </span>
+                </div>
+
+                <div className="flex flex-col gap-1">
+                  <span className="[font-family:'Montserrat',Helvetica] text-[10px] text-[#9ca3af] uppercase tracking-wider font-bold">Contact name</span>
+                  <span className="[font-family:'Montserrat',Helvetica] text-sm font-medium text-[#374151] break-all">
+                    {contactName || "—"}
+                  </span>
+                </div>
+
+                <div className="flex flex-col gap-1">
+                  <span className="[font-family:'Montserrat',Helvetica] text-[10px] text-[#9ca3af] uppercase tracking-wider font-bold">Contact email</span>
+                  <span className="[font-family:'Montserrat',Helvetica] text-sm font-medium text-[#374151] break-all">
+                    {contactEmail ? (
+                      <a href={`mailto:${contactEmail}`} className="text-[#ef3e34] hover:underline">
+                        {contactEmail}
+                      </a>
+                    ) : (
+                      "—"
+                    )}
+                  </span>
+                </div>
+
+                <div className="flex flex-col gap-1">
+                  <span className="[font-family:'Montserrat',Helvetica] text-[10px] text-[#9ca3af] uppercase tracking-wider font-bold">Contact phone</span>
+                  <span className="[font-family:'Montserrat',Helvetica] text-sm font-medium text-[#374151] break-all">
+                    {contactPhone ? (
+                      <a href={`tel:${contactPhone}`} className="text-[#ef3e34] hover:underline">
+                        {contactPhone}
+                      </a>
+                    ) : (
+                      "—"
+                    )}
+                  </span>
+                </div>
+              </div>
+            </div>
+          )}
 
           {hasAnyAnalysis && (
             <div className="flex flex-col gap-4 rounded-xl border border-[#ef3e34]/20 bg-[#fffafa] p-5 relative overflow-hidden shadow-sm shrink-0 min-h-[120px]">
@@ -840,9 +915,9 @@ const OppDetailModal = ({
               <a href="https://www.grants.gov" target="_blank" rel="noopener noreferrer" className="ml-1 font-bold underline hover:text-yellow-900">Open Grants.gov ↗</a>
             </div>
           )}
-          {opp.sourceUrl && opp.sourceUrl !== "#" && (
+          {sourceUrl && sourceUrl !== "#" && (
             <a
-              href={opp.sourceUrl}
+              href={sourceUrl}
               target="_blank"
               rel="noopener noreferrer"
               className="group flex w-full items-center justify-center gap-2 rounded-xl border-2 border-[#ef3e34] bg-white px-4 py-3 [font-family:'Montserrat',Helvetica] text-sm font-bold text-[#ef3e34] transition-all hover:bg-[#ef3e34] hover:text-white shadow-sm hover:shadow-md active:scale-[0.98]"
@@ -851,6 +926,20 @@ const OppDetailModal = ({
               View Original Source
               <span className="ml-2 text-xs font-semibold opacity-60 group-hover:opacity-100 transition-opacity uppercase tracking-wider border-l border-current pl-2">
                 External Site ↗
+              </span>
+            </a>
+          )}
+          {applicationUrl && applicationUrl !== sourceUrl && (
+            <a
+              href={applicationUrl}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="group flex w-full items-center justify-center gap-2 rounded-xl border-2 border-[#111827] bg-white px-4 py-3 [font-family:'Montserrat',Helvetica] text-sm font-bold text-[#111827] transition-all hover:bg-[#111827] hover:text-white shadow-sm hover:shadow-md active:scale-[0.98]"
+            >
+              <ExternalLink size={16} className="shrink-0 transition-transform group-hover:-translate-y-0.5 group-hover:translate-x-0.5" />
+              Open Application Page
+              <span className="ml-2 text-xs font-semibold opacity-60 group-hover:opacity-100 transition-opacity uppercase tracking-wider border-l border-current pl-2">
+                Apply ↗
               </span>
             </a>
           )}
