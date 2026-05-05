@@ -32,6 +32,17 @@ mongoose
       logger.warn('[Application] Index sync failed (likely existing duplicates):', err.message);
     });
 
+    const Opportunity = require('./modules/opportunities/opportunity.schema');
+    Opportunity.syncIndexes()
+      .then(() => {
+        logger.info(
+          '✅ Opportunity collection indexes synced with schema (drops stale indexes and keeps externalSource+externalSourceId dedupe).'
+        );
+      })
+      .catch((err) => {
+        logger.warn('[Opportunity] Index sync failed (likely existing duplicates):', err.message);
+      });
+
     app.listen(PORT, () => {
       logger.info(`🚀 Red Dog Backend running on port ${PORT} (${process.env.NODE_ENV || 'development'})`);
       logger.info(`📋 Health: http://localhost:${PORT}/health`);

@@ -1,410 +1,344 @@
 "use client";
 
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import adminApi from "@/lib/adminApi";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { 
-  ChevronDown, 
-  ChevronRight, 
-  Mail, 
-  RefreshCw, 
-  Search, 
-  AlertCircle,
-  ArrowRight,
-  ArrowLeft,
-  X,
-  FileText,
-  User,
-  Building
+import {
+  RefreshCw,
+  ArrowUpRight,
+  ArrowDownLeft,
+  Mail,
+  Search,
+  ChevronDown,
+  ChevronRight,
 } from "lucide-react";
-import { cn } from "@/lib/utils";
 
 const fmtDate = (s: string | undefined) => {
   if (!s) return "—";
   try {
     return new Date(s).toLocaleDateString("en-US", {
-      month: "short", day: "numeric",
-      hour: "2-digit", minute: "2-digit", hour12: true,
+      month: "short",
+      day: "numeric",
+      hour: "2-digit",
+      minute: "2-digit",
+      hour12: true,
     });
-  } catch { return s; }
+  } catch {
+    return s;
+  }
 };
 
-type CommLogRecord = {
+type LogRecord = {
   _id: string;
-  application: { _id: string; projectTitle: string } | null;
-  organization: { _id: string; name: string } | null;
-  funder: { _id: string; name: string } | null;
   type: string;
-  direction: "inbound" | "outbound" | "internal";
+  direction: string;
   subject: string;
   body: string;
-  fromAddress: string;
-  toAddress: string;
-  createdByName: string;
-  ashlynSuggestion: string | null;
-  ashlynFlags: string[];
+  fromAddress?: string;
+  toAddress?: string;
+  ashleenSuggestion?: string;
+  ashlynSuggestion?: string;
+  organization?: { _id: string; name: string };
+  application?: { _id: string; projectTitle: string };
+  funder?: { _id: string; name: string };
   createdAt: string;
 };
 
-const LogDetailModal = ({ 
-  log, 
-  onClose 
-}: { 
-  log: CommLogRecord; 
-  onClose: () => void 
-}) => {
-  return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm p-4">
-      <div className="bg-white rounded-2xl shadow-2xl w-full max-w-4xl max-h-[90vh] flex flex-col overflow-hidden animate-in fade-in zoom-in duration-200">
-        <div className="flex items-center justify-between p-6 border-b border-[#f3f4f6]">
-          <div>
-            <div className="flex items-center gap-2 mb-1">
-              <span className={cn(
-                "rounded-full px-2.5 py-0.5 text-[10px] font-bold uppercase tracking-wider",
-                log.direction === 'inbound' ? "bg-emerald-100 text-emerald-700" : "bg-blue-100 text-blue-700"
-              )}>
-                {log.direction}
-              </span>
-              <h2 className="text-xl font-bold text-[#111827] [font-family:'Montserrat',Helvetica]">
-                Message Detail
-              </h2>
-            </div>
-            <p className="text-sm text-[#6b7280] [font-family:'Montserrat',Helvetica]">
-              {fmtDate(log.createdAt)}
-            </p>
-          </div>
-          <button 
-            onClick={onClose}
-            className="w-10 h-10 flex items-center justify-center rounded-xl border border-[#e5e7eb] hover:bg-[#f9fafb] transition-colors"
-          >
-            <X size={18} className="text-[#6b7280]" />
-          </button>
-        </div>
+const FILTERS = [
+  { label: "All Emails", value: "all" },
+  { label: "Inbound Replies", value: "inbound" },
+  { label: "Outbound", value: "outbound" },
+  { label: "Ashleen Ready", value: "ashleen" },
+];
 
-        <div className="flex-1 overflow-auto p-6 bg-[#f9fafb]">
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-            {/* Main Content */}
-            <div className="space-y-6">
-              <div className="bg-white rounded-xl border border-[#e5e7eb] p-5 shadow-sm">
-                <h3 className="text-xs font-bold text-[#9ca3af] uppercase tracking-widest mb-4 flex items-center gap-2">
-                  <Mail size={12} /> Message Content
-                </h3>
-                <div className="space-y-4">
-                  <div>
-                    <p className="text-xs font-bold text-[#111827] [font-family:'Montserrat',Helvetica]">Subject</p>
-                    <p className="text-sm text-[#374151] mt-1">{log.subject || '(No Subject)'}</p>
-                  </div>
-                  <div>
-                    <p className="text-xs font-bold text-[#111827] [font-family:'Montserrat',Helvetica]">Body</p>
-                    <div className="mt-2 p-4 bg-gray-50 rounded-lg border border-[#f0f0f0] text-sm text-[#374151] whitespace-pre-wrap font-sans leading-relaxed">
-                      {log.body}
-                    </div>
-                  </div>
-                </div>
-              </div>
-
-              <div className="bg-white rounded-xl border border-[#e5e7eb] p-5 shadow-sm">
-                <h3 className="text-xs font-bold text-[#9ca3af] uppercase tracking-widest mb-4 flex items-center gap-2">
-                  <FileText size={12} /> Related Records
-                </h3>
-                <div className="space-y-3">
-                  <div className="flex items-center gap-3">
-                    <div className="w-8 h-8 rounded-lg bg-red-50 flex items-center justify-center">
-                      <Building size={14} className="text-red-600" />
-                    </div>
-                    <div>
-                      <p className="text-[10px] font-bold text-[#9ca3af] uppercase tracking-wider">Agency</p>
-                      <p className="text-sm font-semibold text-[#111827]">{log.organization?.name || 'Unknown'}</p>
-                    </div>
-                  </div>
-                  <div className="flex items-center gap-3">
-                    <div className="w-8 h-8 rounded-lg bg-blue-50 flex items-center justify-center">
-                      <FileText size={14} className="text-blue-600" />
-                    </div>
-                    <div>
-                      <p className="text-[10px] font-bold text-[#9ca3af] uppercase tracking-wider">Application</p>
-                      <p className="text-sm font-semibold text-[#111827]">{log.application?.projectTitle || 'N/A'}</p>
-                    </div>
-                  </div>
-                  <div className="flex items-center gap-3">
-                    <div className="w-8 h-8 rounded-lg bg-amber-50 flex items-center justify-center">
-                      <User size={14} className="text-amber-600" />
-                    </div>
-                    <div>
-                      <p className="text-[10px] font-bold text-[#9ca3af] uppercase tracking-wider">Funder</p>
-                      <p className="text-sm font-semibold text-[#111827]">{log.funder?.name || 'Unknown'}</p>
-                    </div>
-                  </div>
-                </div>
-              </div>
-            </div>
-
-            {/* AI Suggestion Panel */}
-            <div className="space-y-6">
-              <div className="bg-[#fff8f8] rounded-xl border border-[#ef3e3433] p-5 shadow-sm h-full flex flex-col">
-                <div className="flex items-center justify-between mb-4">
-                  <h3 className="text-xs font-bold text-[#ef3e34] uppercase tracking-widest flex items-center gap-2">
-                    <span className="w-5 h-5 rounded-full bg-[#ef3e34] flex items-center justify-center text-white text-[10px]">A</span>
-                    Ashlyn&apos;s Suggestion
-                  </h3>
-                  {log.ashlynSuggestion && (
-                    <span className="text-[10px] font-bold text-emerald-600 uppercase tracking-widest bg-emerald-50 px-2 py-0.5 rounded border border-emerald-100">Ready</span>
-                  )}
-                </div>
-
-                {log.ashlynSuggestion ? (
-                  <div className="flex-1 flex flex-col">
-                    <div className="bg-white rounded-lg border border-[#ef3e3420] p-4 text-sm text-[#374151] leading-relaxed whitespace-pre-wrap flex-1 shadow-inner">
-                      {log.ashlynSuggestion}
-                    </div>
-                    {log.ashlynFlags?.length > 0 && (
-                      <div className="mt-4 flex flex-wrap gap-2">
-                        {log.ashlynFlags.map(f => (
-                          <span key={f} className="text-[9px] font-bold uppercase tracking-wider px-2 py-1 bg-amber-100 text-amber-700 rounded border border-amber-200">
-                            {f.replace(/_/g, ' ')}
-                          </span>
-                        ))}
-                      </div>
-                    )}
-                  </div>
-                ) : (
-                  <div className="flex-1 flex flex-col items-center justify-center text-center p-10 opacity-60">
-                    <RefreshCw size={24} className="text-[#ef3e34] mb-3 animate-pulse" />
-                    <p className="text-sm text-[#6b7280] [font-family:'Montserrat',Helvetica]">
-                      No AI suggestion available for this message.
-                    </p>
-                  </div>
-                )}
-              </div>
-            </div>
-          </div>
-        </div>
-      </div>
-    </div>
-  );
-};
-
-const LogRow = ({ log, onClick }: { log: CommLogRecord; onClick: () => void }) => {
-  const isInbound = log.direction === 'inbound';
-  const hasSuggestion = !!log.ashlynSuggestion;
+const LogRow = ({ record }: { record: LogRecord }) => {
+  const [expanded, setExpanded] = useState(false);
+  const isInbound = record.direction === "inbound";
+  const ashleenText = record.ashlynSuggestion || record.ashleenSuggestion;
+  const hasAshleen = !!ashleenText;
 
   return (
-    <div 
-      onClick={onClick}
-      className="group relative flex items-center justify-between p-4 bg-white border border-[#e5e7eb] rounded-xl hover:border-[#ef3e34] hover:shadow-md transition-all cursor-pointer overflow-hidden"
+    <div
+      className={`rounded-xl border transition-all overflow-hidden ${
+        isInbound
+          ? "border-l-4 border-l-[#ef3e34] border-y border-r border-[#f0f0f0] bg-[#fffbf9]"
+          : "border border-[#f0f0f0] bg-white"
+      }`}
     >
-      {/* Accent bar */}
-      <div className={cn(
-        "absolute left-0 top-0 bottom-0 w-1 transition-all",
-        isInbound ? "bg-emerald-500" : "bg-blue-500",
-        "group-hover:w-1.5"
-      )} />
-
-      <div className="flex items-center gap-4 flex-1 min-w-0">
-        <div className={cn(
-          "w-10 h-10 rounded-xl flex items-center justify-center shrink-0",
-          isInbound ? "bg-emerald-50" : "bg-blue-50"
-        )}>
-          {isInbound ? <ArrowLeft size={18} className="text-emerald-600" /> : <ArrowRight size={18} className="text-blue-600" />}
+      <button
+        type="button"
+        onClick={() => isInbound && setExpanded(!expanded)}
+        className={`w-full text-left p-4 flex items-start gap-3 ${
+          isInbound ? "cursor-pointer hover:bg-[#fff5f4]" : "cursor-default"
+        }`}
+      >
+        <div
+          className={`mt-0.5 flex-shrink-0 w-9 h-9 rounded-full flex items-center justify-center ${
+            isInbound ? "bg-[#ef3e34]/10" : "bg-blue-50"
+          }`}
+        >
+          {isInbound ? (
+            <ArrowDownLeft size={16} className="text-[#ef3e34]" />
+          ) : (
+            <ArrowUpRight size={16} className="text-blue-600" />
+          )}
         </div>
 
-        <div className="min-w-0 flex-1">
-          <div className="flex items-center gap-2">
-            <span className={cn(
-              "text-[9px] font-bold uppercase tracking-widest px-2 py-0.5 rounded-full",
-              isInbound ? "bg-emerald-100 text-emerald-700" : "bg-blue-100 text-blue-700"
-            )}>
-              {log.direction}
+        <div className="flex-1 min-w-0">
+          <div className="flex items-center gap-2 mb-1 flex-wrap">
+            <span
+              className={`text-[9px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full ${
+                isInbound ? "bg-[#ef3e34] text-white" : "bg-blue-100 text-blue-700"
+              }`}
+            >
+              {isInbound ? "↙ Inbound" : "↗ Outbound"}
             </span>
-            <span className="text-xs font-bold text-[#111827] truncate [font-family:'Montserrat',Helvetica]">
-              {log.subject || '(No Subject)'}
+
+            {hasAshleen && (
+              <span className="text-[9px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full bg-[#dcfce7] text-[#16a34a]">
+                ✦ Ashleen Ready
+              </span>
+            )}
+
+            <span className="text-xs text-[#9ca3af] [font-family:'Montserrat',Helvetica]">
+              {record.organization?.name || "Unknown Agency"}
+            </span>
+
+            <span className="text-xs text-[#9ca3af] ml-auto whitespace-nowrap">
+              {fmtDate(record.createdAt)}
             </span>
           </div>
-          <div className="mt-1 flex items-center gap-3 text-[11px] text-[#6b7280] [font-family:'Montserrat',Helvetica]">
-            <span className="truncate max-w-[200px]">
-              {isInbound ? `From: ${log.fromAddress}` : `To: ${log.toAddress}`}
-            </span>
-            <span>·</span>
-            <span>{fmtDate(log.createdAt)}</span>
-          </div>
-          <p className="mt-1 text-xs text-[#9ca3af] truncate max-w-lg italic">
-            &quot;{log.body.substring(0, 100)}...&quot;
+
+          <p className="font-semibold text-[#111827] text-sm leading-snug mb-1 [font-family:'Montserrat',Helvetica]">
+            {record.subject || "(No subject)"}
           </p>
-        </div>
-      </div>
 
-      <div className="flex items-center gap-4 shrink-0 pl-4">
-        {hasSuggestion && (
-          <div className="flex items-center gap-1.5 bg-[#fff8f8] border border-[#ef3e3420] px-2.5 py-1 rounded-lg">
-            <div className="w-4 h-4 rounded-full bg-[#ef3e34] flex items-center justify-center">
-              <span className="text-white text-[8px] font-bold">A</span>
+          <p className="text-xs text-[#6b7280] [font-family:'Montserrat',Helvetica] truncate">
+            {isInbound ? (
+              <>
+                From: <span className="font-medium">{record.fromAddress || "—"}</span>
+              </>
+            ) : (
+              <>
+                To: <span className="font-medium">{record.toAddress || "—"}</span>
+              </>
+            )}
+          </p>
+
+          {record.application?.projectTitle && (
+            <p className="text-xs text-[#9ca3af] mt-0.5 truncate [font-family:'Montserrat',Helvetica]">
+              Re: {record.application.projectTitle}
+            </p>
+          )}
+
+          {isInbound && (
+            <div className="mt-2 flex items-center gap-1 text-xs text-[#ef3e34] font-medium [font-family:'Montserrat',Helvetica]">
+              {expanded ? <ChevronDown size={14} /> : <ChevronRight size={14} />}
+              {expanded ? "Hide details" : "View reply & Ashleen analysis"}
             </div>
-            <span className="text-[10px] font-bold text-[#ef3e34] uppercase tracking-tight">Suggestion</span>
-          </div>
-        )}
-        <div className="flex flex-col items-end gap-1">
-          <p className="text-[10px] font-bold text-[#111827] uppercase tracking-wider">{log.organization?.name || 'Unknown'}</p>
-          <p className="text-[9px] text-[#9ca3af] uppercase tracking-widest">{log.application?.projectTitle || 'N/A'}</p>
+          )}
         </div>
-        <ChevronRight size={16} className="text-[#d1d5db] group-hover:text-[#ef3e34] group-hover:translate-x-1 transition-all" />
-      </div>
+      </button>
+
+      {expanded && isInbound && (
+        <div className="border-t border-[#f0f0f0] bg-white p-4 flex flex-col gap-3">
+          {record.body && (
+            <div>
+              <p className="text-[10px] font-bold uppercase tracking-wider text-[#9ca3af] mb-1.5 [font-family:'Montserrat',Helvetica]">
+                Funder&apos;s Reply
+              </p>
+              <div className="rounded-lg bg-[#f9fafb] border border-[#e5e7eb] p-3 max-h-48 overflow-y-auto">
+                <p className="text-sm text-[#374151] whitespace-pre-wrap leading-relaxed [font-family:'Montserrat',Helvetica]">
+                  {record.body}
+                </p>
+              </div>
+            </div>
+          )}
+
+          {ashleenText && (
+            <div className="rounded-lg bg-[#fefce8] border border-[#fde68a] p-3">
+              <div className="flex items-center gap-1.5 mb-1.5">
+                <div className="w-5 h-5 rounded-full bg-[#ef3e34] flex items-center justify-center">
+                  <span className="font-bold text-white text-[8px] [font-family:'Montserrat',Helvetica]">
+                    A
+                  </span>
+                </div>
+                <span className="text-xs font-bold text-[#111827] [font-family:'Montserrat',Helvetica]">
+                  Ashleen&apos;s Suggested Reply
+                </span>
+              </div>
+              <p className="text-sm text-[#374151] leading-relaxed whitespace-pre-wrap [font-family:'Montserrat',Helvetica]">
+                {ashleenText}
+              </p>
+            </div>
+          )}
+
+          {!ashleenText && (
+            <div className="rounded-lg bg-[#fef9c3] border border-[#fde68a] p-3">
+              <p className="text-xs text-[#b45309] italic [font-family:'Montserrat',Helvetica]">
+                Ashleen is preparing a suggested reply...
+              </p>
+            </div>
+          )}
+        </div>
+      )}
     </div>
   );
 };
 
 export default function AdminCommunicationsPage() {
+  const [filter, setFilter] = useState<string>("all");
+  const [search, setSearch] = useState("");
   const [page, setPage] = useState(1);
-  const [searchTerm, setSearchTerm] = useState("");
-  const [filter, setFilter] = useState<"all" | "inbound" | "outbound">("all");
-  const [selectedLog, setSelectedLog] = useState<CommLogRecord | null>(null);
-  const filterPills: Array<{ label: string; value: "all" | "inbound" | "outbound" }> = [
-    { label: "All", value: "all" },
-    { label: "Inbound Replies", value: "inbound" },
-    { label: "Outbound", value: "outbound" },
-  ];
 
   const { data, isLoading, refetch, isFetching } = useQuery({
-    queryKey: ["admin", "communication-log", page, filter],
+    queryKey: ["admin", "communications", filter, page],
     queryFn: async () => {
-      const res = await adminApi.get("communication-log/admin/all", {
-        params: { 
-          page, 
-          limit: 20, 
-          direction: filter === "all" ? undefined : filter 
-        },
-      });
+      const params: Record<string, string | number> = { page, limit: 50 };
+      if (filter === "inbound") params.direction = "inbound";
+      if (filter === "outbound") params.direction = "outbound";
+
+      const res = await adminApi.get("communication-log/admin/all", { params });
       return res.data.data;
     },
   });
 
-  const logs: CommLogRecord[] = data?.logs ?? [];
-  const totalPages = data?.totalPages ?? 1;
+  const allRecords: LogRecord[] = data?.records || data?.logs || [];
 
-  const filteredLogs = logs.filter(log => {
-    const s = searchTerm.toLowerCase();
-    return (
-      log.subject?.toLowerCase().includes(s) ||
-      log.body?.toLowerCase().includes(s) ||
-      log.organization?.name?.toLowerCase().includes(s) ||
-      log.fromAddress?.toLowerCase().includes(s) ||
-      log.toAddress?.toLowerCase().includes(s)
-    );
-  });
+  const filteredRecords = useMemo(() => {
+    let records = allRecords;
+
+    if (filter === "ashleen") {
+      records = records.filter((r) => r.ashlynSuggestion || r.ashleenSuggestion);
+    }
+
+    if (search.trim()) {
+      const q = search.toLowerCase();
+      records = records.filter(
+        (r) =>
+          r.subject?.toLowerCase().includes(q) ||
+          r.body?.toLowerCase().includes(q) ||
+          r.fromAddress?.toLowerCase().includes(q) ||
+          r.toAddress?.toLowerCase().includes(q) ||
+          r.organization?.name?.toLowerCase().includes(q)
+      );
+    }
+
+    return records;
+  }, [allRecords, filter, search]);
+
+  const totalEmails = allRecords.length;
+  const inboundCount = allRecords.filter((r) => r.direction === "inbound").length;
+  const ashleenCount = allRecords.filter((r) => r.ashlynSuggestion || r.ashleenSuggestion).length;
 
   return (
-    <div className="w-full space-y-6">
-      {/* Header */}
-      <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
+    <div className="max-w-6xl space-y-6">
+      <div className="flex items-start justify-between gap-4">
         <div>
-          <h1 className="[font-family:'Oswald',Helvetica] text-3xl font-bold text-[#111827] uppercase tracking-wide">
+          <h1 className="[font-family:'Oswald',Helvetica] font-bold text-black text-2xl tracking-[0.5px] uppercase">
             Communication Log
           </h1>
           <p className="text-sm text-[#6b7280] mt-1 [font-family:'Montserrat',Helvetica]">
-            Global audit of all inbound and outbound system communications
+            All email communications between agencies and funders
           </p>
         </div>
+        <Button
+          type="button"
+          variant="secondary"
+          onClick={() => refetch()}
+          disabled={isFetching}
+          className="flex items-center gap-2"
+        >
+          <RefreshCw size={14} className={isFetching ? "animate-spin" : ""} />
+          Refresh
+        </Button>
+      </div>
 
-        <div className="flex items-center gap-3">
-          <div className="flex items-center gap-1 p-1 bg-white border border-[#e5e7eb] rounded-xl shadow-sm">
-            {filterPills.map((f) => (
-              <button
-                key={f.value}
-                onClick={() => { setFilter(f.value); setPage(1); }}
-                className={cn(
-                  "px-4 py-1.5 rounded-lg text-[10px] font-bold uppercase tracking-wider transition-all",
-                  filter === f.value 
-                    ? "bg-[#ef3e34] text-white shadow-md shadow-red-100" 
-                    : "text-[#9ca3af] hover:text-[#6b7280] hover:bg-gray-50"
-                )}
-              >
-                {f.label}
-              </button>
-            ))}
+      <div className="grid grid-cols-3 gap-4">
+        {[
+          { label: "Total Emails", value: totalEmails, color: "text-[#3b82f6]" },
+          { label: "Inbound Replies", value: inboundCount, color: "text-[#ef3e34]" },
+          { label: "Ashleen Ready", value: ashleenCount, color: "text-[#16a34a]" },
+        ].map((s) => (
+          <div key={s.label} className="rounded-xl border border-[#e5e7eb] bg-white p-4">
+            <p className={`text-2xl font-bold tabular-nums [font-family:'Montserrat',Helvetica] ${s.color}`}>
+              {isLoading ? "—" : s.value}
+            </p>
+            <p className="text-xs text-[#9ca3af] mt-0.5 [font-family:'Montserrat',Helvetica]">{s.label}</p>
           </div>
-          <button 
-            onClick={() => refetch()} 
-            disabled={isFetching}
-            className="w-10 h-10 flex items-center justify-center rounded-xl border border-[#e5e7eb] bg-white text-[#9ca3af] hover:text-[#ef3e34] hover:border-[#ef3e34] transition-all shadow-sm"
-          >
-            <RefreshCw size={16} className={isFetching ? "animate-spin" : ""} />
-          </button>
+        ))}
+      </div>
+
+      <div className="flex flex-col gap-3">
+        <div className="relative">
+          <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-[#9ca3af]" />
+          <Input
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            placeholder="Search by subject, content, agency, or email address..."
+            className="pl-10 border-[#e5e7eb]"
+          />
+        </div>
+
+        <div className="flex flex-wrap gap-2">
+          {FILTERS.map((f) => (
+            <button
+              key={f.value}
+              type="button"
+              onClick={() => {
+                setFilter(f.value);
+                setPage(1);
+              }}
+              className={`h-8 rounded-lg px-4 text-xs font-semibold transition-colors [font-family:'Montserrat',Helvetica] ${
+                filter === f.value
+                  ? "bg-[#ef3e34] text-white"
+                  : "border border-[#e5e7eb] bg-white text-[#6b7280] hover:border-[#ef3e34]/40"
+              }`}
+            >
+              {f.label}
+            </button>
+          ))}
         </div>
       </div>
 
-      {/* Search Bar */}
-      <div className="relative">
-        <Search size={18} className="absolute left-4 top-1/2 -translate-y-1/2 text-[#9ca3af]" />
-        <Input 
-          value={searchTerm}
-          onChange={(e) => setSearchTerm(e.target.value)}
-          placeholder="Search by subject, content, agency, or email address..."
-          className="pl-12 h-14 bg-white border-[#e5e7eb] rounded-2xl shadow-sm focus-visible:ring-[#ef3e34] focus-visible:ring-offset-0 text-base [font-family:'Montserrat',Helvetica]"
-        />
-      </div>
-
-      {/* Logs List */}
-      <div className="space-y-3 min-h-[400px]">
-        {isLoading ? (
-          <div className="flex flex-col items-center justify-center py-20 gap-4 opacity-60">
-            <RefreshCw size={32} className="animate-spin text-[#ef3e34]" />
-            <p className="text-[#6b7280] text-sm font-bold uppercase tracking-widest">Loading Logs...</p>
-          </div>
-        ) : filteredLogs.length === 0 ? (
-          <div className="rounded-2xl border-2 border-dashed border-[#e5e7eb] bg-white py-32 text-center flex flex-col items-center gap-4">
-            <div className="w-16 h-16 rounded-full bg-gray-50 flex items-center justify-center">
-              <AlertCircle size={32} className="text-[#d1d5db]" />
-            </div>
-            <div>
-              <p className="text-xl font-bold text-[#111827] [font-family:'Montserrat',Helvetica]">No communications found</p>
-              <p className="text-sm text-[#6b7280] [font-family:'Montserrat',Helvetica] mt-2">Try adjusting your filters or search criteria.</p>
-            </div>
-          </div>
-        ) : (
-          filteredLogs.map(log => (
-            <LogRow key={log._id} log={log} onClick={() => setSelectedLog(log)} />
-          ))
-        )}
-      </div>
-
-      {/* Pagination */}
-      {totalPages > 1 && (
-        <div className="flex justify-center pt-6">
-          <div className="flex items-center gap-3 bg-white border border-[#e5e7eb] p-1.5 rounded-2xl shadow-sm">
-            <Button 
-              variant="ghost" 
-              size="sm"
-              disabled={page <= 1} 
-              onClick={() => setPage(p => p - 1)}
-              className="h-9 w-9 p-0 hover:bg-gray-50 text-[#6b7280]"
-            >
-              <ChevronRight size={20} className="rotate-180" />
-            </Button>
-            <div className="px-4 flex flex-col items-center">
-              <span className="text-[10px] font-bold text-[#9ca3af] uppercase tracking-widest">Page</span>
-              <span className="text-sm font-bold text-[#111827] [font-family:'Montserrat',Helvetica]">
-                {page} of {totalPages}
-              </span>
-            </div>
-            <Button 
-              variant="ghost" 
-              size="sm"
-              disabled={page >= totalPages} 
-              onClick={() => setPage(p => p + 1)}
-              className="h-9 w-9 p-0 hover:bg-gray-50 text-[#6b7280]"
-            >
-              <ChevronRight size={20} />
-            </Button>
-          </div>
+      {isLoading ? (
+        <p className="text-center text-[#9ca3af] py-12 [font-family:'Montserrat',Helvetica]">
+          Loading communications...
+        </p>
+      ) : filteredRecords.length === 0 ? (
+        <div className="rounded-xl border border-[#e5e7eb] bg-white p-12 text-center">
+          <Mail size={32} className="text-[#e5e7eb] mx-auto mb-3" />
+          <p className="text-sm text-[#9ca3af] [font-family:'Montserrat',Helvetica]">
+            {search ? `No communications match "${search}"` : "No communications yet"}
+          </p>
+        </div>
+      ) : (
+        <div className="flex flex-col gap-3">
+          {filteredRecords.map((record) => (
+            <LogRow key={record._id} record={record} />
+          ))}
         </div>
       )}
 
-      {selectedLog && (
-        <LogDetailModal 
-          log={selectedLog} 
-          onClose={() => setSelectedLog(null)} 
-        />
+      {filter !== "ashleen" && !search && data?.totalPages > 1 && (
+        <div className="flex items-center justify-center gap-2">
+          <Button type="button" variant="outline" disabled={page <= 1} onClick={() => setPage((p) => p - 1)}>
+            Previous
+          </Button>
+          <span className="text-sm text-[#6b7280] mx-3 [font-family:'Montserrat',Helvetica]">
+            Page {page} of {data.totalPages}
+          </span>
+          <Button
+            type="button"
+            variant="outline"
+            disabled={page >= data.totalPages}
+            onClick={() => setPage((p) => p + 1)}
+          >
+            Next
+          </Button>
+        </div>
       )}
     </div>
   );

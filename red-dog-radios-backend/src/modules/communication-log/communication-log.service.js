@@ -56,8 +56,12 @@ const remove = async (id, user) => {
 
 const listAllAdmin = async ({ page = 1, limit = 50, organizationId, type, direction }) => {
   const query = {};
+  if (type) {
+    query.type = type;
+  } else {
+    query.type = { $in: ['email_sent', 'email_received'] };
+  }
   if (organizationId) query.organization = organizationId;
-  if (type) query.type = type;
   if (direction) query.direction = direction;
 
   const logs = await CommunicationLog.find(query)

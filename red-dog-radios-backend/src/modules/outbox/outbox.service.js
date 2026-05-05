@@ -1,4 +1,5 @@
 const Outbox = require('./outbox.schema');
+const Organization = require('../organizations/organization.schema');
 const { sendEmail: sendEmailProvider } = require('../../config/email.config');
 const { AppError } = require('../../middlewares/error.middleware');
 const logger = require('../../utils/logger');
@@ -135,21 +136,23 @@ const queueEmail = async ({
       status: 'pending',
     });
 
-    // replyTo must ALWAYS be injected server-side
-    const adminEmail = process.env.ADMIN_EMAIL || 'admin@reddogradios.com';
-    const repliesDomain = process.env.REPLIES_DOMAIN || 'reddogradios.com';
-    
-    if (relatedGrant) {
-      // If using Gmail as admin, use + alias for routing
-      if (adminEmail.endsWith('@gmail.com')) {
-        const [userPart] = adminEmail.split('@');
-        record.replyTo = `${userPart}+APP-${relatedGrant}@gmail.com`;
-      } else {
-        record.replyTo = `replies+APP-${relatedGrant}@${repliesDomain}`;
+    // Set Reply-To to the agency's real inbox so funder replies route correctly.
+    let replyTo = null;
+    if (relatedAgency || relatedOrganization) {
+      const orgId = relatedAgency || relatedOrganization;
+      const organization = await Organization.findById(orgId)
+        .select('gmailOAuth.senderEmail email')
+        .lean();
+      if (organization?.gmailOAuth?.senderEmail) {
+        // Agency has Gmail OAuth connected — replies go to agency Gmail.
+        replyTo = organization.gmailOAuth.senderEmail;
+      } else if (organization?.email) {
+        // Fall back to agency contact email.
+        replyTo = organization.email;
       }
-    } else {
-      record.replyTo = process.env.ADMIN_REPLY_EMAIL || adminEmail || undefined;
     }
+    // If neither exists, do not set Reply-To at all.
+    record.replyTo = replyTo || undefined;
 
     await record.save();
 
@@ -165,6 +168,13 @@ const sendEmail = async (outboxId) => {
   if (!record) throw new AppError('Outbox record not found', 404);
 
   try {
+    let senderEmailForLog = record.senderEmail || process.env.SMTP_FROM || process.env.SMTP_USER || 'provider-resolved';
+    if (record.relatedAgency) {
+      const org = await Organization.findById(record.relatedAgency).select('gmailOAuth.senderEmail').lean();
+      if (org?.gmailOAuth?.senderEmail) senderEmailForLog = org.gmailOAuth.senderEmail;
+    }
+    logger.info(`[Outbox] Sending email — From: ${senderEmailForLog}, Reply-To: ${record.replyTo || 'not-set'}, To: ${record.recipient}`);
+
     const result = await sendEmailProvider({
       to: record.recipient,
       subject: record.subject,
@@ -184,6 +194,7 @@ const sendEmail = async (outboxId) => {
     record.sentViaGmail = !!result.sentViaGmail;
     record.senderEmail = result.senderEmail || record.senderEmail;
     await record.save();
+    logger.info(`[Outbox] Sent successfully. providerMessageId: ${record.providerMessageId}`);
     return { success: true, stubbed: !!result.stub, messageId: record.providerMessageId };
   } catch (err) {
     record.status = 'failed';
