@@ -208,7 +208,13 @@ const defaultCfg = {
   msgBg: "bg-[#f8fafc] border-[#e2e8f0]",
 };
 
-const STATUS_TABS = [
+type StatusTab = {
+  label: string;
+  value?: string;
+  values?: string[];
+};
+
+const STATUS_TABS: StatusTab[] = [
   { label: "All", value: "all" },
   { label: "In Progress", values: ["drafting", "draft", "not_started", "ready_to_submit"] },
   { label: "Submitted", values: ["submitted"] },
@@ -224,7 +230,7 @@ const STATUS_TABS = [
 const AppCard = ({ app }: { app: AppItem }) => {
   const cfg = statusConfig[app.status] ?? defaultCfg;
   const router = useRouter();
-  const { toast } = useToast();
+  useToast();
   // useQueryClient removed as it's no longer needed in AppCard
 
 
@@ -396,18 +402,18 @@ export const Applications = () => {
             label="Status"
             value={activeFilter}
             onChange={setActiveFilter}
-            options={STATUS_TABS.map((t) => ({ value: t.value || (t as any).value, label: t.label }))}
+            options={STATUS_TABS.map((t) => ({ value: t.value || t.values?.[0] || "", label: t.label }))}
             dataTestId="select-filter-applications"
           />
           <div className="hidden flex-wrap items-center gap-1.5 md:flex">
             {STATUS_TABS.map((t) => (
               <button
-                key={t.value || (t as any).value}
+                key={t.value || t.values?.[0]}
                 type="button"
-                onClick={() => setActiveFilter(t.value || (t as any).value)}
-                data-testid={`tab-${t.value || (t as any).value}`}
+                onClick={() => setActiveFilter(t.value || t.values?.[0] || "")}
+                data-testid={`tab-${t.value || t.values?.[0]}`}
                 className={`h-8 rounded-lg px-4 [font-family:'Montserrat',Helvetica] text-sm font-semibold transition-all ${
-                  activeFilter === (t.value || (t as any).value)
+                  activeFilter === (t.value || t.values?.[0])
                     ? "bg-[#ef3e34] text-white"
                     : "border border-[#e5e7eb] bg-white text-[#6b7280] hover:border-[#ef3e34]/40"
                 }`}

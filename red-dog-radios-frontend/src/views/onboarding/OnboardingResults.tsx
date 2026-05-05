@@ -68,7 +68,7 @@ export const OnboardingResults = () => {
       }
     } catch {}
     setLoading(false);
-  }, [user, updateUser]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [user, updateUser]);
 
 
   if (loading) return <div className="min-h-screen bg-white" />;

@@ -2,7 +2,6 @@
 
 import { useState } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
-import { useRouter } from 'next/navigation';
 import { Mail, MailOpen, ArrowLeft, Send, Copy } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import api from '@/lib/api';
@@ -26,6 +25,32 @@ type ReplyItem = {
   grantTitle: string;
   funder: string;
   originalSubject: string;
+};
+
+type ApiReply = {
+  _id: string;
+  from: string;
+  subject: string;
+  receivedAt: string;
+  agencyViewed: boolean;
+  ashleenAnalysis?: string | null;
+  ashleenSuggestedSubject?: string | null;
+  ashleenSuggestion?: string | null;
+  ashleenError?: string | null;
+  ashleenGeneratedAt?: string | null;
+  ashleenReady?: boolean;
+  body?: string | null;
+  htmlBody?: string | null;
+  outboxId?: {
+    relatedGrant?: {
+      projectTitle?: string;
+      opportunity?: {
+        title?: string;
+        funder?: string;
+      };
+    };
+    subject?: string;
+  };
 };
 
 // ─── List item card ───────────────────────────────────────────────────────────
@@ -181,7 +206,7 @@ const ReplyDetail = ({
               <span className="[font-family:'Montserrat',Helvetica] font-bold text-white text-[10px]">A</span>
             </div>
             <span className="[font-family:'Montserrat',Helvetica] font-bold text-[#111827] text-sm">
-              Ashleen's Analysis
+              Ashleen&apos;s Analysis
             </span>
           </div>
           <p className="[font-family:'Montserrat',Helvetica] text-sm text-[#374151] leading-relaxed">
@@ -241,7 +266,7 @@ const ReplyDetail = ({
           </div>
 
           <p className="text-[10px] text-[#9ca3af] [font-family:'Montserrat',Helvetica] italic">
-            Review Ashleen's suggestion before sending. You can copy it and edit in your email client.
+            Review Ashleen&apos;s suggestion before sending. You can copy it and edit in your email client.
           </p>
         </div>
       )}
@@ -281,7 +306,7 @@ export const Inbox = () => {
     queryFn: async () => {
       const res = await api.get('/replies/agency/replies', { params: { limit: 50 } });
       return res.data.data as {
-        replies: any[];
+        replies: ApiReply[];
         total: number;
         unread: number;
       };
@@ -298,7 +323,7 @@ export const Inbox = () => {
     enabled: !!selectedId,
   });
 
-  const mapReply = (r: any): ReplyItem => ({
+  const mapReply = (r: ApiReply): ReplyItem => ({
     id: r._id,
     from: r.from,
     subject: r.subject,
@@ -325,11 +350,11 @@ export const Inbox = () => {
   const handleSelectReply = (id: string) => {
     setSelectedId(id);
     // Optimistically mark as viewed in list
-    queryClient.setQueryData(['agency-replies'], (old: any) => {
+    queryClient.setQueryData(['agency-replies'], (old: { replies: ApiReply[]; unread: number } | undefined) => {
       if (!old) return old;
       return {
         ...old,
-        replies: old.replies.map((r: any) =>
+        replies: (old.replies || []).map((r: ApiReply) =>
           r._id === id ? { ...r, agencyViewed: true } : r
         ),
         unread: Math.max(0, (old.unread || 0) - 1),
@@ -380,7 +405,7 @@ export const Inbox = () => {
         <div className="flex flex-col items-center justify-center py-20 gap-3">
           <Mail size={40} className="text-[#e5e7eb]" />
           <p className="text-sm text-[#9ca3af] [font-family:'Montserrat',Helvetica]">
-            No replies yet. When funders respond to your outreach, they'll appear here.
+            No replies yet. When funders respond to your outreach, they&apos;ll appear here.
           </p>
         </div>
       ) : (

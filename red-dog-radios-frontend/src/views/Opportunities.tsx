@@ -201,7 +201,7 @@ function mergeRankedOpportunities(matches: ApiMatchRow[], opportunities: Opportu
       ...o,
       fitScore: o.fitScore ?? null,
       winProbability: o.winProbability ?? null,
-      rubricTier: o.matchTier as any,
+      rubricTier: o.matchTier as RankedOpportunity["rubricTier"],
       matchStatus: o.matchStatus ?? "pending",
       matchReasons: o.matchReasons ?? [],
     }))
@@ -272,7 +272,7 @@ export const Opportunities = () => {
   const isLoading = matchesLoading || oppsLoading;
 
   const computeMutation = useMutation({
-    mutationFn: (options?: { silent?: boolean }) => api.post("/matches/compute-all", {}),
+    mutationFn: (opts?: { silent?: boolean }) => api.post("/matches/compute-all", opts || {}),
     onSuccess: (res, variables) => {
       const silent = variables?.silent ?? false;
       if (!silent) {

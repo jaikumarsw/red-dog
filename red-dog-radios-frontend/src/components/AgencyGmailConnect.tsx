@@ -10,7 +10,7 @@ import {
 } from "@/components/ui/alert-dialog";
 import { useState } from "react";
 import { useToast } from "@/hooks/use-toast";
-import { Mail, CheckCircle2, XCircle, Loader2 } from "lucide-react";
+import { Mail, CheckCircle2, Loader2 } from "lucide-react";
 import api from "@/lib/api";
 
 interface Props {
@@ -21,9 +21,8 @@ interface Props {
 
 export default function AgencyGmailConnect({ 
   variant = "card", 
-  source = "settings",
-  onConnected 
-}: Props) {
+  source = "settings"
+}: Omit<Props, "onConnected">) {
   const [confirmDisconnect, setConfirmDisconnect] = useState(false);
   const { toast } = useToast();
 
@@ -47,10 +46,11 @@ export default function AgencyGmailConnect({
     onSuccess: (url) => {
       window.location.href = url;
     },
-    onError: (err: any) => {
+    onError: (err: unknown) => {
+      const e = err as { response?: { data?: { message?: string } } };
       toast({
         title: "Could not start Gmail connection",
-        description: err?.response?.data?.message ?? "Try again later",
+        description: e?.response?.data?.message ?? "Try again later",
         variant: "destructive",
       });
     },
@@ -142,7 +142,7 @@ export default function AgencyGmailConnect({
               <p className="text-sm text-[#6b7280] mb-3">
                 Connect your Gmail so funder emails come from your 
                 address. Replies land in your inbox normally. We 
-                only send on your behalf — we don't read your other 
+                only send on your behalf — we don&apos;t read your other 
                 emails.
               </p>
               <Button
@@ -171,7 +171,7 @@ export default function AgencyGmailConnect({
           <AlertDialogHeader>
             <AlertDialogTitle>Disconnect Gmail?</AlertDialogTitle>
             <AlertDialogDescription>
-              You won't be able to send emails to funders through 
+              You won&apos;t be able to send emails to funders through 
               the platform until you reconnect. Existing emails 
               already sent are not affected.
             </AlertDialogDescription>

@@ -16,7 +16,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
-import { ArrowLeft, Download, RefreshCw, CheckCircle, Columns2, FileText, AlertTriangle, Mail, Phone, Users, Settings, X, ExternalLink } from "lucide-react";
+import { ArrowLeft, Download, RefreshCw, CheckCircle, Columns2, FileText, AlertTriangle, Mail, Phone, Users, Settings, X } from "lucide-react";
 import { useAuth } from "@/lib/AuthContext";
 import { cn } from "@/lib/utils";
 import { formatDistanceToNow } from "date-fns";
@@ -247,7 +247,7 @@ export const ApplicationBuilder = () => {
   const searchParams = useSearchParams();
   const { toast } = useToast();
   const queryClient = useQueryClient();
-  const { user } = useAuth();
+  useAuth();
   const [isEditing, setIsEditing] = useState(false);
   const [viewMode, setViewMode] = useState<ViewMode>("original");
   const [form, setForm] = useState<Partial<Application>>({});
@@ -279,16 +279,9 @@ export const ApplicationBuilder = () => {
     enabled: !!id,
   });
 
-  // Fetch org name from settings (same pattern as Settings.tsx)
-  const { data: settingsData } = useQuery<{ organizationId?: { name?: string } | null }>({
-    queryKey: qk.settings(),
-    queryFn: async () => {
-      const res = await api.get("/settings");
-      return res.data.data;
-    },
-  });
 
-  const orgName = settingsData?.organizationId?.name ?? "";
+
+
 
   useEffect(() => {
     if (app) {

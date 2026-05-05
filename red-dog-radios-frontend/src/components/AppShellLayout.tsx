@@ -36,7 +36,7 @@ function SidebarNavIcon({ src, isActive }: { src: string; isActive: boolean }) {
 export type ShellMenuItem = {
   id: string;
   label: string;
-  icon: string | any;
+  icon: string | React.ElementType;
   path: string;
   badge?: string | number;
 };

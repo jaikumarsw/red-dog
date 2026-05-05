@@ -5,7 +5,7 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
-import { RefreshCw, AlertTriangle, TrendingUp, FileText, CheckCircle, Trophy, DollarSign, Clock, Zap, X } from "lucide-react";
+import { RefreshCw, AlertTriangle, TrendingUp, FileText, CheckCircle, Trophy, DollarSign } from "lucide-react";
 import api from "@/lib/api";
 import { qk } from "@/lib/queryKeys";
 import { useAuth } from "@/lib/AuthContext";
@@ -431,10 +431,10 @@ export const PlatformDashboardSection = () => {
               ) : (
                 <>
                   {[
-                    { label: "Pending", value: outboxPending, color: "bg-yellow-400", Icon: Clock },
-                    { label: "Sent", value: outboxSent, color: "bg-green-500", Icon: Zap },
-                    { label: "Failed", value: outboxFailed, color: "bg-red-400", Icon: X },
-                  ].map(({ label, value, color, Icon }) => {
+                    { label: "Pending", value: outboxPending, color: "bg-yellow-400" },
+                    { label: "Sent", value: outboxSent, color: "bg-green-500" },
+                    { label: "Failed", value: outboxFailed, color: "bg-red-400" },
+                  ].map(({ label, value, color }) => {
                     if (value === 0) return null;
                     return (
                       <div key={label} className="flex items-center justify-between self-stretch w-full">

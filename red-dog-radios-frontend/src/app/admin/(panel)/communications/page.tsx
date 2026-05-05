@@ -153,7 +153,7 @@ const EmailRow = ({ email }: { email: CommRecord }) => {
                   <span className="font-bold text-white text-[8px]">A</span>
                 </div>
                 <span className="text-xs font-bold text-[#111827] [font-family:'Montserrat',Helvetica]">
-                  Ashleen's Analysis
+                  Ashleen&apos;s Analysis
                 </span>
               </div>
               <p className="text-xs text-[#4b5563] leading-relaxed [font-family:'Montserrat',Helvetica]">
