@@ -95,8 +95,8 @@ export const OnboardingResults = () => {
 
   return (
     <div className="flex min-h-screen flex-col items-center justify-start bg-white px-4 pb-12 pt-6 sm:pt-8">
-      <div className="mb-8 self-start">
-        <RedDogLogo />
+      <div className="mb-8 self-center sm:self-start">
+        <RedDogLogo className="w-32 sm:w-40" />
       </div>
 
       <div className="flex w-full max-w-[800px] flex-col items-center gap-6 rounded-2xl border border-[#f0f0f0] bg-white px-5 py-8 shadow-[0_4px_32px_rgba(0,0,0,0.10)] sm:px-10 sm:py-9 animate-in fade-in zoom-in duration-500">

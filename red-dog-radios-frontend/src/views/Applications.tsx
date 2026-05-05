@@ -59,6 +59,7 @@ type ApiApp = {
 
 const ashleenMsgFor = (status: string): string => {
   switch (status) {
+    case "under_review":
     case "under-review":
     case "in_review":
       return "We're in the running! This funder typically takes 8-12 weeks to review. I'll alert you the moment there's news.";
@@ -66,12 +67,17 @@ const ashleenMsgFor = (status: string): string => {
       return "Congratulations! This is a well-deserved win. Your narrative around community impact was exactly what the funder was looking for. Let's use this momentum for the next application!";
     case "submitted":
       return "Application submitted successfully! I'll monitor for any updates from the funder and keep you informed.";
+    case "draft":
     case "drafting":
+    case "not_started":
+    case "ready_to_submit":
       return "I've started drafting this application based on your organization profile. Review and let me know if you'd like any changes.";
     case "declined":
-      return "This one didn't go through, but don't worry — I've analyzed the feedback and found similar grants opening next quarter that are a stronger fit.";
+    case "denied":
     case "rejected":
-      return "This application was rejected. I’ve captured the staff notes so we can adjust and improve for the next submission.";
+      return "This one didn't go through, but don't worry — I've analyzed the feedback and found similar grants opening next quarter that are a stronger fit.";
+    case "waiting_on_information":
+      return "The funder needs some more information from us. I've highlighted the specific sections in the application — let's get these squared away.";
     default:
       return "I'm monitoring this application and will alert you to any developments.";
   }
@@ -133,6 +139,14 @@ const statusConfig: Record<string, {
   iconCls: string;
   msgBg: string;
 }> = {
+  "under_review": {
+    label: "Under Review",
+    badgeCls: "bg-[#fef9c3] text-[#b45309]",
+    iconBg: "bg-[#fff7ed]",
+    Icon: Clock,
+    iconCls: "text-[#f59e0b]",
+    msgBg: "bg-[#eff6ff] border-[#dbeafe]",
+  },
   "under-review": {
     label: "Under Review",
     badgeCls: "bg-[#fef9c3] text-[#b45309]",
@@ -165,6 +179,14 @@ const statusConfig: Record<string, {
     iconCls: "text-[#3b82f6]",
     msgBg: "bg-[#f8fafc] border-[#e2e8f0]",
   },
+  "draft": {
+    label: "Drafting",
+    badgeCls: "bg-[#f3f4f6] text-[#6b7280]",
+    iconBg: "bg-[#f3f4f6]",
+    Icon: Pencil,
+    iconCls: "text-[#9ca3af]",
+    msgBg: "bg-[#f8fafc] border-[#e2e8f0]",
+  },
   "drafting": {
     label: "Drafting",
     badgeCls: "bg-[#f3f4f6] text-[#6b7280]",
@@ -173,7 +195,31 @@ const statusConfig: Record<string, {
     iconCls: "text-[#9ca3af]",
     msgBg: "bg-[#f8fafc] border-[#e2e8f0]",
   },
+  "not_started": {
+    label: "Drafting",
+    badgeCls: "bg-[#f3f4f6] text-[#6b7280]",
+    iconBg: "bg-[#f3f4f6]",
+    Icon: Pencil,
+    iconCls: "text-[#9ca3af]",
+    msgBg: "bg-[#f8fafc] border-[#e2e8f0]",
+  },
+  "ready_to_submit": {
+    label: "Drafting",
+    badgeCls: "bg-[#f3f4f6] text-[#6b7280]",
+    iconBg: "bg-[#f3f4f6]",
+    Icon: Pencil,
+    iconCls: "text-[#9ca3af]",
+    msgBg: "bg-[#f8fafc] border-[#e2e8f0]",
+  },
   "declined": {
+    label: "Declined",
+    badgeCls: "bg-[#fee2e2] text-[#dc2626]",
+    iconBg: "bg-[#fff1f0]",
+    Icon: CalendarClock,
+    iconCls: "text-[#ef4444]",
+    msgBg: "bg-[#fff1f0] border-[#fecaca]",
+  },
+  "denied": {
     label: "Declined",
     badgeCls: "bg-[#fee2e2] text-[#dc2626]",
     iconBg: "bg-[#fff1f0]",
@@ -196,6 +242,14 @@ const statusConfig: Record<string, {
     Icon: Clock,
     iconCls: "text-[#f59e0b]",
     msgBg: "bg-[#eff6ff] border-[#dbeafe]",
+  },
+  "withdrawn": {
+    label: "Withdrawn",
+    badgeCls: "bg-gray-100 text-gray-500",
+    iconBg: "bg-gray-50",
+    Icon: Clock,
+    iconCls: "text-gray-400",
+    msgBg: "bg-gray-50 border-gray-100",
   },
 };
 
@@ -315,7 +369,7 @@ const AppCard = ({ app }: { app: AppItem }) => {
 };
 
 export const Applications = () => {
-  const [activeFilter, setActiveFilter] = useState("all");
+  const [activeFilter, setActiveFilter] = useState("All");
 
   const { data: rawApps = [], isLoading: loading, refetch, isFetching } = useQuery<AppItem[]>({
     queryKey: qk.applications(),
@@ -332,9 +386,10 @@ export const Applications = () => {
   const apps = rawApps;
 
   const filtered = apps.filter((a) => {
-    if (activeFilter === "all") return true;
-    const tab = STATUS_TABS.find((t) => t.value === activeFilter);
+    if (activeFilter === "All") return true;
+    const tab = STATUS_TABS.find((t) => t.label === activeFilter);
     if (tab && tab.values) return tab.values.includes(a.status);
+    if (tab && tab.value) return a.status === tab.value;
     return a.status === activeFilter;
   });
 
@@ -402,18 +457,18 @@ export const Applications = () => {
             label="Status"
             value={activeFilter}
             onChange={setActiveFilter}
-            options={STATUS_TABS.map((t) => ({ value: t.value || t.values?.[0] || "", label: t.label }))}
+            options={STATUS_TABS.map((t) => ({ value: t.label, label: t.label }))}
             dataTestId="select-filter-applications"
           />
           <div className="hidden flex-wrap items-center gap-1.5 md:flex">
             {STATUS_TABS.map((t) => (
               <button
-                key={t.value || t.values?.[0]}
+                key={t.label}
                 type="button"
-                onClick={() => setActiveFilter(t.value || t.values?.[0] || "")}
-                data-testid={`tab-${t.value || t.values?.[0]}`}
+                onClick={() => setActiveFilter(t.label)}
+                data-testid={`tab-${t.label}`}
                 className={`h-8 rounded-lg px-4 [font-family:'Montserrat',Helvetica] text-sm font-semibold transition-all ${
-                  activeFilter === (t.value || t.values?.[0])
+                  activeFilter === t.label
                     ? "bg-[#ef3e34] text-white"
                     : "border border-[#e5e7eb] bg-white text-[#6b7280] hover:border-[#ef3e34]/40"
                 }`}

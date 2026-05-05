@@ -199,15 +199,6 @@ cron.schedule(
             $set: { 'postAwardSequence.followUpSentAt': new Date() },
           });
 
-          try {
-            const commService = require('../modules/communication-log/communication-log.service');
-            await commService.logSystemEvent({
-              application: app._id,
-              organization: app.organization?._id,
-              subject: 'Post-award follow-up sent',
-              body: 'Equipment recommendations email sent to agency.',
-            });
-          } catch (e) {}
 
           logger.info(`[PostAward] Follow-up sent for app ${app._id}`);
         } catch (e) {

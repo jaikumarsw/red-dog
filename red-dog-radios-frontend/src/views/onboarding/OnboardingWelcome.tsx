@@ -15,8 +15,8 @@ export const OnboardingWelcome = () => {
 
   return (
     <div className="flex min-h-screen flex-col items-center justify-start bg-white px-4 pb-12 pt-6 sm:pt-8">
-      <div className="mb-8 self-start">
-        <RedDogLogo />
+      <div className="mb-8 self-center sm:self-start">
+        <RedDogLogo className="w-32 sm:w-40" />
       </div>
 
       {/* Card */}

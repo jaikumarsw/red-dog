@@ -230,6 +230,8 @@ export const Opportunities = () => {
   const [scoreOpp, setScoreOpp] = useState<RankedOpportunity | null>(null);
   const [paywallOpen, setPaywallOpen] = useState(false);
   const [generatingFor, setGeneratingFor] = useState<string | null>(null);
+  const [isMounted, setIsMounted] = useState(false);
+  useEffect(() => setIsMounted(true), []);
 
   // Queries
   const { data: matchRows = [], isLoading: matchesLoading } = useQuery<ApiMatchRow[]>({
@@ -457,9 +459,9 @@ export const Opportunities = () => {
       ) : (
         <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
           {filteredOpps.map((opp) => {
-            const days = daysLeft(opp.deadline);
+            const days = isMounted ? daysLeft(opp.deadline) : null;
             const urgentDeadline = days !== null && days >= 0 && days <= 14;
-            const deadlineStr = fmtDate(opp.deadline);
+            const deadlineStr = isMounted ? fmtDate(opp.deadline) : null;
             const sc = scoreColor(opp.fitScore);
             const wb = winBadge(opp.winProbability ?? null);
 
@@ -591,6 +593,7 @@ export const Opportunities = () => {
       {selectedOpp && (
         <OppDetailModal
           opp={selectedOpp}
+          isMounted={isMounted}
           onClose={() => setSelectedOpp(null)}
           onApply={() => {
             if (generatingFor) return;
@@ -702,6 +705,7 @@ export const Opportunities = () => {
 
 const OppDetailModal = ({
   opp,
+  isMounted,
   onClose,
   onApply,
   applying,
@@ -710,6 +714,7 @@ const OppDetailModal = ({
   existingAppId,
 }: {
   opp: RankedOpportunity;
+  isMounted: boolean;
   onClose: () => void;
   onApply: () => void;
   applying: boolean;
@@ -718,8 +723,9 @@ const OppDetailModal = ({
   existingAppId: string | undefined;
 }) => {
   const router = useRouter();
-  const days = daysLeft(opp.deadline);
+  const days = isMounted ? daysLeft(opp.deadline) : null;
   const urgentDeadline = days !== null && days >= 0 && days <= 14;
+  const deadlineStr = isMounted ? fmtDate(opp.deadline) : null;
   const sc = scoreColor(opp.fitScore);
   const NEGATIVE_PATTERNS = /\b(not (on|in|listed|funded|eligible|covered|supported|included)|does not (fund|include|cover|support)|no match|agency type.*not|not.*agency type|outside.*scope|ineligible|disqualified|not a (match|fit)|poor fit|low (fit|match)|mismatch)\b/i;
   const cleanReasons = (opp.matchReasons || []).filter(r => typeof r === "string" && r.trim().length > 0 && !NEGATIVE_PATTERNS.test(r));

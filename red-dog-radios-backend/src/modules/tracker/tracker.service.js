@@ -48,8 +48,17 @@ const getTrackerStats = async (organizationId) => {
 
   return {
     totalMatchedFunders: matchCount,
-    applicationsInProgress: (statusCounts['draft'] || 0) + (statusCounts['drafting'] || 0) + (statusCounts['ready_to_submit'] || 0),
-    submittedApplications: (statusCounts['submitted'] || 0) + (statusCounts['in_review'] || 0),
+    applicationsInProgress:
+      (statusCounts['draft'] || 0) +
+      (statusCounts['drafting'] || 0) +
+      (statusCounts['not_started'] || 0) +
+      (statusCounts['ready_to_submit'] || 0),
+    submittedApplications:
+      (statusCounts['submitted'] || 0) +
+      (statusCounts['in_review'] || 0) +
+      (statusCounts['under_review'] || 0) +
+      (statusCounts['under-review'] || 0) +
+      (statusCounts['waiting_on_information'] || 0),
     waitingOnInformation: statusCounts['waiting_on_information'] || 0,
     awardsWon: statusCounts['awarded'] || 0,
     totalDollarsRequested,

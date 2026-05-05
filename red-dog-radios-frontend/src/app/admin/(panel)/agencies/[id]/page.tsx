@@ -430,7 +430,7 @@ export default function AdminAgencyDetailPage() {
           </div>
 
           <div className="space-y-4">
-            <div className="grid grid-cols-2 gap-3">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               <div className="rounded-lg bg-gray-50 p-3">
                 <p className="text-xs text-gray-500 font-medium">Population Served</p>
                 <p className="text-lg font-bold text-gray-900 mt-0.5">
@@ -467,7 +467,7 @@ export default function AdminAgencyDetailPage() {
               </div>
             </div>
 
-            <div className="grid grid-cols-2 gap-3">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               <div>
                 <span className="text-xs font-semibold uppercase tracking-wide text-gray-400">
                   Budget Range

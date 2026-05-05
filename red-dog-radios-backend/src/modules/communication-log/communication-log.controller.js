@@ -44,5 +44,21 @@ const remove = async (req, res, next) => {
   }
 };
 
-module.exports = { create, listAdmin, listAgency, remove };
+const listAllAdmin = async (req, res, next) => {
+  try {
+    const { page, limit, organizationId, type, direction } = req.query;
+    const result = await service.listAllAdmin({ 
+      page: parseInt(page) || 1, 
+      limit: parseInt(limit) || 50, 
+      organizationId, 
+      type, 
+      direction 
+    });
+    res.json({ success: true, data: result });
+  } catch (err) {
+    next(err);
+  }
+};
+
+module.exports = { create, listAdmin, listAgency, remove, listAllAdmin };
 

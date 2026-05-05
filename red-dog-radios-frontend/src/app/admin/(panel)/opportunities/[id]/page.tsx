@@ -133,14 +133,14 @@ export default function AdminOpportunityDetailPage() {
           {data?.title && <p className="text-sm text-[#6b7280]">{data.title}</p>}
         </div>
         {data && (
-          <div className="flex flex-wrap gap-2">
-            <Button asChild className="bg-[#ef3e34] hover:bg-[#d63530]">
+          <div className="flex flex-col sm:flex-row sm:flex-wrap gap-2 w-full sm:w-auto mt-4 sm:mt-0">
+            <Button asChild className="bg-[#ef3e34] hover:bg-[#d63530] w-full sm:w-auto">
               <Link href={`/admin/opportunities/${data._id}/edit`}>Edit opportunity</Link>
             </Button>
             <Button
               type="button"
               variant="outline"
-              className="border-red-200 text-red-600 hover:bg-red-50"
+              className="border-red-200 text-red-600 hover:bg-red-50 w-full sm:w-auto"
               disabled={deleteOpp.isPending}
               onClick={() => {
                 if (confirm("Delete this opportunity?")) deleteOpp.mutate();
@@ -334,13 +334,13 @@ export default function AdminOpportunityDetailPage() {
                 </span>
               )}
             </div>
-            <div className="flex flex-wrap items-end gap-3">
-              <div>
+            <div className="flex flex-col sm:flex-row sm:flex-wrap items-end gap-3 w-full sm:w-auto">
+              <div className="w-full sm:w-auto">
                 <label className="mb-1 block text-xs font-medium text-[#374151]">Max applications allowed</label>
                 <Input
                   type="number"
                   min={0}
-                  className="w-36 border-[#e5e7eb]"
+                  className="w-full sm:w-36 border-[#e5e7eb]"
                   value={maxInput}
                   onChange={(e) => setMaxInput(e.target.value)}
                 />
@@ -348,7 +348,7 @@ export default function AdminOpportunityDetailPage() {
               <Button
                 type="button"
                 variant="secondary"
-                className="border-[#e5e7eb]"
+                className="border-[#e5e7eb] w-full sm:w-auto"
                 disabled={updateOppMutation.isPending}
                 onClick={() => {
                   const n = parseInt(maxInput, 10);
@@ -368,7 +368,7 @@ export default function AdminOpportunityDetailPage() {
                 <Button
                   type="button"
                   variant="outline"
-                  className="border-[#e5e7eb]"
+                  className="border-[#e5e7eb] w-full sm:w-auto"
                   disabled={updateOppMutation.isPending}
                   onClick={() =>
                     updateOppMutation.mutate({ isLocked: false, currentApplicationCount: 0 })
@@ -394,8 +394,8 @@ export default function AdminOpportunityDetailPage() {
             )}
             {data.applications && data.applications.length > 0 && (
               <div className="overflow-x-auto rounded-md border border-[#e5e7eb] bg-white shadow-sm">
-                <table className="w-full text-sm">
-                  <thead className="bg-[#f9fafb] text-left text-[#6b7280]">
+                <table className="w-full min-w-[600px] text-sm">
+                  <thead className="bg-[#f9fafb] text-left text-[#6b7280] whitespace-nowrap">
                     <tr>
                       <th className="p-2">Agency</th>
                       <th className="p-2">Status</th>

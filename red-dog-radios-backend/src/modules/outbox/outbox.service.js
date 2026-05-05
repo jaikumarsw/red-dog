@@ -136,7 +136,20 @@ const queueEmail = async ({
     });
 
     // replyTo must ALWAYS be injected server-side
-    record.replyTo = process.env.ADMIN_REPLY_EMAIL || process.env.ADMIN_EMAIL || undefined;
+    const adminEmail = process.env.ADMIN_EMAIL || 'admin@reddogradios.com';
+    const repliesDomain = process.env.REPLIES_DOMAIN || 'reddogradios.com';
+    
+    if (relatedGrant) {
+      // If using Gmail as admin, use + alias for routing
+      if (adminEmail.endsWith('@gmail.com')) {
+        const [userPart] = adminEmail.split('@');
+        record.replyTo = `${userPart}+APP-${relatedGrant}@gmail.com`;
+      } else {
+        record.replyTo = `replies+APP-${relatedGrant}@${repliesDomain}`;
+      }
+    } else {
+      record.replyTo = process.env.ADMIN_REPLY_EMAIL || adminEmail || undefined;
+    }
 
     await record.save();
 

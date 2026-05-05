@@ -19,8 +19,8 @@ export default function AdminUsersPage() {
     <div className="max-w-7xl space-y-6">
       <h1 className="[font-family:'Montserrat',Helvetica] text-2xl font-bold text-[#111827]">Users</h1>
       <div className="overflow-x-auto rounded-xl border border-[#e5e7eb] bg-white text-sm shadow-[0_1px_4px_rgba(0,0,0,0.05)]">
-        <table className="w-full text-left">
-          <thead className="border-b border-[#f0f0f0] bg-[#f9fafb] text-[#6b7280]">
+        <table className="w-full min-w-[600px] text-left">
+          <thead className="border-b border-[#f0f0f0] bg-[#f9fafb] text-[#6b7280] whitespace-nowrap">
             <tr>
               <th className="p-3">Name</th>
               <th className="p-3">Email</th>

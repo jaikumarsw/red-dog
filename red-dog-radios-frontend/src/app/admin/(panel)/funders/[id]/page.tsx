@@ -164,14 +164,14 @@ export default function AdminFunderDetailPage() {
             {String(data.name)}
           </h1>
         </div>
-        <div className="flex flex-wrap gap-2">
-          <Button asChild className="bg-[#ef3e34] hover:bg-[#d63530]">
+        <div className="flex flex-col sm:flex-row sm:flex-wrap gap-2 w-full sm:w-auto mt-4 sm:mt-0">
+          <Button asChild className="bg-[#ef3e34] hover:bg-[#d63530] w-full sm:w-auto">
             <Link href={`/admin/funders/${id}/edit`}>Edit</Link>
           </Button>
           <Button
             type="button"
             variant="outline"
-            className="border-red-200 text-red-600 hover:bg-red-50"
+            className="border-red-200 text-red-600 hover:bg-red-50 w-full sm:w-auto"
             onClick={() => {
               if (confirm("Delete this funder?")) del.mutate();
             }}
@@ -281,7 +281,7 @@ export default function AdminFunderDetailPage() {
           </div>
 
           <Button
-            className="bg-[#ef3e34] hover:bg-[#d63530] text-white"
+            className="bg-[#ef3e34] hover:bg-[#d63530] text-white w-full sm:w-auto"
             disabled={saveQuickFields.isPending}
             onClick={() => saveQuickFields.mutate()}
           >

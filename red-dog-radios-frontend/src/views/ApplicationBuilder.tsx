@@ -6,6 +6,7 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import api from "@/lib/api";
 import { qk } from "@/lib/queryKeys";
 import { useToast } from "@/hooks/use-toast";
+import { Button } from "@/components/ui/button";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -74,6 +75,10 @@ interface Application {
     } | null;
   };
   organization?: { name: string };
+  postAwardSequence?: {
+    agencyResponse?: string;
+    agencyResponseAt?: string;
+  };
 }
 
 type GrantOutbox = {
@@ -359,8 +364,14 @@ export const ApplicationBuilder = () => {
     body: string;
     createdByName?: string;
     withParty?: string;
+    ashlynSuggestion?: string;
+    ashlynFlags?: string[];
+    fromAddress?: string;
     createdAt?: string;
   };
+
+  const [activeReplyLogId, setActiveReplyLogId] = useState<string | null>(null);
+  const [replyDraft, setReplyDraft] = useState({ subject: "", body: "", to: "" });
 
   const commQuery = useQuery<CommLog[]>({
     queryKey: ["agency", "communication-log", id],
@@ -415,6 +426,35 @@ export const ApplicationBuilder = () => {
     } catch {
       toast({ title: "Export failed", variant: "destructive" });
     }
+  };
+
+  const sendReplyMutation = useMutation({
+    mutationFn: async (data: { applicationId: string; replyToEmail: string; subject: string; body: string }) => {
+      const res = await api.post("/agency/send-reply", data);
+      return res.data;
+    },
+    onSuccess: () => {
+      toast({ title: "Reply sent successfully" });
+      setActiveReplyLogId(null);
+      setReplyDraft({ subject: "", body: "", to: "" });
+      commQuery.refetch();
+    },
+    onError: (err: any) => {
+      toast({ 
+        title: "Error sending reply", 
+        description: err.response?.data?.message || "Something went wrong",
+        variant: "destructive" 
+      });
+    }
+  });
+
+  const startReply = (log: CommLog) => {
+    setActiveReplyLogId(log._id);
+    setReplyDraft({
+      subject: `Re: ${log.subject || "Your Application"}`,
+      body: log.ashlynSuggestion || "",
+      to: log.fromAddress || log.withParty || ""
+    });
   };
 
   const opportunityId = useMemo(() => {
@@ -573,7 +613,8 @@ export const ApplicationBuilder = () => {
   const hasAligned = !!app.alignedVersion;
   const isAdminControlled = ADMIN_CONTROLLED_STATUSES.includes(app.status);
   const action = searchParams.get("action");
-  const showAwardRespondBanner = action === "respond" && app.status === "awarded" && !awardResponseSubmitted;
+  const hasResponded = !!app.postAwardSequence?.agencyResponse || awardResponseSubmitted;
+  const showAwardRespondBanner = action === "respond" && app.status === "awarded" && !hasResponded;
 
   const alignedRecord = app.alignedVersion as unknown as Record<string, unknown> | undefined;
 
@@ -665,7 +706,7 @@ export const ApplicationBuilder = () => {
         </div>
       )}
 
-      {action === "respond" && app.status === "awarded" && awardResponseSubmitted && (
+      {action === "respond" && app.status === "awarded" && hasResponded && (
         <div className="rounded-xl border border-[#bbf7d0] bg-[#f0fdf4] p-4">
           <p className="[font-family:'Montserrat',Helvetica] text-sm font-semibold text-[#166534]">
             Thanks — we received your response. A Red Dog specialist will follow up soon with recommendations.
@@ -981,37 +1022,140 @@ export const ApplicationBuilder = () => {
           <div className="mt-2 space-y-3">
             {commQuery.isLoading ? (
               <p className="[font-family:'Montserrat',Helvetica] text-sm text-[#6b7280]">Loading…</p>
-            ) : (commQuery.data?.length || 0) === 0 ? (
-              <p className="[font-family:'Montserrat',Helvetica] text-sm text-[#6b7280]">
-                No activity yet. You&apos;ll see updates here as your application progresses.
-              </p>
             ) : (
               (commQuery.data || []).map((log) => {
                 const createdAt = log.createdAt ? new Date(log.createdAt) : null;
                 const relTime = createdAt ? formatDistanceToNow(createdAt, { addSuffix: true }) : "—";
+                const isReplyActive = activeReplyLogId === log._id;
+                const isInbound = log.direction === "inbound";
+
                 return (
-                  <div key={log._id} className="rounded-lg border border-[#f0f0f0] bg-[#fafafa] p-3">
-                    <div className="flex items-start gap-2">
-                      <div className="mt-0.5">{commIcon(log.type)}</div>
-                      <div className="min-w-0">
-                        <p className="text-xs font-semibold text-[#6b7280] uppercase tracking-wide [font-family:'Montserrat',Helvetica]">
-                          {commTypeLabel(log.type)}
-                          {log.direction ? ` · ${commDirectionLabel(log.direction)}` : ""}
-                        </p>
-                        {log.subject ? (
-                          <p className="[font-family:'Montserrat',Helvetica] text-sm font-semibold text-[#111827] mt-1">
+                  <div key={log._id} className={cn(
+                    "rounded-xl border p-4 transition-all",
+                    isInbound ? "bg-white border-[#eef2f7] shadow-sm" : "bg-[#fafafa] border-[#f0f0f0]"
+                  )}>
+                    <div className="flex items-start gap-3">
+                      <div className={cn(
+                        "mt-1 w-8 h-8 rounded-lg flex items-center justify-center shrink-0",
+                        isInbound ? "bg-emerald-50 text-emerald-600" : "bg-blue-50 text-blue-600"
+                      )}>
+                        {commIcon(log.type)}
+                      </div>
+                      <div className="min-w-0 flex-1">
+                        <div className="flex items-center justify-between">
+                          <p className="text-[10px] font-bold text-[#6b7280] uppercase tracking-widest [font-family:'Montserrat',Helvetica]">
+                            {commTypeLabel(log.type)}
+                            {log.direction ? ` · ${commDirectionLabel(log.direction)}` : ""}
+                          </p>
+                          <span className="text-[10px] text-[#9ca3af]">{relTime}</span>
+                        </div>
+                        
+                        {log.subject && (
+                          <p className="[font-family:'Montserrat',Helvetica] text-sm font-bold text-[#111827] mt-1">
                             {log.subject}
                           </p>
-                        ) : null}
-                        {log.withParty ? (
-                          <p className="mt-2 text-xs text-[#6b7280]">
-                            <span className="font-semibold">With:</span> {log.withParty}
+                        )}
+                        
+                        {log.withParty && (
+                          <p className="mt-1 text-[11px] text-[#6b7280]">
+                            <span className="font-semibold">{isInbound ? "From:" : "To:"}</span> {log.withParty}
                           </p>
-                        ) : null}
-                        <p className="mt-2 whitespace-pre-wrap text-sm text-[#374151]">{log.body}</p>
-                        <p className="mt-2 text-xs text-[#9ca3af]">
-                          by {log.createdByName || "Unknown"} · {relTime}
-                        </p>
+                        )}
+
+                        <div className="mt-3 text-sm text-[#374151] leading-relaxed whitespace-pre-wrap font-sans">
+                          {log.body}
+                        </div>
+
+                        {/* Ashlyn Suggestion Panel */}
+                        {isInbound && log.ashlynSuggestion && !isReplyActive && (
+                          <div className="mt-4 rounded-xl border border-[#ef3e3420] bg-[#fff8f8] p-4">
+                            <div className="flex items-center justify-between mb-2">
+                              <h4 className="text-[10px] font-bold text-[#ef3e34] uppercase tracking-widest flex items-center gap-1.5">
+                                <span className="w-4 h-4 rounded-full bg-[#ef3e34] flex items-center justify-center text-white text-[8px]">A</span>
+                                Ashlyn&apos;s Suggested Reply
+                              </h4>
+                              <button 
+                                onClick={() => startReply(log)}
+                                className="text-[10px] font-bold text-[#ef3e34] hover:underline uppercase tracking-wide"
+                              >
+                                Use Suggestion
+                              </button>
+                            </div>
+                            <p className="text-xs text-[#4b5563] italic line-clamp-3">
+                              &quot;{log.ashlynSuggestion}&quot;
+                            </p>
+                          </div>
+                        )}
+
+                        {/* Reply Composer */}
+                        {isReplyActive && (
+                          <div className="mt-4 p-4 rounded-xl border border-[#ef3e3440] bg-white shadow-lg animate-in fade-in slide-in-from-top-2 duration-200">
+                            <div className="flex items-center justify-between mb-3">
+                              <h4 className="text-xs font-bold text-[#111827] uppercase tracking-wide">Compose Reply</h4>
+                              <button onClick={() => setActiveReplyLogId(null)} className="text-[#9ca3af] hover:text-[#111827]">
+                                <X size={14} />
+                              </button>
+                            </div>
+                            <div className="space-y-3">
+                              <div className="flex items-center gap-2 text-xs border-b border-[#f3f4f6] pb-2">
+                                <span className="text-[#9ca3af] w-8">To:</span>
+                                <span className="font-semibold text-[#374151]">{replyDraft.to}</span>
+                              </div>
+                              <input 
+                                value={replyDraft.subject}
+                                onChange={(e) => setReplyDraft({...replyDraft, subject: e.target.value})}
+                                className="w-full text-sm font-semibold border-b border-[#f3f4f6] pb-2 focus:outline-none focus:border-[#ef3e34]"
+                                placeholder="Subject"
+                              />
+                              <textarea 
+                                value={replyDraft.body}
+                                onChange={(e) => setReplyDraft({...replyDraft, body: e.target.value})}
+                                className="w-full min-h-[150px] text-sm text-[#374151] leading-relaxed p-3 bg-gray-50 rounded-lg border border-[#e5e7eb] focus:outline-none focus:border-[#ef3e34] focus:bg-white transition-all"
+                                placeholder="Write your reply..."
+                              />
+                              <div className="flex items-center justify-end gap-2">
+                                <Button 
+                                  variant="ghost" 
+                                  size="sm" 
+                                  onClick={() => setActiveReplyLogId(null)}
+                                  className="text-xs"
+                                >
+                                  Cancel
+                                </Button>
+                                <Button 
+                                  size="sm" 
+                                  disabled={sendReplyMutation.isPending || !replyDraft.body.trim()}
+                                  onClick={() => sendReplyMutation.mutate({
+                                    applicationId: id,
+                                    replyToEmail: replyDraft.to,
+                                    subject: replyDraft.subject,
+                                    body: replyDraft.body
+                                  })}
+                                  className="bg-[#ef3e34] hover:bg-[#d63029] text-white font-bold text-xs"
+                                >
+                                  {sendReplyMutation.isPending ? "Sending..." : "Send Reply"}
+                                </Button>
+                              </div>
+                            </div>
+                          </div>
+                        )}
+
+                        {!isInbound && !isReplyActive && (
+                          <p className="mt-3 text-[10px] text-[#9ca3af] flex items-center gap-1">
+                            Sent by {log.createdByName || "System"}
+                          </p>
+                        )}
+                        
+                        {isInbound && !isReplyActive && (
+                          <div className="mt-4 flex items-center gap-2">
+                            <button 
+                              onClick={() => startReply(log)}
+                              className="text-[10px] font-bold text-[#ef3e34] hover:underline uppercase tracking-wide border border-[#ef3e3440] px-2 py-1 rounded-md hover:bg-[#fff8f8] transition-colors"
+                            >
+                              Reply to Funder
+                            </button>
+                          </div>
+                        )}
                       </div>
                     </div>
                   </div>

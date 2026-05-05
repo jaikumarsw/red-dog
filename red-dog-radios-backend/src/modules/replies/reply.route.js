@@ -8,6 +8,7 @@ const ctrl = require('./reply.controller');
 router.get('/agency/replies', protect, ctrl.agencyReplies);
 router.get('/agency/replies/:id', protect, ctrl.agencyReplyDetail);
 router.post('/agency/replies/:id/viewed', protect, ctrl.markAgencyViewed);
+router.post('/agency/send-reply', protect, ctrl.sendAgencyReply);
 
 // All admin-only — agency does NOT have an inbox in our app, 
 router.get('/', protect, restrictTo('admin'), ctrl.adminListReplies);

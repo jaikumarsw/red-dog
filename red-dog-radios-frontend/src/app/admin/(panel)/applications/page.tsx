@@ -80,7 +80,7 @@ export default function AdminApplicationsPage() {
       </div>
       <div className="overflow-x-auto rounded-xl border border-[#e5e7eb] bg-white text-sm shadow-[0_1px_4px_rgba(0,0,0,0.05)]">
         <table className="w-full min-w-[720px] text-left">
-          <thead className="border-b border-[#f0f0f0] bg-[#f9fafb] text-[#6b7280]">
+          <thead className="border-b border-[#f0f0f0] bg-[#f9fafb] text-[#6b7280] whitespace-nowrap">
             <tr>
               <th className="p-3">Agency</th>
               <th className="p-3">Opportunity</th>
