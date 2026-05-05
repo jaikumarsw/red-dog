@@ -218,6 +218,53 @@ const markAgencyViewed = asyncHandler(async (req, res) => {
   return success(res, { marked: true });
 });
 
+const sendAgencyReply = asyncHandler(async (req, res) => {
+  const { applicationId, replyToEmail, subject, body } = req.body;
+  const organizationId = req.user.organizationId;
+  
+  if (!applicationId || !replyToEmail || !body) {
+    return res.status(400).json({ success: false, message: 'Missing required fields' });
+  }
+
+  const outboxService = require('../outbox/outbox.service');
+  const Application = require('../applications/application.schema');
+  const CommunicationLog = require('../communication-log/communication-log.schema');
+  
+  const app = await Application.findById(applicationId);
+  if (!app || String(app.organization) !== String(organizationId)) {
+    return res.status(404).json({ success: false, message: 'Application not found' });
+  }
+
+  // Queue the outbound email
+  const outboxRecord = await outboxService.queueEmail({
+    recipient: replyToEmail,
+    subject: subject || 'Re: Your Application',
+    htmlBody: body,
+    emailType: 'outreach', // or 'reply'
+    relatedOrganization: organizationId,
+    relatedAgency: organizationId,
+    relatedUser: req.user._id,
+    relatedGrant: applicationId
+  });
+
+  // Log as outbound communication
+  await CommunicationLog.create({
+    application: applicationId,
+    organization: organizationId,
+    type: 'email_sent',
+    direction: 'outbound',
+    subject: outboxRecord.subject,
+    body: outboxRecord.htmlBody,
+    visibleToAgency: true,
+    createdByName: req.user.fullName || req.user.email,
+    createdByRole: 'agency',
+    withParty: replyToEmail,
+    outboxId: outboxRecord._id
+  });
+
+  return success(res, { message: 'Reply queued for sending', outboxId: outboxRecord._id });
+});
+
 module.exports = {
   adminListReplies,
   adminGetReply,
@@ -226,5 +273,6 @@ module.exports = {
   adminRepliesByOutbox,
   agencyReplies,
   agencyReplyDetail,
-  markAgencyViewed
+  markAgencyViewed,
+  sendAgencyReply
 };

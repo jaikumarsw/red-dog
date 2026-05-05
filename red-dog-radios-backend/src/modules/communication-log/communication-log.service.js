@@ -54,5 +54,24 @@ const remove = async (id, user) => {
   return { success: true };
 };
 
-module.exports = { create, logSystemEvent, listForApplication, remove };
+const listAllAdmin = async ({ page = 1, limit = 50, organizationId, type, direction }) => {
+  const query = {};
+  if (organizationId) query.organization = organizationId;
+  if (type) query.type = type;
+  if (direction) query.direction = direction;
+
+  const logs = await CommunicationLog.find(query)
+    .populate('application', 'projectTitle')
+    .populate('organization', 'name')
+    .populate('funder', 'name')
+    .sort({ createdAt: -1 })
+    .skip((page - 1) * limit)
+    .limit(limit)
+    .lean();
+
+  const total = await CommunicationLog.countDocuments(query);
+  return { logs, total, page, totalPages: Math.ceil(total / limit) };
+};
+
+module.exports = { create, logSystemEvent, listForApplication, remove, listAllAdmin };
 

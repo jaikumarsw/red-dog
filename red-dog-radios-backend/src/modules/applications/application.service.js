@@ -532,16 +532,6 @@ const createWithAI = async ({ opportunityId, funderId, organizationId, userId, a
     throw err;
   }
 
-  // Communication log: AI drafted application
-  try {
-    const commService = require('../communication-log/communication-log.service');
-    await commService.logSystemEvent({
-      application: app._id,
-      organization: organizationId,
-      subject: 'AI application drafted',
-      body: `AI-generated grant application created for ${funder?.name || 'funder'}.`,
-    });
-  } catch (e) {}
 
   await bumpOpportunityCountAndMaybeLock(opp, agencyFitScore);
   await bumpFunderCountAndMaybeLock(funderId, funder?.maxApplicationsAllowed);
@@ -609,25 +599,6 @@ const updateStatus = async (id, { status, dateSubmitted, followUpDate, notes, in
   const afterLean = await Application.findById(id).lean();
   await ensureFollowUpsScheduled(before, afterLean, actorId);
 
-  // Communication log: status change system event (never blocks status updates)
-  try {
-    const commService = require('../communication-log/communication-log.service');
-    let body = `Status changed from "${before.status}" to "${status}".`;
-    if (status === 'waiting_on_information' && updateData.infoRequestedNote) {
-      body += ` Information requested: "${updateData.infoRequestedNote}"`;
-    }
-    if (status === 'rejected' && notes) {
-      body += ` Note: "${notes}"`;
-    }
-    await commService.logSystemEvent({
-      application: id,
-      organization: app.organization?._id || app.organization,
-      subject: `Status: ${status}`,
-      body,
-    });
-  } catch (e) {
-    // never block status update on logging
-  }
 
   if (status === 'awarded') {
     await Application.findByIdAndUpdate(id, { isWinner: true });
@@ -695,15 +666,6 @@ const updateStatus = async (id, { status, dateSubmitted, followUpDate, notes, in
           },
         });
 
-        try {
-          const commService = require('../communication-log/communication-log.service');
-          await commService.logSystemEvent({
-            application: id,
-            organization: orgId,
-            subject: 'Award congratulations sent',
-            body: `Congratulations email sent to agency. Follow-up with equipment recommendations scheduled for ${followUpDate.toDateString()}.`,
-          });
-        } catch (e) {}
       }
     } catch (e) {
       logger.warn('[Application] Post-award sequence failed:', e.message);

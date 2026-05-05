@@ -222,7 +222,7 @@ export default function AdminDashboardPage() {
                   <Button
                     type="button"
                     variant="outline"
-                    className="border-[#e5e7eb] bg-white text-[#374151] hover:bg-[#f9fafb]"
+                    className="border-[#e5e7eb] bg-white text-[#374151] hover:bg-[#f9fafb] w-full sm:w-auto"
                     asChild
                   >
                     <a

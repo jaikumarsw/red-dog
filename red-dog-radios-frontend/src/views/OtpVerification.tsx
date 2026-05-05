@@ -138,7 +138,9 @@ export const OtpVerification = () => {
   return (
     <div className="flex min-h-screen flex-col items-center justify-start bg-[#f9fafb] px-4 pb-10 pt-6 sm:pt-8">
       <div className="flex w-full max-w-md flex-col items-center rounded-2xl border border-[#e5e7eb] bg-white p-6 shadow-sm sm:p-10">
-        <RedDogLogo />
+        <div className="flex w-full justify-center">
+          <RedDogLogo className="w-[160px] max-w-full" />
+        </div>
 
         <div className="mt-5 flex h-16 w-16 items-center justify-center rounded-full border-2 border-[#fed7aa] bg-[#fff7ed]">
           <ShieldCheck size={28} className="text-[#f97316]" />

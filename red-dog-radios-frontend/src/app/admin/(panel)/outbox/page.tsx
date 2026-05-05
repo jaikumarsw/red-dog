@@ -285,8 +285,8 @@ export default function AdminOutboxPage() {
 
       {/* Table */}
       <div className="overflow-x-auto rounded-xl border border-[#e5e7eb] bg-white shadow-[0_1px_4px_rgba(0,0,0,0.05)]">
-        <table className="w-full text-left text-sm">
-          <thead className="border-b border-[#f0f0f0] bg-[#f9fafb] text-[#6b7280]">
+        <table className="w-full min-w-[800px] text-left text-sm">
+          <thead className="border-b border-[#f0f0f0] bg-[#f9fafb] text-[#6b7280] whitespace-nowrap">
             <tr>
               <th className="p-3">Recipient</th>
               <th className="p-3">Subject</th>

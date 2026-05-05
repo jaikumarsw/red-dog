@@ -158,7 +158,7 @@ export default function AdminCouponsPage() {
                   placeholder="Beta tester access"
                 />
               </div>
-              <div className="grid grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div className="grid gap-2">
                   <Label htmlFor="max">Max Uses (Optional)</Label>
                   <Input
@@ -218,8 +218,8 @@ export default function AdminCouponsPage() {
 
       <div className="overflow-hidden rounded-xl border border-[#e5e7eb] bg-white shadow-sm">
         <div className="overflow-x-auto">
-          <table className="w-full text-left">
-            <thead>
+          <table className="w-full min-w-[700px] text-left">
+            <thead className="whitespace-nowrap">
               <tr className="border-b border-[#f3f4f6] bg-[#f9fafb]">
                 <th className="px-6 py-4 text-xs font-bold uppercase tracking-wider text-[#9ca3af]">Code</th>
                 <th className="px-6 py-4 text-xs font-bold uppercase tracking-wider text-[#9ca3af]">Status</th>

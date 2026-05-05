@@ -206,6 +206,8 @@ export default function AdminApplicationDetailPage() {
     withParty?: string;
     visibleToAgency?: boolean;
     createdAt?: string;
+    ashleenSuggestion?: string;
+    ashleenFlags?: string[];
   };
 
   const commQuery = useQuery({
@@ -504,7 +506,7 @@ export default function AdminApplicationDetailPage() {
               </div>
 
               <div className="space-y-4">
-                <div className="grid grid-cols-2 gap-3 text-sm">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-sm">
                   <div className="rounded-md border border-[#f0f0f0] bg-[#fafafa] p-3">
                     <p className="text-xs text-[#9ca3af] uppercase tracking-wide font-semibold">Population Served</p>
                     <p className="mt-1 font-semibold text-[#111827]">
@@ -566,7 +568,7 @@ export default function AdminApplicationDetailPage() {
                   )}
                 </div>
 
-                <div className="grid grid-cols-2 gap-3 text-sm">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-sm">
                   <div className="rounded-md border border-[#f0f0f0] bg-[#fafafa] p-3">
                     <p className="text-xs text-[#9ca3af] uppercase tracking-wide font-semibold">Budget Range</p>
                     <p className="mt-1 font-semibold text-[#111827]">
@@ -734,16 +736,29 @@ export default function AdminApplicationDetailPage() {
                   (String(log.createdBy || "") === String(adminUser._id) || log.createdByRole === "admin");
                 const createdAt = log.createdAt ? new Date(log.createdAt) : null;
                 const relTime = createdAt ? formatDistanceToNow(createdAt, { addSuffix: true }) : "—";
+                
+                const isExpanded = !!expandedLogs[log._id];
+                const isInboundEmail = log.type === "email_received" && log.direction === "inbound";
+                const hasAshleen = !!log.ashleenSuggestion;
+
                 return (
                   <div key={log._id} className="rounded-lg border border-[#f0f0f0] bg-[#fafafa] p-3">
                     <div className="flex items-start justify-between gap-3">
                       <div className="flex items-start gap-2 min-w-0">
                         <div className="mt-0.5">{commIcon(log.type)}</div>
                         <div className="min-w-0">
-                          <p className="text-xs font-semibold text-[#6b7280] uppercase tracking-wide [font-family:'Montserrat',Helvetica]">
-                            {commTypeLabel(log.type)}
-                            {log.direction ? ` · ${commDirectionLabel(log.direction)}` : ""}
-                          </p>
+                          <div className="flex items-center gap-2">
+                            <p className="text-xs font-semibold text-[#6b7280] uppercase tracking-wide [font-family:'Montserrat',Helvetica]">
+                              {commTypeLabel(log.type)}
+                              {log.direction ? ` · ${commDirectionLabel(log.direction)}` : ""}
+                            </p>
+                            {hasAshleen && (
+                              <div className="flex items-center gap-1 rounded-full bg-[#ef3e34] px-2 py-0.5 text-[9px] font-bold text-white uppercase tracking-wider">
+                                <span className="w-3 h-3 rounded-full bg-white flex items-center justify-center text-[#ef3e34] text-[7px] mr-1">A</span>
+                                Ashleen Suggestion
+                              </div>
+                            )}
+                          </div>
                           {log.subject ? (
                             <p className="[font-family:'Montserrat',Helvetica] text-sm font-semibold text-[#111827] mt-1">
                               {log.subject}
@@ -751,17 +766,29 @@ export default function AdminApplicationDetailPage() {
                           ) : null}
                         </div>
                       </div>
-                      {canDelete && (
-                        <button
-                          type="button"
-                          className="text-[#9ca3af] hover:text-red-600"
-                          onClick={() => deleteComm.mutate(log._id)}
-                          disabled={deleteComm.isPending}
-                          aria-label="Delete entry"
-                        >
-                          <Trash2 size={16} />
-                        </button>
-                      )}
+                      <div className="flex items-center gap-2 flex-shrink-0">
+                        {isInboundEmail && (
+                          <button
+                            type="button"
+                            className="text-[#ef3e34] hover:text-[#d63530] text-xs font-semibold flex items-center gap-1"
+                            onClick={() => setExpandedLogs(p => ({ ...p, [log._id]: !p[log._id] }))}
+                          >
+                            {isExpanded ? "Show less" : "View detail"}
+                            <ChevronDown size={14} className={cn("transition-transform", isExpanded && "rotate-180")} />
+                          </button>
+                        )}
+                        {canDelete && (
+                          <button
+                            type="button"
+                            className="text-[#9ca3af] hover:text-red-600"
+                            onClick={() => deleteComm.mutate(log._id)}
+                            disabled={deleteComm.isPending}
+                            aria-label="Delete entry"
+                          >
+                            <Trash2 size={16} />
+                          </button>
+                        )}
+                      </div>
                     </div>
 
                     {log.withParty ? (
@@ -770,7 +797,31 @@ export default function AdminApplicationDetailPage() {
                       </p>
                     ) : null}
 
-                    <p className="mt-2 whitespace-pre-wrap text-sm text-[#374151]">{log.body}</p>
+                    {isInboundEmail && !isExpanded ? (
+                      <p className="mt-2 whitespace-pre-wrap text-sm text-[#374151] line-clamp-2">
+                        {log.body}
+                      </p>
+                    ) : (
+                      <div className="mt-2">
+                        <p className="whitespace-pre-wrap text-sm text-[#374151]">{log.body}</p>
+                        
+                        {isExpanded && hasAshleen && (
+                          <div className="mt-4 rounded-lg bg-[#f9fafb] border border-[#e5e7eb] p-3 shadow-sm">
+                            <div className="flex items-center gap-1.5 mb-2">
+                              <div className="w-5 h-5 rounded-full bg-[#ef3e34] flex items-center justify-center flex-shrink-0">
+                                <span className="font-bold text-white text-[8px]">A</span>
+                              </div>
+                              <span className="text-xs font-bold text-[#111827] [font-family:'Montserrat',Helvetica]">
+                                Ashleen&apos;s Suggested Reply
+                              </span>
+                            </div>
+                            <p className="text-sm text-[#4b5563] whitespace-pre-wrap">
+                              {log.ashleenSuggestion}
+                            </p>
+                          </div>
+                        )}
+                      </div>
+                    )}
 
                     <p className="mt-2 text-xs text-[#9ca3af]">
                       by {log.createdByName || "Unknown"} · {relTime}

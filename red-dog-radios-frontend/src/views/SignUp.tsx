@@ -85,11 +85,13 @@ export const SignUp = () => {
         />
       </div>
 
-      <div className="flex min-h-0 min-w-0 flex-1 flex-col items-stretch overflow-y-auto bg-white px-4 py-4 sm:px-8 sm:py-6">
-        <div className="mx-auto flex min-h-full w-full max-w-[400px] flex-col items-start justify-center gap-5">
-          <RedDogLogo />
+      <div className="flex min-h-0 min-w-0 flex-1 flex-col items-center justify-center overflow-y-auto bg-white px-4 py-4 sm:px-8 sm:py-6">
+        <div className="w-full max-w-[400px] flex-col items-center justify-center gap-5">
+          <div className="flex w-full justify-center mb-6">
+            <RedDogLogo className="w-[160px] max-w-full" />
+          </div>
 
-          <div className="w-full bg-[#f3f4f6] rounded-full p-1 flex gap-1">
+          <div className="w-full bg-[#f3f4f6] rounded-full p-1 flex gap-1 mb-5">
             <Link
               href="/login"
               className="flex-1 rounded-full py-2 px-4 flex items-center justify-center gap-1.5 no-underline transition-colors hover:text-[#374151] cursor-pointer"

@@ -73,9 +73,9 @@ export default function AdminActivityPage() {
         </div>
       </div>
 
-      <div className="rounded-lg border border-[#e5e7eb] bg-white shadow-[0_1px_4px_rgba(0,0,0,0.05)] overflow-hidden">
-        <table className="w-full text-left text-sm">
-          <thead className="border-b border-[#f0f0f0] bg-[#f9fafb] text-[#6b7280]">
+      <div className="rounded-lg border border-[#e5e7eb] bg-white shadow-[0_1px_4px_rgba(0,0,0,0.05)] overflow-x-auto">
+        <table className="w-full min-w-[700px] text-left text-sm">
+          <thead className="border-b border-[#f0f0f0] bg-[#f9fafb] text-[#6b7280] whitespace-nowrap">
             <tr>
               <th className="p-3">When</th>
               <th className="p-3">Category</th>

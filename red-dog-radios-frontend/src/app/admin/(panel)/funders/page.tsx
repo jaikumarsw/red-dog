@@ -232,8 +232,8 @@ export default function AdminFundersPage() {
         onChange={(e) => setSearch(e.target.value)}
       />
       <div className="overflow-x-auto rounded-xl border border-[#e5e7eb] bg-white text-sm shadow-[0_1px_4px_rgba(0,0,0,0.05)]">
-        <table className="w-full text-left">
-          <thead className="border-b border-[#f0f0f0] bg-[#f9fafb] text-[#6b7280]">
+        <table className="w-full min-w-[800px] text-left">
+          <thead className="border-b border-[#f0f0f0] bg-[#f9fafb] text-[#6b7280] whitespace-nowrap">
             <tr>
               <th className="p-3">Name</th>
               <th className="p-3">Grant range</th>

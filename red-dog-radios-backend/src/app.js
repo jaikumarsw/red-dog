@@ -9,6 +9,7 @@ const swaggerUi = require('swagger-ui-express');
 const mongoose = require('mongoose');
 
 const { errorHandler, notFoundHandler } = require('./middlewares/error.middleware');
+const { protect, restrictTo } = require('./middlewares/auth.middleware');
 
 const authRoutes = require('./modules/auth/auth.route');
 const organizationRoutes = require('./modules/organizations/organization.route');
@@ -119,14 +120,15 @@ app.use('/api/tracker', trackerRoutes);
 app.use('/api/ashleen', ashleenRoutes);
 app.use('/api/admin', adminRoutes);
 app.use('/api/replies', require('./modules/replies/reply.route'));
+app.post('/api/agency/send-reply', protect, require('./modules/replies/reply.controller').sendAgencyReply);
 app.use('/api/gmail', gmailRoutes);
 app.use('/api/grants', grantPipelineRoutes);
 app.use('/api/coupons', couponRoutes);
 app.use('/api/communication-log', communicationLogRoutes);
+app.use('/api/webhooks', require('./modules/webhooks/webhook.route'));
 app.use('/api/billing', require('./modules/billing/billing.routes'));
 
 if (process.env.NODE_ENV !== 'production') {
-  const { protect, restrictTo } = require('./middlewares/auth.middleware');
   app.get(
     '/api/test-email',
     protect,

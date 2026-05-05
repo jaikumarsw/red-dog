@@ -179,8 +179,8 @@ export default function AdminOpportunitiesPage() {
         </Button>
       </div>
       <div className="overflow-x-auto rounded-xl border border-[#e5e7eb] bg-white shadow-[0_1px_4px_rgba(0,0,0,0.05)]">
-        <table className="w-full text-sm">
-          <thead className="border-b border-[#f0f0f0] bg-[#f9fafb] text-left text-[#6b7280]">
+        <table className="w-full min-w-[800px] text-sm">
+          <thead className="border-b border-[#f0f0f0] bg-[#f9fafb] text-left text-[#6b7280] whitespace-nowrap">
             <tr>
               <th className="p-3">Title</th>
               <th className="p-3">Funder</th>
@@ -277,7 +277,7 @@ export default function AdminOpportunitiesPage() {
                 onChange={(e) => setForm({ ...form, deadline: e.target.value })}
               />
             </div>
-            <div className="grid grid-cols-3 gap-2">
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
               <div>
                 <Label>Min amount</Label>
                 <Input

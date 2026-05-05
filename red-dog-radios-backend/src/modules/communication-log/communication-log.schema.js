@@ -39,8 +39,17 @@ const communicationLogSchema = new mongoose.Schema(
     // The actual content
     subject: { type: String },
     body: { type: String, required: true },
+    fromAddress: { type: String },
+    toAddress: { type: String },
+    messageId: { type: String, index: true },
+    outboxId: { type: mongoose.Schema.Types.ObjectId, ref: 'Outbox', index: true },
+    ashleenSuggestion: { type: String },
+    ashleenFlags: { type: [String] },
+    ashlynSuggestion: { type: String },
+    ashlynFlags: { type: [String] },
 
     // Who and when
+    funder: { type: mongoose.Schema.Types.ObjectId, ref: 'Funder', index: true },
     createdBy: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
     createdByName: { type: String }, // denormalized for display
     createdByRole: { type: String, enum: ['admin', 'agency', 'system'] },
