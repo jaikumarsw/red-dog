@@ -122,7 +122,7 @@ const SidebarContent = ({
         )}
       </div>
 
-      <div className="flex w-full flex-1 min-h-0 flex-col overflow-y-auto">
+      <div className="flex w-full flex-1 min-h-0 flex-col overflow-hidden">
         <div className={`flex flex-col items-start gap-2.5 py-6 w-full ${collapsed ? "px-2" : "px-4"}`}>
           {!collapsed && (
             <div className="flex flex-col items-start px-2 self-stretch w-full">
@@ -301,7 +301,7 @@ export function AppShellLayout({
 
   return (
     <div className="flex min-h-screen w-full overflow-x-hidden bg-neutral-50">
-      <nav className="z-10 hidden h-screen w-64 flex-col items-stretch overflow-hidden border-r border-solid border-[#1f1f1f] bg-[#0d0d0d] lg:fixed lg:inset-y-0 lg:left-0 lg:flex">
+      <nav className="z-10 hidden h-auto w-64 self-stretch flex-col items-stretch overflow-hidden border-r border-solid border-[#1f1f1f] bg-[#0d0d0d] lg:flex">
         <SidebarContent
           collapsed={false}
           menuItems={menuItems}
@@ -314,7 +314,7 @@ export function AppShellLayout({
         />
       </nav>
 
-      <nav className="z-10 hidden h-screen w-16 flex-col items-stretch overflow-hidden border-r border-solid border-[#1f1f1f] bg-[#0d0d0d] md:fixed md:inset-y-0 md:left-0 md:flex lg:hidden">
+      <nav className="z-10 hidden h-auto w-16 self-stretch flex-col items-stretch overflow-hidden border-r border-solid border-[#1f1f1f] bg-[#0d0d0d] md:flex lg:hidden">
         <SidebarContent
           collapsed
           menuItems={menuItems}
@@ -351,7 +351,7 @@ export function AppShellLayout({
         />
       </nav>
 
-      <main className="flex min-h-screen min-w-0 flex-1 flex-col md:pl-16 lg:pl-64">
+      <main className="flex min-h-screen min-w-0 flex-1 flex-col">
         <div className="flex h-14 flex-shrink-0 items-center gap-3 border-b border-[#f0f0f0] bg-white px-4 md:hidden">
           <button
             type="button"

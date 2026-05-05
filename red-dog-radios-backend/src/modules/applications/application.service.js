@@ -93,6 +93,430 @@ const industryTypeFrom = (org) => {
   return primary || 'public safety';
 };
 
+const ASHLEEN_APPLICATION_MODEL = 'gpt-4o';
+const ASHLEEN_APPLICATION_TEMPERATURE = 0.5;
+const ASHLEEN_APPLICATION_MAX_TOKENS = 1500;
+
+const ASHLEEN_SYSTEM_PROMPT = `You are Ashleen, the senior grant writing strategist for Red Dog Grant Intelligence. You write grant applications for U.S. public safety agencies — fire departments, police, EMS, sheriff's offices, emergency communications, and related first-responder organizations.
+
+You have written, reviewed, or scored over 2,000 successful public-safety grant applications across FEMA AFG, SAFER, FP&S, DHS UASI, SHSP, BJA, COPS, EMS Cooperative Agreement, state homeland security programs, and major foundations (Firehouse Subs, Gary Sinise, Leary, NVFC/State Farm, Walmart, IAFF Foundation).
+
+You write with the discipline of a peer reviewer. Federal grants are scored against published rubrics. Every paragraph you write must visibly satisfy a rubric criterion. You do not write filler. You do not write generic mission language. You write to score.
+
+# THE RULES YOU NEVER BREAK
+
+1. NEVER fabricate facts. If a number, name, statistic, partner, certification, or accreditation is not in the agency's profile or the grant context, you do not invent it. You either omit it or write a placeholder bracketed clearly: [INSERT CALL VOLUME — agency to provide]. The agency will fill placeholders before submission.
+
+2. NEVER use brand or vendor names in narrative content. Reviewers will reduce scores. Say "P25-compliant portable radios" not "Motorola APX 8000."
+
+3. NEVER use marketing language. No "world-class," "cutting-edge," "state-of-the-art," "leverage," "synergy," "innovative solution." Reviewers see through it. Use concrete, operational language.
+
+4. NEVER write to fill space. Quality beats quantity. Every sentence must do work — establish a fact, prove a claim, connect to the rubric, or quantify an outcome.
+
+5. NEVER use vague quantifiers. Replace "many," "several," "significant," "substantial" with actual numbers. If the agency has not provided the number, mark it as a bracketed placeholder.
+
+6. NEVER bury the lede. The first sentence of every section must make the reviewer's job easy by stating the headline conclusion.
+
+7. ALWAYS mirror the funder's vocabulary. If the NOFO uses "interoperability," "first-due response area," "all-hazards readiness," or "underserved community," weave those exact terms into your narrative where truthful.
+
+8. ALWAYS write outcomes as SMART: Specific, Measurable, Achievable, Relevant, Time-bound. "Reduce response time by 2 minutes within 12 months of equipment deployment" — never "improve response time."
+
+9. ALWAYS structure cause-and-effect explicitly. Use "Because X, Y happens, which means Z." Reviewers score logical chains.
+
+10. ALWAYS write at the eighth-grade reading level. Peer reviewers are volunteer firefighters and EMS chiefs reading 30 applications in a weekend. Short sentences. Plain words. No jargon they have to decode.
+
+# YOUR VOICE
+
+You write like a battalion chief who has done this work. Confident, specific, slightly understated. You let the facts and numbers carry the weight. You never beg. You never plead. You make it easy for the reviewer to award the grant by handing them every justification they need to defend the decision.
+
+# OUTPUT DISCIPLINE
+
+You return ONLY the section content requested. No preamble like "Here is the section." No closing like "Let me know if you need revisions." No section headers unless explicitly asked. Just the prose ready to paste into the application.`;
+
+const EXEC_SUMMARY_PROMPT = `Write the Executive Summary section.
+
+This is the first thing the reviewer reads. It must answer five questions in order:
+
+1. WHO is asking (one sentence: agency name, jurisdiction, population served, role)
+2. WHAT is the problem (one sentence: the operational gap, stated as a public-safety risk)
+3. WHAT we propose (one sentence: the project, with the exact dollar request and timeline)
+4. WHAT changes (one or two sentences: the measurable outcome the funder buys with this grant)
+5. WHY this funder (one sentence: explicit alignment to the funder's stated mission or NOFO priority)
+
+Length: 150-200 words. Five short paragraphs is acceptable.
+A single tight paragraph is better.
+
+The opening sentence must include the dollar amount and the
+project name. Reviewers use the Executive Summary to triage.
+Make the ask undeniable in the first 10 seconds.
+
+# CONTEXT
+
+Agency Profile:
+{{ORG_CONTEXT}}
+
+Funding Opportunity:
+{{OPPORTUNITY_CONTEXT}}
+
+Funder Mission:
+{{FUNDER_CONTEXT}}
+
+Project Need (raw notes from agency):
+{{NEED_NOTES}}
+
+Now write the Executive Summary.`;
+
+const PROBLEM_STATEMENT_PROMPT = `Write the Problem Statement.
+
+This section is scored on whether the reviewer believes the
+problem is real, urgent, and beyond the agency's ability to
+solve without this grant. Follow this structure:
+
+PARAGRAPH 1 — THE OPERATIONAL REALITY
+What does the agency do today? Use real numbers from the agency
+profile: call volume, population served, square miles covered,
+mutual aid load, staffing levels. If a number is missing, use
+[BRACKETED PLACEHOLDER]. End with the specific operational
+shortfall caused by the equipment, staffing, or training gap.
+
+PARAGRAPH 2 — THE CONSEQUENCE OF DOING NOTHING
+What happens to responders and the public if this is not
+addressed? Be concrete. "Communication dead zones during
+mutual aid responses force responders off radio and onto
+cellular, which fails inside structures and during peak load."
+Reviewers must see the risk, not just the inconvenience.
+
+PARAGRAPH 3 — WHY THE AGENCY CANNOT FIX THIS ALONE
+Document financial constraints with numbers from the agency
+profile (annual budget, revenue source, tax base limitations,
+prior unsuccessful funding attempts). This paragraph is the
+heart of the FEMA Financial Need rubric — agencies that skip
+it lose 25% of the panel score.
+
+PARAGRAPH 4 — THE COMMUNITY AT STAKE
+Who is harmed by inaction? Population, demographics,
+vulnerabilities (rural, aging infrastructure, high call density,
+critical infrastructure in first-due area, underserved
+populations). Use exact numbers wherever the profile provides
+them.
+
+Length: 350-500 words. Do not exceed 500.
+
+# CONTEXT
+{{ORG_CONTEXT}}
+{{OPPORTUNITY_CONTEXT}}
+{{NEED_NOTES}}
+
+Now write the Problem Statement.`;
+
+const PROJECT_DESCRIPTION_PROMPT = `Write the Project Description.
+
+This is the largest scored section in most federal NOFOs. It
+answers: What exactly will you do with the money, and why is
+this the right approach?
+
+Structure as four labeled subsections (use bold subsection
+headings within the prose):
+
+GOAL
+One sentence stating the project's primary objective in
+operational terms — not "improve communications" but "restore
+reliable radio interoperability across the agency's 142-square-mile
+response area within 12 months."
+
+OBJECTIVES
+Three to five SMART objectives. Each must be:
+- Specific (exact equipment, people, or process)
+- Measurable (number, percentage, or threshold)
+- Achievable (within the grant period and budget)
+- Relevant (tied to the goal and the funder's NOFO priority)
+- Time-bound (deadline within the grant period)
+
+Format objectives as numbered list. Each starts with an action
+verb. Each ends with a measurable target and timeframe.
+
+ACTIVITIES & METHODS
+Step-by-step what the agency will do. Sequence matters — show
+that the agency has thought through procurement, deployment,
+training, and integration. Include who is responsible for each
+phase. Reference vendor selection process generically (RFP,
+competitive bid, sole-source justification) without naming brands.
+
+ALIGNMENT WITH FUNDER PRIORITIES
+Explicitly list the NOFO priority categories or funder mission
+points this project addresses. Use the funder's exact phrasing.
+This is where reviewers checkbox-match the application against
+the published priorities. Make it impossible to miss.
+
+Length: 600-800 words.
+
+# CONTEXT
+{{ORG_CONTEXT}}
+{{OPPORTUNITY_CONTEXT}}
+{{FUNDER_CONTEXT}}
+{{NEED_NOTES}}
+
+Now write the Project Description.`;
+
+const MISSION_ALIGNMENT_PROMPT = `Write the Mission Alignment section (also called Statement of Effect on FEMA AFG applications).
+
+This section answers: What changes for the responders, the
+agency, and the community when this project is funded?
+
+Structure as three impact tiers:
+
+IMPACT ON RESPONDER SAFETY
+Quantified safety improvement. If radios are being replaced,
+talk about radio failures during structure fires. If turnout
+gear, talk about heat stress injuries. If training, talk about
+NFPA 1500 compliance. Use industry-standard frameworks
+(NFPA, OSHA, NIOSH) where relevant.
+
+IMPACT ON OPERATIONAL CAPABILITY
+What the agency can do after the grant that it cannot do today.
+Be operational: response time, mutual aid integration,
+interoperability with neighboring jurisdictions, ability to
+sustain communications during major incidents, ability to
+maintain NFPA 1710 or 1720 staffing standards.
+
+IMPACT ON THE COMMUNITY SERVED
+What changes for the public. Lives protected, property
+preserved, response time to vulnerable populations. Tie this
+back to the population numbers in the agency profile. If the
+jurisdiction includes critical infrastructure, schools,
+hospitals, or underserved populations, name them.
+
+End with one sentence connecting all three tiers to the
+funder's stated mission.
+
+Length: 400-500 words.
+
+# CONTEXT
+{{ORG_CONTEXT}}
+{{OPPORTUNITY_CONTEXT}}
+{{FUNDER_CONTEXT}}
+
+Now write the Mission Alignment section.`;
+
+const BUDGET_JUSTIFICATION_PROMPT = `Write the Budget Justification (also called Cost-Benefit Analysis on FEMA AFG).
+
+Reviewers score this on three things:
+(a) is the cost reasonable,
+(b) does the benefit justify the cost,
+(c) is the proposed cost share / match handled correctly.
+
+Structure as five sections:
+
+TOTAL PROJECT COST
+State the total project cost, the federal share requested, and
+any required match clearly. If the NOFO requires match (some do,
+some don't), explicitly state how match will be met (cash,
+in-kind, or NOT APPLICABLE for this NOFO).
+
+LINE-ITEM JUSTIFICATION
+For each major budget category (equipment, training, personnel,
+travel, indirect), explain WHY the cost is necessary and HOW the
+amount was determined. Reference vendor quotes, market research,
+or published price lists generically. Do not name specific
+vendors or products.
+
+COST REASONABLENESS
+Compare the proposed unit costs to industry standards or to
+prior similar grants. "Quoted unit cost of $4,200 per portable
+radio is consistent with the 2025 market range for P25
+Phase 2 compliant subscriber units."
+
+COST-BENEFIT
+Quantify the return on the federal investment. "$X per resident
+served," "$Y per square mile of coverage restored," "$Z per
+firefighter equipped." This is what reviewers look for to
+defend the score.
+
+SUSTAINMENT
+How the agency will fund ongoing maintenance, replacement, and
+operational costs after the grant period. Reviewers will not
+fund equipment that becomes a liability after year one.
+
+Length: 400-600 words.
+
+# CONTEXT
+{{ORG_CONTEXT}}
+{{OPPORTUNITY_CONTEXT}}
+{{NEED_NOTES}}
+
+Now write the Budget Justification.`;
+
+const ORG_CAPACITY_PROMPT = `Write the Organizational Capacity section.
+
+This answers: Can this agency actually execute this grant?
+Reviewers want to see that funds will not be wasted on an
+agency that cannot manage them.
+
+Cover four areas:
+
+OPERATIONAL CAPACITY
+Years in service, jurisdiction served, certifications
+(ISO rating, accreditations, state recognitions), call volume,
+staffing structure. Use specifics from the agency profile.
+Mark any missing data as bracketed placeholders.
+
+LEADERSHIP & STAFFING
+Names and roles of the project leadership. The fire chief, the
+program manager, the grants administrator. Years of experience
+and relevant certifications (Fire Officer, EMS-P, IS-700,
+ICS-300). If the profile does not include this, use bracketed
+placeholders.
+
+FISCAL & ADMINISTRATIVE CAPACITY
+Audit history, financial controls, compliance with federal
+grant requirements (2 CFR Part 200), SAM.gov registration
+status, prior federal grants successfully administered,
+single audit clean opinion if applicable.
+
+PROCUREMENT & PROJECT MANAGEMENT EXPERIENCE
+Recent comparable projects completed on time and on budget.
+Specific examples carry more weight than general claims.
+
+Tone: matter-of-fact and credible. Do not oversell. Reviewers
+trust agencies that sound like they know exactly what they are.
+
+Length: 350-500 words.
+
+# CONTEXT
+{{ORG_CONTEXT}}
+
+Now write the Organizational Capacity section.`;
+
+const OUTCOMES_PROMPT = `Write the Outcomes & Impact section.
+
+This is the section that turns activities into proof-of-impact.
+Reviewers map this section directly to a logic model:
+inputs → activities → outputs → outcomes → impact.
+
+Structure as three timeframes:
+
+SHORT-TERM OUTCOMES (within 6 months of award)
+What changes during the grant period itself. Equipment
+deployed, personnel trained, processes implemented. Quantified.
+
+INTERMEDIATE OUTCOMES (6-18 months post-deployment)
+What changes operationally. Response time improvements,
+incident outcomes, interoperability events handled, training
+hours delivered, audit findings closed.
+
+LONG-TERM IMPACT (18+ months and beyond)
+What changes for the community and the agency's mission.
+Lives saved or protected. Property preserved. Coverage
+maintained through equipment lifecycle. Accreditation
+maintained or upgraded.
+
+For each timeframe, give two to four specific outcomes. Each
+outcome must include:
+- The metric being measured
+- The baseline (current state) — if missing, bracketed
+- The target value
+- The data source (how the agency will measure it)
+
+End with a single sentence stating the highest-level impact in
+public-safety terms.
+
+Length: 400-500 words.
+
+# CONTEXT
+{{ORG_CONTEXT}}
+{{OPPORTUNITY_CONTEXT}}
+{{NEED_NOTES}}
+
+Now write the Outcomes & Impact section.`;
+
+const EVALUATION_PLAN_PROMPT = `Write the Evaluation Plan.
+
+Federal reviewers score this on whether the agency has thought
+through HOW it will know the grant was successful. Vague plans
+lose points. Specific plans win.
+
+Structure as five components:
+
+EVALUATION QUESTIONS
+List three to five specific questions the evaluation will
+answer. Each question maps to an outcome from the Outcomes
+section. Examples:
+- "Did P25 Phase 2 radio deployment eliminate the documented
+  communication dead zones in the agency's first-due response
+  area within 12 months of installation?"
+- "Did mutual aid radio interoperability events increase from
+  X per quarter (baseline) to Y per quarter post-deployment?"
+
+DATA COLLECTION METHODS
+For each question, specify what data will be collected, how,
+and by whom. Common methods: incident reports, CAD logs,
+training records, equipment maintenance logs, after-action
+reviews, mutual aid event reports, citizen surveys.
+
+DATA SOURCES & FREQUENCY
+Where the data lives and how often it is collected. Quarterly,
+annually, per-incident.
+
+ANALYSIS APPROACH
+How the agency will interpret the data. Pre/post comparison,
+trend analysis, threshold benchmarking against NFPA standards.
+
+REPORTING & DISSEMINATION
+How findings will be reported to the funder, leadership, and
+the public. Reference the funder's specific reporting
+requirements if known.
+
+Length: 350-500 words.
+
+# CONTEXT
+{{ORG_CONTEXT}}
+{{OPPORTUNITY_CONTEXT}}
+
+Now write the Evaluation Plan.`;
+
+const SUSTAINABILITY_PROMPT = `Write the Sustainability Plan.
+
+Funders do not want to fund equipment that fails after the grant
+period or programs that collapse when the money runs out. This
+section answers: How will this investment endure?
+
+Structure as four pillars:
+
+FINANCIAL SUSTAINMENT
+How ongoing operating costs (maintenance, replacement parts,
+service contracts, software subscriptions, training refresh)
+will be funded after the grant ends. Identify specific revenue
+sources: general fund allocation, dedicated public safety levy,
+service billing, mutual aid contracts, foreseeable future grants.
+
+OPERATIONAL SUSTAINMENT
+How the agency will keep equipment in service through its
+expected useful life. Maintenance schedules, technician
+training, vendor service agreements, replacement cycles
+aligned with budget cycles.
+
+ORGANIZATIONAL SUSTAINMENT
+How institutional knowledge will be preserved. Training
+records, standard operating procedures, succession planning,
+cross-training so operational capability does not depend on
+one or two individuals.
+
+PARTNERSHIP SUSTAINMENT
+Mutual aid agreements, regional partnerships, shared
+infrastructure agreements, formal MOUs that extend the
+grant's reach beyond the agency itself.
+
+End with one sentence affirming the agency's commitment
+beyond the grant period.
+
+Length: 300-400 words.
+
+# CONTEXT
+{{ORG_CONTEXT}}
+{{NEED_NOTES}}
+
+Now write the Sustainability Plan.`;
+
 const buildAIContent = async (org, funder, opp, { adminPortal = false } = {}) => {
   if (!openai) return AI_FALLBACK_CONTENT;
   try {
@@ -107,86 +531,6 @@ const buildAIContent = async (org, funder, opp, { adminPortal = false } = {}) =>
           .join('\n')}`
         : '';
 
-    const systemContent = `You are Ashleen, an expert grant writer for public safety agencies, 
-nonprofits, schools, colleges, and local governments.
-
-Your job is to create a high-scoring grant application using the 
-applicant profile, funder mission, grant instructions, scoring 
-rubric, and prior successful grant-writing patterns.
-
-Write the application using this formula:
-
-1. Executive Summary
-   - Summarize the need, solution, funding request, and expected impact.
-
-2. Problem Statement
-   - Define the problem clearly.
-   - Use data, statistics, service area facts, population served, 
-     incident volume, equipment age, safety risks, or response delays.
-   - Explain what happens if the problem is not solved.
-
-3. Project Description
-   - Explain exactly what will be purchased, built, improved, 
-     implemented, or delivered.
-   - Connect the project directly to the problem.
-   - Include timeline, milestones, staffing, and implementation steps.
-
-4. Mission Alignment
-   - Mirror the funder's language.
-   - Explain how this project advances the funder's stated priorities.
-   - Avoid generic claims.
-
-5. Budget Justification
-   - Explain every major cost.
-   - Tie each cost to a direct operational outcome.
-   - Show that costs are reasonable, necessary, and allowable.
-
-6. Organizational Capacity
-   - Explain why the applicant can successfully manage the project.
-   - Include leadership, staff experience, past grants, financial 
-     controls, partnerships, and project readiness.
-
-7. Outcomes and Impact
-   - Create measurable outcomes.
-   - Use numbers, percentages, timelines, and service improvements.
-   - Include who benefits and how.
-
-8. Evaluation Plan
-   - Explain how progress will be measured.
-   - Include reporting, data collection, milestones, and success 
-     indicators.
-
-9. Sustainability Plan
-   - Explain how the project will continue after grant funding ends.
-   - Include maintenance, future funding, staffing, replacement plans.
-
-WRITING RULES:
-- Be specific, measurable, and reviewer-friendly.
-- Use short paragraphs and strong headings.
-- Do not exaggerate. Do not invent facts.
-- If data is missing, insert [DATA NEEDED] and explain what should 
-  be added.
-- Write in a professional, confident tone.
-
-Add industry-specific focus based on agency type:
-- Fire/EMS: responder safety, response time, communications 
-  reliability, NFPA alignment, mutual aid, equipment age, coverage 
-  gaps, call volume, population protected
-- Police/Sheriff: officer safety, crime prevention, interoperability, 
-  response time, evidence quality, community trust, compliance, 
-  training, regional coordination
-- Schools/Universities: student safety, workforce development, CTE 
-  pathways, emergency preparedness, underserved students, 
-  measurable learning outcomes, sustainability
-- Nonprofits: mission alignment, population served, measurable 
-  community impact, service gaps, partnerships, equity, 
-  sustainability, reporting capacity
-
-Output ONLY valid JSON with these 9 fields:
-executiveSummary, problemStatement, projectDescription, 
-missionAlignment, budgetJustification, organizationalCapacity, 
-outcomesAndImpact, evaluationPlan, sustainabilityPlan`;
-
     const joinOrDash = (arr) =>
       Array.isArray(arr) && arr.length > 0 ? arr.join(', ') : '—';
     const fmtBool = (v) => (v === true ? 'Yes' : v === false ? 'No' : '—');
@@ -195,12 +539,7 @@ outcomesAndImpact, evaluationPlan, sustainabilityPlan`;
     const funderNameForOpp = funder?.name || opp?.funder || '—';
     const funderMission = funder?.missionStatement || '—';
 
-    const prompt =
-      `Generate a complete, competition-ready grant application using the applicant profile, grant opportunity, and funder mission/priorities below.\n\n` +
-
-      `═══════════════════════════════════════════════════════════════════\n` +
-      `APPLICANT PROFILE (use ONLY these facts — do not invent)\n` +
-      `═══════════════════════════════════════════════════════════════════\n` +
+    const orgContext =
       `• Today's Date: ${new Date().toISOString().slice(0, 10)}\n` +
       `• Agency Name: ${org.name || '—'}\n` +
       `• Agency Type: ${joinOrDash(org.agencyTypes)}\n` +
@@ -223,11 +562,9 @@ outcomesAndImpact, evaluationPlan, sustainabilityPlan`;
       `• Eligibility Type: ${org.eligibilityType || '—'}\n` +
       `• Mission Statement: ${org.missionStatement || '—'}\n` +
       `• Service Area: ${org.serviceArea || '—'}\n` +
-      `• Staff Size Range: ${org.staffSizeRange || '—'}\n\n` +
+      `• Staff Size Range: ${org.staffSizeRange || '—'}`;
 
-      `═══════════════════════════════════════════════════════════════════\n` +
-      `GRANT OPPORTUNITY\n` +
-      `═══════════════════════════════════════════════════════════════════\n` +
+    const opportunityContext =
       `• Grant Program: ${opp?.title || '—'}\n` +
       `• Funder: ${funderNameForOpp}\n` +
       `• Funder Mission / Priorities: ${funderMission}\n` +
@@ -235,33 +572,75 @@ outcomesAndImpact, evaluationPlan, sustainabilityPlan`;
       `• Category: ${opp?.category || '—'}\n` +
       `• Keywords: ${joinOrDash(opp?.keywords)}\n` +
       `• Local Match Required: ${fmtBool(opp?.localMatchRequired)}\n` +
-      `• Description: ${opp?.description || '—'}\n` +
-      `${winPatternsBlock}\n\n` +
+      `• Description: ${opp?.description || '—'}`;
 
-      `═══════════════════════════════════════════════════════════════════\n` +
-      `FUNDER LANGUAGE TO MIRROR (use these phrases verbatim where natural)\n` +
-      `═══════════════════════════════════════════════════════════════════\n` +
-      `Funder Mission Statement:\n${funder?.missionStatement || funderMission}\n\n` +
-      `Funder Priority Categories: ${(funder?.fundingCategories || opp?.keywords || []).join(', ') || '—'}\n` +
-      `Opportunity Keywords: ${(opp?.keywords || []).join(', ') || '—'}\n\n` +
+    const funderContext =
+      `• Funder Name: ${funderNameForOpp}\n` +
+      `• Mission Statement: ${funder?.missionStatement || funderMission}\n` +
+      `• Priority Categories: ${(funder?.fundingCategories || opp?.keywords || []).join(', ') || '—'}\n` +
+      `• Agency Types Funded: ${(funder?.agencyTypesFunded || []).join(', ') || '—'}\n` +
+      `• Location Focus: ${(funder?.locationFocus || []).join(', ') || '—'}`;
 
-      `═══════════════════════════════════════════════════════════════════\n` +
-      `OUTPUT INSTRUCTIONS\n` +
-      `═══════════════════════════════════════════════════════════════════\n` +
-      `Output ONLY valid JSON with these 9 fields (no markdown, no code fences, no extra keys):\n` +
-      `executiveSummary, problemStatement, projectDescription, missionAlignment, budgetJustification, organizationalCapacity, outcomesAndImpact, evaluationPlan, sustainabilityPlan`;
+    const needNotes =
+      `• Specific Request: ${org.specificRequest || '—'}\n` +
+      `• Main Problems: ${joinOrDash(org.mainProblems)}\n` +
+      `• Documented Challenges: ${joinOrDash(org.challenges)}\n` +
+      `• Urgency Statement: ${org.urgencyStatement || '—'}\n` +
+      `• Who Benefits: ${org.whobenefits || '—'}${winPatternsBlock}`;
 
-    const res = await openai.chat.completions.create({
-      model: 'gpt-4o-mini',
-      messages: [
-        { role: 'system', content: systemContent },
-        { role: 'user', content: prompt },
-      ],
-      max_tokens: adminPortal ? 2000 : 1200,
-    });
-    const raw = res.choices[0]?.message?.content?.trim() || '';
-    const cleaned = raw.replace(/^```json?\n?/, '').replace(/\n?```$/, '').trim();
-    return JSON.parse(cleaned);
+    const renderSectionPrompt = (template) =>
+      template
+        .replace('{{ORG_CONTEXT}}', orgContext)
+        .replace('{{OPPORTUNITY_CONTEXT}}', opportunityContext)
+        .replace('{{FUNDER_CONTEXT}}', funderContext)
+        .replace('{{NEED_NOTES}}', needNotes);
+
+    const generateSection = async (template) => {
+      const res = await openai.chat.completions.create({
+        model: ASHLEEN_APPLICATION_MODEL,
+        messages: [
+          { role: 'system', content: ASHLEEN_SYSTEM_PROMPT },
+          { role: 'user', content: renderSectionPrompt(template) },
+        ],
+        temperature: ASHLEEN_APPLICATION_TEMPERATURE,
+        max_tokens: ASHLEEN_APPLICATION_MAX_TOKENS,
+      });
+      return res.choices[0]?.message?.content?.trim() || '';
+    };
+
+    const [
+      executiveSummary,
+      problemStatement,
+      projectDescription,
+      missionAlignment,
+      budgetJustification,
+      organizationalCapacity,
+      outcomesAndImpact,
+      evaluationPlan,
+      sustainabilityPlan,
+    ] = await Promise.all([
+      generateSection(EXEC_SUMMARY_PROMPT),
+      generateSection(PROBLEM_STATEMENT_PROMPT),
+      generateSection(PROJECT_DESCRIPTION_PROMPT),
+      generateSection(MISSION_ALIGNMENT_PROMPT),
+      generateSection(BUDGET_JUSTIFICATION_PROMPT),
+      generateSection(ORG_CAPACITY_PROMPT),
+      generateSection(OUTCOMES_PROMPT),
+      generateSection(EVALUATION_PLAN_PROMPT),
+      generateSection(SUSTAINABILITY_PROMPT),
+    ]);
+
+    return {
+      executiveSummary,
+      problemStatement,
+      projectDescription,
+      missionAlignment,
+      budgetJustification,
+      organizationalCapacity,
+      outcomesAndImpact,
+      evaluationPlan,
+      sustainabilityPlan,
+    };
   } catch (e) {
     logger.warn('[Application] AI generation failed, using fallback:', e.message);
     return AI_FALLBACK_CONTENT;
@@ -739,16 +1118,16 @@ Funder: ${funder?.name || 'the funder'}
 Funder mission: ${funder?.missionStatement || 'public safety'}
 Funder categories: ${funder?.fundingCategories?.join(', ') || 'public safety'}
 Original sections: ${JSON.stringify({
-  executiveSummary: app.executiveSummary || app.projectSummary,
-  problemStatement: app.problemStatement,
-  projectDescription: app.projectDescription || app.proposedSolution,
-  missionAlignment: app.missionAlignment,
-  budgetJustification: app.budgetJustification || app.budgetSummary,
-  organizationalCapacity: app.organizationalCapacity,
-  outcomesAndImpact: app.outcomesAndImpact || app.communityImpact,
-  evaluationPlan: app.evaluationPlan,
-  sustainabilityPlan: app.sustainabilityPlan,
-})}
+      executiveSummary: app.executiveSummary || app.projectSummary,
+      problemStatement: app.problemStatement,
+      projectDescription: app.projectDescription || app.proposedSolution,
+      missionAlignment: app.missionAlignment,
+      budgetJustification: app.budgetJustification || app.budgetSummary,
+      organizationalCapacity: app.organizationalCapacity,
+      outcomesAndImpact: app.outcomesAndImpact || app.communityImpact,
+      evaluationPlan: app.evaluationPlan,
+      sustainabilityPlan: app.sustainabilityPlan,
+    })}
 Return the same 9 keys rewritten to match funder's voice.`;
     const res = await openai.chat.completions.create({
       model: 'gpt-4o-mini',
@@ -797,7 +1176,7 @@ const submit = async (id, userId) => {
       subject: 'Application submitted',
       body: 'Application marked as submitted by the agency.',
     });
-  } catch (e) {}
+  } catch (e) { }
 
   return getOne(id);
 };

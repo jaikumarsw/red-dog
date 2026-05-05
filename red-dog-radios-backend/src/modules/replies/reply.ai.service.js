@@ -171,8 +171,11 @@ REPLY: [reply draft here]`;
       if (replyDoc?.commLogId) {
         await CommunicationLog.findByIdAndUpdate(replyDoc.commLogId, {
           $set: {
+            // Suggested reply — for agency only
             ashleenSuggestion: suggestedReply,
             ashlynSuggestion: suggestedReply, // legacy field used by admin UI
+            // Analysis — for both agency and admin to see
+            ashleenAnalysis: analysis || null,
             ashleenFlags: analysis ? [analysis] : [],
             ashlynFlags: analysis ? [analysis] : [],
           },

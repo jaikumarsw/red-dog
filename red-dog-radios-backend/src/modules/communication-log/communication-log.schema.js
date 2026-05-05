@@ -43,6 +43,7 @@ const communicationLogSchema = new mongoose.Schema(
     toAddress: { type: String },
     messageId: { type: String, index: true },
     outboxId: { type: mongoose.Schema.Types.ObjectId, ref: 'Outbox', index: true },
+    ashleenAnalysis: { type: String, default: null },
     ashleenSuggestion: { type: String },
     ashleenFlags: { type: [String] },
     ashlynSuggestion: { type: String },

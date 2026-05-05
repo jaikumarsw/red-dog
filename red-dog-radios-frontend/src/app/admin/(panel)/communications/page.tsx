@@ -38,6 +38,7 @@ type LogRecord = {
   body: string;
   fromAddress?: string;
   toAddress?: string;
+  ashleenAnalysis?: string;
   ashleenSuggestion?: string;
   ashlynSuggestion?: string;
   organization?: { _id: string; name: string };
@@ -56,8 +57,7 @@ const FILTERS = [
 const LogRow = ({ record }: { record: LogRecord }) => {
   const [expanded, setExpanded] = useState(false);
   const isInbound = record.direction === "inbound";
-  const ashleenText = record.ashlynSuggestion || record.ashleenSuggestion;
-  const hasAshleen = !!ashleenText;
+  const hasAshleen = !!record.ashleenAnalysis;
 
   return (
     <div
@@ -157,7 +157,8 @@ const LogRow = ({ record }: { record: LogRecord }) => {
             </div>
           )}
 
-          {ashleenText && (
+          {/* Ashleen's analysis only — admin doesn't draft replies */}
+          {record.ashleenAnalysis && (
             <div className="rounded-lg bg-[#fefce8] border border-[#fde68a] p-3">
               <div className="flex items-center gap-1.5 mb-1.5">
                 <div className="w-5 h-5 rounded-full bg-[#ef3e34] flex items-center justify-center">
@@ -166,19 +167,23 @@ const LogRow = ({ record }: { record: LogRecord }) => {
                   </span>
                 </div>
                 <span className="text-xs font-bold text-[#111827] [font-family:'Montserrat',Helvetica]">
-                  Ashleen&apos;s Suggested Reply
+                  Ashleen&apos;s Analysis
                 </span>
               </div>
-              <p className="text-sm text-[#374151] leading-relaxed whitespace-pre-wrap [font-family:'Montserrat',Helvetica]">
-                {ashleenText}
+              <p className="text-sm text-[#374151] leading-relaxed [font-family:'Montserrat',Helvetica]">
+                {record.ashleenAnalysis}
+              </p>
+              <p className="text-[10px] text-[#9ca3af] mt-2 italic [font-family:'Montserrat',Helvetica]">
+                Suggested reply is shown to the agency in their Inbox for editing and sending.
               </p>
             </div>
           )}
 
-          {!ashleenText && (
+          {/* Pending state */}
+          {!record.ashleenAnalysis && (
             <div className="rounded-lg bg-[#fef9c3] border border-[#fde68a] p-3">
               <p className="text-xs text-[#b45309] italic [font-family:'Montserrat',Helvetica]">
-                Ashleen is preparing a suggested reply...
+                Ashleen is analyzing this reply...
               </p>
             </div>
           )}
@@ -211,7 +216,7 @@ export default function AdminCommunicationsPage() {
     let records = allRecords;
 
     if (filter === "ashleen") {
-      records = records.filter((r) => r.ashlynSuggestion || r.ashleenSuggestion);
+      records = records.filter((r) => r.ashleenAnalysis);
     }
 
     if (search.trim()) {
@@ -231,7 +236,7 @@ export default function AdminCommunicationsPage() {
 
   const totalEmails = allRecords.length;
   const inboundCount = allRecords.filter((r) => r.direction === "inbound").length;
-  const ashleenCount = allRecords.filter((r) => r.ashlynSuggestion || r.ashleenSuggestion).length;
+  const ashleenCount = allRecords.filter((r) => r.ashleenAnalysis).length;
 
   return (
     <div className="max-w-6xl space-y-6">

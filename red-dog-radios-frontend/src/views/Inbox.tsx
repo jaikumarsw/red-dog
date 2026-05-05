@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { Mail, MailOpen, ArrowLeft, Send, Copy } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
@@ -133,10 +133,17 @@ const ReplyDetail = ({
 }) => {
   const { toast } = useToast();
   const [copied, setCopied] = useState(false);
+  const [editedSubject, setEditedSubject] = useState(reply.ashleenSuggestedSubject || `Re: ${reply.subject}`);
+  const [editedBody, setEditedBody] = useState(reply.ashleenSuggestion || '');
+
+  useEffect(() => {
+    setEditedSubject(reply.ashleenSuggestedSubject || `Re: ${reply.subject}`);
+    setEditedBody(reply.ashleenSuggestion || '');
+  }, [reply.id]);
 
   const handleCopySuggestion = () => {
-    if (!reply.ashleenSuggestion) return;
-    const text = `Subject: ${reply.ashleenSuggestedSubject || ''}\n\n${reply.ashleenSuggestion}`;
+    if (!editedBody) return;
+    const text = `Subject: ${editedSubject}\n\n${editedBody}`;
     navigator.clipboard.writeText(text);
     setCopied(true);
     toast({ title: 'Copied to clipboard', description: 'Paste into your email client to send.' });
@@ -144,16 +151,20 @@ const ReplyDetail = ({
   };
 
   const handleSendViaOutbox = async () => {
-    if (!reply.ashleenSuggestion) return;
+    if (!editedBody.trim()) {
+      toast({ title: 'Cannot send empty reply', variant: 'destructive' });
+      return;
+    }
     try {
       await api.post('/outbox/send-or-schedule', {
-        subject: reply.ashleenSuggestedSubject || `Re: ${reply.subject}`,
-        htmlBody: `<p>${reply.ashleenSuggestion.replace(/\n/g, '<br>')}</p>`,
+        subject: editedSubject,
+        htmlBody: `<p>${editedBody.replace(/\n/g, '<br>')}</p>`,
         recipient: reply.from.match(/<(.+)>/)?.[1] || reply.from,
         emailType: 'outreach',
         sendMode: 'now',
       });
-      toast({ title: 'Reply sent', description: 'Your response has been sent via your connected email.' });
+      toast({ title: 'Reply sent', description: 'Your response has been sent.' });
+      onBack();
     } catch {
       toast({ title: 'Send failed', description: 'Could not send. Try copying and sending manually.', variant: 'destructive' });
     }
@@ -224,7 +235,10 @@ const ReplyDetail = ({
                 <span className="[font-family:'Montserrat',Helvetica] font-bold text-white text-[10px]">A</span>
               </div>
               <span className="[font-family:'Montserrat',Helvetica] font-bold text-[#111827] text-sm">
-                Ashleen Recommends This Reply
+                Ashleen&apos;s Suggested Reply
+              </span>
+              <span className="text-[10px] text-[#9ca3af] italic [font-family:'Montserrat',Helvetica]">
+                (Edit before sending)
               </span>
             </div>
             <div className="flex gap-2">
@@ -245,28 +259,34 @@ const ReplyDetail = ({
             </div>
           </div>
 
-          {reply.ashleenSuggestedSubject && (
-            <div className="flex flex-col gap-1">
-              <span className="text-[10px] font-bold uppercase tracking-wider text-[#9ca3af] [font-family:'Montserrat',Helvetica]">
-                Suggested Subject
-              </span>
-              <p className="text-sm font-semibold text-[#111827] [font-family:'Montserrat',Helvetica]">
-                {reply.ashleenSuggestedSubject}
-              </p>
-            </div>
-          )}
+          {/* Editable subject */}
+          <div className="flex flex-col gap-1.5">
+            <label className="text-[10px] font-bold uppercase tracking-wider text-[#9ca3af] [font-family:'Montserrat',Helvetica]">
+              Subject
+            </label>
+            <input
+              type="text"
+              value={editedSubject}
+              onChange={(e) => setEditedSubject(e.target.value)}
+              className="w-full rounded-lg border border-[#e5e7eb] px-3 py-2 [font-family:'Montserrat',Helvetica] text-sm text-[#111827] focus:border-[#ef3e34] focus:outline-none focus:ring-2 focus:ring-[#ef3e34]/20"
+            />
+          </div>
 
-          <div className="flex flex-col gap-1">
-            <span className="text-[10px] font-bold uppercase tracking-wider text-[#9ca3af] [font-family:'Montserrat',Helvetica]">
-              Suggested Reply
-            </span>
-            <div className="bg-[#f9fafb] rounded-xl border border-[#e5e7eb] p-4 text-sm text-[#374151] [font-family:'Montserrat',Helvetica] whitespace-pre-wrap leading-relaxed">
-              {reply.ashleenSuggestion}
-            </div>
+          {/* Editable body */}
+          <div className="flex flex-col gap-1.5">
+            <label className="text-[10px] font-bold uppercase tracking-wider text-[#9ca3af] [font-family:'Montserrat',Helvetica]">
+              Reply Body
+            </label>
+            <textarea
+              value={editedBody}
+              onChange={(e) => setEditedBody(e.target.value)}
+              rows={12}
+              className="w-full rounded-lg border border-[#e5e7eb] px-4 py-3 [font-family:'Montserrat',Helvetica] text-sm text-[#374151] focus:border-[#ef3e34] focus:outline-none focus:ring-2 focus:ring-[#ef3e34]/20 leading-relaxed resize-y min-h-[300px]"
+            />
           </div>
 
           <p className="text-[10px] text-[#9ca3af] [font-family:'Montserrat',Helvetica] italic">
-            Review Ashleen&apos;s suggestion before sending. You can copy it and edit in your email client.
+            Edit the subject and body above before sending. Your changes will be sent, not Ashleen&apos;s original draft.
           </p>
         </div>
       )}

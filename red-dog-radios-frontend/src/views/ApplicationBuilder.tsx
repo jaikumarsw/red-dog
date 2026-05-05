@@ -335,11 +335,26 @@ export const ApplicationBuilder = () => {
 
 
   const statusMutation = useMutation({
-    mutationFn: (status: string) => api.put(`/applications/${id}/status`, { status }),
+    mutationFn: (status: string) => api.patch(`/applications/${id}/status`, { status }),
     onSuccess: (_, status) => {
       toast({ title: `Status updated to ${status.replace(/_/g, " ")}` });
       queryClient.invalidateQueries({ queryKey: qk.application(id) });
       queryClient.invalidateQueries({ queryKey: qk.applications() });
+    },
+    onError: () => {
+      toast({ title: "Error", description: "Failed to update application status.", variant: "destructive" });
+    },
+  });
+
+  const submitMutation = useMutation({
+    mutationFn: () => api.put(`/applications/${id}/submit`),
+    onSuccess: () => {
+      toast({ title: "Application submitted" });
+      queryClient.invalidateQueries({ queryKey: qk.application(id) });
+      queryClient.invalidateQueries({ queryKey: qk.applications() });
+    },
+    onError: () => {
+      toast({ title: "Error", description: "Failed to submit application.", variant: "destructive" });
     },
   });
 
@@ -647,6 +662,15 @@ export const ApplicationBuilder = () => {
         </div>
 
         <div className="flex items-center gap-2 sm:shrink-0">
+          {(app.status === "draft" || app.status === "drafting") && (
+            <button
+              onClick={() => submitMutation.mutate()}
+              disabled={submitMutation.isPending || saveMutation.isPending}
+              className="inline-flex items-center justify-center rounded-lg bg-[#ef3e34] px-4 py-2 text-sm font-bold text-white [font-family:'Montserrat',Helvetica] hover:bg-[#d63029] disabled:opacity-50 transition-colors h-10"
+            >
+              {submitMutation.isPending ? "Submitting..." : "Submit Application"}
+            </button>
+          )}
           <button
             onClick={handleExport}
             className="inline-flex items-center justify-center gap-2 rounded-lg border border-[#e5e7eb] bg-white px-3 py-2 text-sm font-medium [font-family:'Montserrat',Helvetica] text-[#374151] hover:bg-[#f9fafb] transition-colors h-10"
