@@ -33,7 +33,13 @@ const replySchema = new mongoose.Schema({
 
   // Agency tracking
   agencyViewed: { type: Boolean, default: false },
-  agencyViewedAt: { type: Date, default: null }
+  agencyViewedAt: { type: Date, default: null },
+  // Link to CommunicationLog record for this reply
+  commLogId: { 
+    type: mongoose.Schema.Types.ObjectId, 
+    ref: 'CommunicationLog',
+    default: null 
+  },
 }, { timestamps: true });
 
 replySchema.index({ organizationId: 1, receivedAt: -1 });

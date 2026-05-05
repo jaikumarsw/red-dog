@@ -1,6 +1,7 @@
 const { google } = require('googleapis');
 const Organization = require('../organizations/organization.schema');
 const Outbox = require('../outbox/outbox.schema');
+const CommunicationLog = require('../communication-log/communication-log.schema');
 const Reply = require('./reply.schema');
 const { getValidAccessToken } = require('../../config/gmail.config');
 const logger = require('../../utils/logger');
@@ -138,6 +139,18 @@ async function pollAgencyInbox(org) {
       // No match = not a reply to one of our emails
       if (!matchedOutboxId) continue;
 
+      // Resolve application linkage from outbox record
+      let applicationId = null;
+      try {
+        const outboxDoc = await Outbox.findById(matchedOutboxId)
+          .select('relatedGrant')
+          .lean();
+        applicationId = outboxDoc?.relatedGrant || null;
+        logger.info(`[ReplyPoll] Resolved applicationId: ${applicationId} from outbox ${matchedOutboxId}`);
+      } catch (err) {
+        logger.warn(`[ReplyPoll] Could not resolve applicationId: ${err.message}`);
+      }
+
       // Extract body
       const { textBody, htmlBody } = extractBodies(msgResp.data.payload);
 
@@ -154,8 +167,40 @@ async function pollAgencyInbox(org) {
       });
 
       foundCount++;
-      logger.info(`[ReplyPoll] Logged reply for org ${org._id}: ${subject}`);
+      logger.info(`[ReplyPoll] Reply saved: ${savedReply._id} from ${from} re: "${subject}"`);
 
+      // Write inbound record to CommunicationLog — non-blocking
+      if (applicationId) {
+        CommunicationLog.create({
+          application: applicationId,
+          organization: org._id,
+          type: 'email_received',
+          direction: 'inbound',
+          subject: subject || '(No subject)',
+          body: textBody || htmlBody || '(No body)',
+          fromAddress: from,
+          messageId: messageId,
+          outboxId: matchedOutboxId,
+          ashleenSuggestion: null, // populated later by Ashleen
+          ashlynSuggestion: null,  // populated later (legacy field)
+          visibleToAgency: true,
+          createdByRole: 'system',
+          createdByName: 'Ashleen (Auto-detected)',
+          receivedAt: new Date(parseInt(msgResp.data.internalDate)),
+        }).then(commLog => {
+          logger.info(`[ReplyPoll] CommunicationLog written: ${commLog._id} for reply ${savedReply._id}`);
+          // Store the commLog ID on the reply for later Ashleen update
+          Reply.findByIdAndUpdate(savedReply._id, { 
+            $set: { commLogId: commLog._id } 
+          }).catch(() => {});
+        }).catch(err => {
+          logger.warn(`[ReplyPoll] Failed to write CommunicationLog: ${err.message}`);
+        });
+      } else {
+        logger.warn(`[ReplyPoll] Skipping CommunicationLog write — no applicationId resolved for reply ${savedReply._id}`);
+      }
+
+      logger.info(`[ReplyPoll] Ashleen analysis triggered for reply ${savedReply._id}`);
       // Fire Ashleen analysis — non-blocking, non-fatal
       generateAshleenSuggestion(savedReply._id.toString()).catch((err) => {
         logger.warn(`[AshleenReply] Background analysis failed: ${err.message}`);

@@ -1032,7 +1032,7 @@ export const ApplicationBuilder = () => {
                 return (
                   <div key={log._id} className={cn(
                     "rounded-xl border p-4 transition-all",
-                    isInbound ? "bg-white border-[#eef2f7] shadow-sm" : "bg-[#fafafa] border-[#f0f0f0]"
+                    isInbound ? "bg-white border-[#fef3c7] shadow-sm" : "bg-[#fafafa] border-[#dbeafe]"
                   )}>
                     <div className="flex items-start gap-3">
                       <div className={cn(
@@ -1043,10 +1043,20 @@ export const ApplicationBuilder = () => {
                       </div>
                       <div className="min-w-0 flex-1">
                         <div className="flex items-center justify-between">
-                          <p className="text-[10px] font-bold text-[#6b7280] uppercase tracking-widest [font-family:'Montserrat',Helvetica]">
-                            {commTypeLabel(log.type)}
-                            {log.direction ? ` · ${commDirectionLabel(log.direction)}` : ""}
-                          </p>
+                          <div className="flex items-center gap-2">
+                            <span
+                              className={cn(
+                                "inline-flex items-center rounded-full px-2 py-0.5 text-[9px] font-bold uppercase tracking-wider",
+                                isInbound ? "bg-amber-100 text-amber-700" : "bg-blue-100 text-blue-700"
+                              )}
+                            >
+                              {isInbound ? "INBOUND — Funder Reply" : "OUTBOUND — Your Email"}
+                            </span>
+                            <p className="text-[10px] font-bold text-[#6b7280] uppercase tracking-widest [font-family:'Montserrat',Helvetica]">
+                              {commTypeLabel(log.type)}
+                              {log.direction ? ` · ${commDirectionLabel(log.direction)}` : ""}
+                            </p>
+                          </div>
                           <span className="text-[10px] text-[#9ca3af]">{relTime}</span>
                         </div>
                         
@@ -1067,23 +1077,31 @@ export const ApplicationBuilder = () => {
                         </div>
 
                         {/* Ashlyn Suggestion Panel */}
-                        {isInbound && log.ashlynSuggestion && !isReplyActive && (
+                        {isInbound && !isReplyActive && (
                           <div className="mt-4 rounded-xl border border-[#ef3e3420] bg-[#fff8f8] p-4">
                             <div className="flex items-center justify-between mb-2">
                               <h4 className="text-[10px] font-bold text-[#ef3e34] uppercase tracking-widest flex items-center gap-1.5">
                                 <span className="w-4 h-4 rounded-full bg-[#ef3e34] flex items-center justify-center text-white text-[8px]">A</span>
                                 Ashlyn&apos;s Suggested Reply
                               </h4>
-                              <button 
-                                onClick={() => startReply(log)}
-                                className="text-[10px] font-bold text-[#ef3e34] hover:underline uppercase tracking-wide"
-                              >
-                                Use Suggestion
-                              </button>
+                              {log.ashlynSuggestion && (
+                                <button 
+                                  onClick={() => startReply(log)}
+                                  className="text-[10px] font-bold text-[#ef3e34] hover:underline uppercase tracking-wide"
+                                >
+                                  Use Suggestion
+                                </button>
+                              )}
                             </div>
-                            <p className="text-xs text-[#4b5563] italic line-clamp-3">
-                              &quot;{log.ashlynSuggestion}&quot;
-                            </p>
+                            {log.ashlynSuggestion ? (
+                              <p className="text-xs text-[#4b5563] italic line-clamp-3">
+                                &quot;{log.ashlynSuggestion}&quot;
+                              </p>
+                            ) : (
+                              <p className="text-[#9ca3af] italic text-xs">
+                                Ashleen is preparing a suggested reply...
+                              </p>
+                            )}
                           </div>
                         )}
 

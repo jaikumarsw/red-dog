@@ -259,6 +259,11 @@ export default function AdminCommunicationsPage() {
   const [searchTerm, setSearchTerm] = useState("");
   const [filter, setFilter] = useState<"all" | "inbound" | "outbound">("all");
   const [selectedLog, setSelectedLog] = useState<CommLogRecord | null>(null);
+  const filterPills: Array<{ label: string; value: "all" | "inbound" | "outbound" }> = [
+    { label: "All", value: "all" },
+    { label: "Inbound Replies", value: "inbound" },
+    { label: "Outbound", value: "outbound" },
+  ];
 
   const { data, isLoading, refetch, isFetching } = useQuery({
     queryKey: ["admin", "communication-log", page, filter],
@@ -303,18 +308,18 @@ export default function AdminCommunicationsPage() {
 
         <div className="flex items-center gap-3">
           <div className="flex items-center gap-1 p-1 bg-white border border-[#e5e7eb] rounded-xl shadow-sm">
-            {(["all", "inbound", "outbound"] as const).map((f) => (
+            {filterPills.map((f) => (
               <button
-                key={f}
-                onClick={() => { setFilter(f); setPage(1); }}
+                key={f.value}
+                onClick={() => { setFilter(f.value); setPage(1); }}
                 className={cn(
                   "px-4 py-1.5 rounded-lg text-[10px] font-bold uppercase tracking-wider transition-all",
-                  filter === f 
+                  filter === f.value 
                     ? "bg-[#ef3e34] text-white shadow-md shadow-red-100" 
                     : "text-[#9ca3af] hover:text-[#6b7280] hover:bg-gray-50"
                 )}
               >
-                {f}
+                {f.label}
               </button>
             ))}
           </div>

@@ -10,6 +10,7 @@
 
 const OpenAI = require('openai').default;
 const Reply = require('./reply.schema');
+const CommunicationLog = require('../communication-log/communication-log.schema');
 const Outbox = require('../outbox/outbox.schema');
 const Application = require('../applications/application.schema');
 const Organization = require('../organizations/organization.schema');
@@ -159,6 +160,30 @@ REPLY: [reply draft here]`;
         ashleenError: null,
       },
     });
+
+    // Also update the CommunicationLog record with Ashleen's suggestion
+    // Uses both field spellings for compatibility with admin UI
+    try {
+      const replyDoc = await Reply.findById(replyId)
+        .select('commLogId')
+        .lean();
+      
+      if (replyDoc?.commLogId) {
+        await CommunicationLog.findByIdAndUpdate(replyDoc.commLogId, {
+          $set: {
+            ashleenSuggestion: suggestedReply,
+            ashlynSuggestion: suggestedReply, // legacy field used by admin UI
+            ashleenFlags: analysis ? [analysis] : [],
+            ashlynFlags: analysis ? [analysis] : [],
+          },
+        });
+        logger.info(`[AshleenReply] CommunicationLog updated with suggestion for reply ${replyId}`);
+      } else {
+        logger.warn(`[AshleenReply] No commLogId on reply ${replyId} — CommunicationLog not updated`);
+      }
+    } catch (err) {
+      logger.warn(`[AshleenReply] Failed to update CommunicationLog with suggestion: ${err.message}`);
+    }
 
     logger.info(`[AshleenReply] Generated suggestion for reply ${replyId}`);
   } catch (err) {
