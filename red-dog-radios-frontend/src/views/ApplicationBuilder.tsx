@@ -454,10 +454,13 @@ export const ApplicationBuilder = () => {
       setReplyDraft({ subject: "", body: "", to: "" });
       commQuery.refetch();
     },
-    onError: (err: any) => {
+    onError: (err: unknown) => {
+      const errorMessage =
+        (err as { response?: { data?: { message?: string } } })?.response?.data
+          ?.message || "Something went wrong";
       toast({ 
         title: "Error sending reply", 
-        description: err.response?.data?.message || "Something went wrong",
+        description: errorMessage,
         variant: "destructive" 
       });
     }

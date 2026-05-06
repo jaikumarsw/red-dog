@@ -210,7 +210,10 @@ export default function AdminCommunicationsPage() {
     },
   });
 
-  const allRecords: LogRecord[] = data?.records || data?.logs || [];
+  const allRecords = useMemo<LogRecord[]>(
+    () => data?.records || data?.logs || [],
+    [data]
+  );
 
   const filteredRecords = useMemo(() => {
     let records = allRecords;

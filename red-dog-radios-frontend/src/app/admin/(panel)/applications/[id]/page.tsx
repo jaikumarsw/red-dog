@@ -54,6 +54,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { cn } from "@/lib/utils";
 
 const BUDGET_LABELS: Record<string, string> = {
   under_25k: "Under $25K",
@@ -124,6 +125,7 @@ export default function AdminApplicationDetailPage() {
   const [agencyExpanded, setAgencyExpanded] = useState(true);
   const notesHydrated = useRef(false);
   const [commOpen, setCommOpen] = useState(false);
+  const [expandedLogs, setExpandedLogs] = useState<Record<string, boolean>>({});
   const [commForm, setCommForm] = useState({
     type: "note",
     direction: "internal",

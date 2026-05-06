@@ -139,7 +139,7 @@ const ReplyDetail = ({
   useEffect(() => {
     setEditedSubject(reply.ashleenSuggestedSubject || `Re: ${reply.subject}`);
     setEditedBody(reply.ashleenSuggestion || '');
-  }, [reply.id]);
+  }, [reply.id, reply.ashleenSuggestedSubject, reply.ashleenSuggestion, reply.subject]);
 
   const handleCopySuggestion = () => {
     if (!editedBody) return;
