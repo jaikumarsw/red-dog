@@ -4,6 +4,7 @@ const nodemailer = require('nodemailer');
 const Organization = require('../modules/organizations/organization.schema');
 const logger = require('../utils/logger');
 const { getValidAccessToken, sendViaGmail } = require('./gmail.config');
+const { sendViaNylas } = require('../modules/nylas/nylas.service');
 
 let transporter = null;
 
@@ -73,37 +74,49 @@ const sendViaSmtp = async ({ to, subject, html, text, replyTo, senderName }) => 
 
 /**
  * sendEmail
- * - If organizationId is provided and org has Gmail OAuth connected → send via Gmail API (OAuth2)
- * - Otherwise → fallback to SMTP (nodemailer)
+ * Priority: Nylas (any provider) → Legacy Gmail OAuth → SMTP fallback
  */
 const sendEmail = async ({ to, subject, html, text, replyTo, senderName, organizationId }) => {
-  try {
-    if (organizationId) {
-      try {
-        const org = await Organization.findById(organizationId).select('gmailOAuth email name');
-        if (org?.gmailOAuth?.isConnected && org?.gmailOAuth?.senderEmail) {
-          const senderEmail = org.gmailOAuth.senderEmail;
-          const accessToken = await getValidAccessToken(org);
-          const result = await sendViaGmail({
-            accessToken,
-            senderEmail,
+  const htmlBody = html || '<p>' + (text || '') + '</p>';
+
+  if (organizationId) {
+    try {
+      const org = await Organization.findById(organizationId).select('gmailOAuth nylasGrant email name');
+
+      // 1. Nylas — works for Gmail, Outlook, Yahoo, IMAP, etc.
+      if (org?.nylasGrant?.isConnected && org?.nylasGrant?.grantId) {
+        try {
+          const result = await sendViaNylas({
+            grantId: org.nylasGrant.grantId,
             to,
             subject,
-            htmlBody: html || '<p>' + (text || '') + '</p>',
+            htmlBody,
             replyTo,
           });
-          return { success: true, id: result.messageId, sentViaGmail: true, senderEmail };
+          return { success: true, id: result.messageId, sentViaNylas: true, provider: org.nylasGrant.provider, senderEmail: org.nylasGrant.email };
+        } catch (nylasErr) {
+          logger.error('[EmailProvider] Nylas send failed, falling back:', nylasErr.message);
         }
-      } catch (gmailErr) {
-        logger.error('[EmailProvider] Gmail send failed, falling back to SMTP:', gmailErr.message);
       }
-    }
 
-    return await sendViaSmtp({ to, subject, html, text, replyTo, senderName });
-  } catch (err) {
-    logger.error('[EmailProvider] sendEmail failed:', err.message);
-    return { success: false, error: err.message, sentViaGmail: false };
+      // 2. Legacy Gmail OAuth
+      if (org?.gmailOAuth?.isConnected && org?.gmailOAuth?.senderEmail) {
+        try {
+          const senderEmail = org.gmailOAuth.senderEmail;
+          const accessToken = await getValidAccessToken(org);
+          const result = await sendViaGmail({ accessToken, senderEmail, to, subject, htmlBody, replyTo });
+          return { success: true, id: result.messageId, sentViaGmail: true, senderEmail };
+        } catch (gmailErr) {
+          logger.error('[EmailProvider] Gmail send failed, falling back to SMTP:', gmailErr.message);
+        }
+      }
+    } catch (err) {
+      logger.error('[EmailProvider] Org lookup failed, falling back to SMTP:', err.message);
+    }
   }
+
+  // 3. SMTP fallback
+  return await sendViaSmtp({ to, subject, html, text, replyTo, senderName });
 };
 
 module.exports = { sendEmail };

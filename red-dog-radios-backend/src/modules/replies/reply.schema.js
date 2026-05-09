@@ -19,8 +19,9 @@ const replySchema = new mongoose.Schema({
   body: { type: String },
   htmlBody: { type: String },
   receivedAt: { type: Date, default: Date.now },
-  // Gmail message ID for dedup (one reply = one record)
+  // Provider message IDs for dedup (one reply = one record)
   gmailMessageId: { type: String, unique: true, sparse: true },
+  nylasMessageId: { type: String, unique: true, sparse: true },
   // Admin tracking
   adminViewed: { type: Boolean, default: false },
 

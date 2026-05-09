@@ -121,7 +121,16 @@ const organizationSchema = new mongoose.Schema(
       accessToken: { type: String },
       refreshToken: { type: String },
       tokenExpiry: { type: Date },
-      senderEmail: { type: String }, // the gmail address we send FROM
+      senderEmail: { type: String },
+      isConnected: { type: Boolean, default: false },
+      connectedAt: { type: Date },
+    },
+
+    // Universal email connection via Nylas (Gmail, Outlook, Yahoo, IMAP, etc.)
+    nylasGrant: {
+      grantId: { type: String },
+      email: { type: String },
+      provider: { type: String }, // "google" | "microsoft" | "yahoo" | "imap" etc.
       isConnected: { type: Boolean, default: false },
       connectedAt: { type: Date },
     },

@@ -100,7 +100,11 @@ const EmailDetailsModal = ({
             <div className="flex flex-col gap-0.5">
               <span className="[font-family:'Montserrat',Helvetica] text-[#9ca3af] text-[10px] uppercase tracking-wider font-bold">Sent Via</span>
               <span className="[font-family:'Montserrat',Helvetica] font-semibold text-[#111827] text-sm">
-                {email.sentViaGmail ? "Gmail (OAuth2)" : "SMTP"}
+                {email.sentViaNylas
+                  ? `${email.provider ?? "Email"} (Nylas)`
+                  : email.sentViaGmail
+                  ? "Gmail (OAuth2)"
+                  : "SMTP"}
               </span>
             </div>
             <div className="flex flex-col gap-0.5">

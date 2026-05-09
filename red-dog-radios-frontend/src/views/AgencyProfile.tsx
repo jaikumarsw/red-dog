@@ -137,12 +137,11 @@ export function AgencyProfile() {
   const searchParams = useSearchParams();
 
   useEffect(() => {
-    if (searchParams.get("gmail") === "connected") {
-      toast({ 
-        title: "Gmail connected ✓",
-        description: "Your funder emails will now send from your Gmail." 
+    if (searchParams.get("email") === "connected" || searchParams.get("gmail") === "connected") {
+      toast({
+        title: "Email connected ✓",
+        description: "Your funder emails will now send from your connected address.",
       });
-      // Replace URL without query param
       window.history.replaceState(null, "", "/settings/agency");
     }
   }, [searchParams, toast]);
@@ -363,8 +362,8 @@ export function AgencyProfile() {
               Email Sending
             </h2>
             <p className="text-sm text-[#6b7280] mb-4">
-              Connect your Gmail to send funder outreach from your address. 
-              Replies land in your Gmail inbox normally.
+              Connect your email (Gmail, Outlook, Yahoo, or any provider) to send
+              funder outreach from your address. Replies land in your inbox normally.
             </p>
             <AgencyGmailConnect variant="card" source="settings" />
           </div>

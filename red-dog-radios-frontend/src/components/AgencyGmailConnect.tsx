@@ -19,28 +19,42 @@ interface Props {
   onConnected?: () => void;
 }
 
-export default function AgencyGmailConnect({ 
-  variant = "card", 
-  source = "settings"
+type EmailStatus = {
+  isConnected: boolean;
+  email: string | null;
+  provider: string | null;
+  connectedAt?: string;
+};
+
+const providerLabel = (provider: string | null) => {
+  if (!provider) return "Email";
+  const map: Record<string, string> = {
+    google: "Gmail",
+    microsoft: "Outlook",
+    yahoo: "Yahoo Mail",
+    imap: "Email (IMAP)",
+  };
+  return map[provider.toLowerCase()] ?? provider;
+};
+
+export default function AgencyGmailConnect({
+  variant = "card",
+  source = "settings",
 }: Omit<Props, "onConnected">) {
   const [confirmDisconnect, setConfirmDisconnect] = useState(false);
   const { toast } = useToast();
 
-  const { data: status, isLoading, refetch } = useQuery({
-    queryKey: ["gmail", "self-status"],
+  const { data: status, isLoading, refetch } = useQuery<EmailStatus>({
+    queryKey: ["nylas", "self-status"],
     queryFn: async () => {
-      const r = await api.get("gmail/oauth/status-self");
-      return r.data.data as {
-        isConnected: boolean;
-        senderEmail: string | null;
-        connectedAt?: string;
-      };
+      const r = await api.get("nylas/oauth/status-self");
+      return r.data.data as EmailStatus;
     },
   });
 
   const connectMutation = useMutation({
     mutationFn: async () => {
-      const r = await api.get(`gmail/oauth/connect-self?source=${source}`);
+      const r = await api.get(`nylas/oauth/connect-self?source=${source}`);
       return r.data.data.url as string;
     },
     onSuccess: (url) => {
@@ -49,7 +63,7 @@ export default function AgencyGmailConnect({
     onError: (err: unknown) => {
       const e = err as { response?: { data?: { message?: string } } };
       toast({
-        title: "Could not start Gmail connection",
+        title: "Could not start email connection",
         description: e?.response?.data?.message ?? "Try again later",
         variant: "destructive",
       });
@@ -58,11 +72,11 @@ export default function AgencyGmailConnect({
 
   const disconnectMutation = useMutation({
     mutationFn: async () => {
-      const r = await api.delete("gmail/oauth/disconnect-self");
+      const r = await api.delete("nylas/oauth/disconnect-self");
       return r.data.data;
     },
     onSuccess: () => {
-      toast({ title: "Gmail disconnected" });
+      toast({ title: "Email disconnected" });
       refetch();
     },
   });
@@ -70,13 +84,14 @@ export default function AgencyGmailConnect({
   if (isLoading) {
     return (
       <div className="flex items-center gap-2 text-sm text-[#6b7280]">
-        <Loader2 size={14} className="animate-spin" /> 
-        Checking Gmail status…
+        <Loader2 size={14} className="animate-spin" />
+        Checking email status…
       </div>
     );
   }
 
   const connected = status?.isConnected;
+  const label = providerLabel(status?.provider ?? null);
 
   if (variant === "inline") {
     return (
@@ -84,11 +99,9 @@ export default function AgencyGmailConnect({
         {connected ? (
           <>
             <CheckCircle2 size={16} className="text-emerald-600" />
-            <span className="text-sm font-medium">
-              {status.senderEmail}
-            </span>
-            <Button 
-              variant="ghost" 
+            <span className="text-sm font-medium">{status.email}</span>
+            <Button
+              variant="ghost"
               size="sm"
               onClick={() => setConfirmDisconnect(true)}
             >
@@ -102,7 +115,7 @@ export default function AgencyGmailConnect({
             className="bg-[#ef3e34] hover:bg-[#d63530] text-white"
           >
             <Mail size={14} className="mr-2" />
-            Connect Gmail
+            Connect Email
           </Button>
         )}
       </div>
@@ -121,13 +134,13 @@ export default function AgencyGmailConnect({
         </div>
         <div className="flex-1">
           <h3 className="font-bold text-[#111827] mb-1">
-            {connected ? "Gmail Connected" : "Connect Your Email"}
+            {connected ? `${label} Connected` : "Connect Your Email"}
           </h3>
           {connected ? (
             <>
               <p className="text-sm text-[#6b7280] mb-3">
                 Emails to funders will be sent from{" "}
-                <strong>{status.senderEmail}</strong>
+                <strong>{status.email}</strong>
               </p>
               <Button
                 variant="outline"
@@ -140,10 +153,10 @@ export default function AgencyGmailConnect({
           ) : (
             <>
               <p className="text-sm text-[#6b7280] mb-3">
-                Connect your Gmail so funder emails come from your 
-                address. Replies land in your inbox normally. We 
-                only send on your behalf — we don&apos;t read your other 
-                emails.
+                Connect your email so funder emails come from your address.
+                Works with Gmail, Outlook, Yahoo, or any email provider.
+                Replies land in your inbox normally — we only send on your
+                behalf.
               </p>
               <Button
                 onClick={() => connectMutation.mutate()}
@@ -151,11 +164,9 @@ export default function AgencyGmailConnect({
                 className="bg-[#ef3e34] hover:bg-[#d63530] text-white"
               >
                 {connectMutation.isPending ? (
-                  <><Loader2 size={14} className="animate-spin mr-2" /> 
-                    Opening Google…</>
+                  <><Loader2 size={14} className="animate-spin mr-2" />Connecting…</>
                 ) : (
-                  <><Mail size={14} className="mr-2" /> 
-                    Connect Gmail Account</>
+                  <><Mail size={14} className="mr-2" />Connect Email Account</>
                 )}
               </Button>
             </>
@@ -163,17 +174,14 @@ export default function AgencyGmailConnect({
         </div>
       </div>
 
-      <AlertDialog 
-        open={confirmDisconnect} 
-        onOpenChange={setConfirmDisconnect}
-      >
+      <AlertDialog open={confirmDisconnect} onOpenChange={setConfirmDisconnect}>
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>Disconnect Gmail?</AlertDialogTitle>
+            <AlertDialogTitle>Disconnect Email?</AlertDialogTitle>
             <AlertDialogDescription>
-              You won&apos;t be able to send emails to funders through 
-              the platform until you reconnect. Existing emails 
-              already sent are not affected.
+              You won&apos;t be able to send emails to funders through the
+              platform until you reconnect. Existing emails already sent are
+              not affected.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>

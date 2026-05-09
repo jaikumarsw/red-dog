@@ -4,36 +4,51 @@ const Outbox = require('../outbox/outbox.schema');
 const CommunicationLog = require('../communication-log/communication-log.schema');
 const Reply = require('./reply.schema');
 const { getValidAccessToken } = require('../../config/gmail.config');
+const { getNylasClient } = require('../../config/nylas.config');
 const logger = require('../../utils/logger');
 
 const { generateAshleenSuggestion } = require('./reply.ai.service');
 
 /**
- * For each connected agency, fetch recent inbox messages and 
+ * For each connected agency, fetch recent inbox messages and
  * detect any that are replies to emails we sent.
- * 
- * Strategy: For each org, look at our recent sent Outbox records 
- * (last 30 days). Get the providerMessageId or subject from each. 
- * Then query Gmail for messages where In-Reply-To header matches 
- * OR subject is "Re: <our subject>".
+ * Supports Nylas-connected orgs (any provider) and legacy Gmail OAuth orgs.
  */
 async function pollAllAgencies() {
-  const orgs = await Organization.find({
-    'gmailOAuth.isConnected': true,
-    'gmailOAuth.accessToken': { $exists: true, $ne: null }
-  }).select('_id name gmailOAuth');
+  const [nylasOrgs, gmailOrgs] = await Promise.all([
+    Organization.find({
+      'nylasGrant.isConnected': true,
+      'nylasGrant.grantId': { $exists: true, $ne: null },
+    }).select('_id name nylasGrant'),
+    Organization.find({
+      'gmailOAuth.isConnected': true,
+      'gmailOAuth.accessToken': { $exists: true, $ne: null },
+      'nylasGrant.isConnected': { $ne: true },
+    }).select('_id name gmailOAuth'),
+  ]);
 
-  logger.info(`[ReplyPoll] Polling ${orgs.length} connected agencies`);
+  logger.info(`[ReplyPoll] Polling ${nylasOrgs.length + gmailOrgs.length} connected agencies (Nylas: ${nylasOrgs.length}, Gmail: ${gmailOrgs.length})`);
 
   const results = { processed: 0, repliesFound: 0, errors: 0 };
 
-  for (const org of orgs) {
+  for (const org of nylasOrgs) {
     try {
-      const found = await pollAgencyInbox(org);
+      const found = await pollAgencyInboxNylas(org);
       results.processed++;
       results.repliesFound += found;
     } catch (err) {
-      logger.error(`[ReplyPoll] Failed for org ${org._id}: ${err.message}`);
+      logger.error(`[ReplyPoll/Nylas] Failed for org ${org._id}: ${err.message}`);
+      results.errors++;
+    }
+  }
+
+  for (const org of gmailOrgs) {
+    try {
+      const found = await pollAgencyInboxGmail(org);
+      results.processed++;
+      results.repliesFound += found;
+    } catch (err) {
+      logger.error(`[ReplyPoll/Gmail] Failed for org ${org._id}: ${err.message}`);
       results.errors++;
     }
   }
@@ -42,119 +57,226 @@ async function pollAllAgencies() {
   return results;
 }
 
-async function pollAgencyInbox(org) {
-  // Get recent outbox records — these are what funders might reply to
+// ---------------------------------------------------------------------------
+// Shared helper — write CommunicationLog and trigger Ashleen
+// ---------------------------------------------------------------------------
+async function saveCommLogAndTriggerAshleen({ savedReply, applicationId, org, subject, textBody, htmlBody, messageId, receivedAt }) {
+  if (applicationId) {
+    try {
+      const commLog = await CommunicationLog.create({
+        application: applicationId,
+        organization: org._id,
+        type: 'email_received',
+        direction: 'inbound',
+        subject: subject || '(No subject)',
+        body: textBody || htmlBody || '(No body)',
+        fromAddress: savedReply.from,
+        messageId,
+        outboxId: savedReply.outboxId,
+        ashleenSuggestion: null,
+        ashlynSuggestion: null,
+        visibleToAgency: true,
+        createdByRole: 'system',
+        createdByName: 'Ashleen (Auto-detected)',
+        receivedAt,
+      });
+
+      await Reply.findByIdAndUpdate(savedReply._id, { $set: { commLogId: commLog._id } });
+      logger.info(`[ReplyPoll] CommunicationLog ${commLog._id} written and linked to reply ${savedReply._id}`);
+    } catch (err) {
+      logger.warn(`[ReplyPoll] Failed to write CommunicationLog: ${err.message}`);
+    }
+  } else {
+    logger.warn(`[ReplyPoll] Skipping CommunicationLog — no applicationId for reply ${savedReply._id}`);
+  }
+
+  generateAshleenSuggestion(savedReply._id.toString()).catch((err) => {
+    logger.warn(`[AshleenReply] Background analysis failed: ${err.message}`);
+  });
+}
+
+// ---------------------------------------------------------------------------
+// Nylas polling (Gmail, Outlook, Yahoo, IMAP, etc.)
+// ---------------------------------------------------------------------------
+async function pollAgencyInboxNylas(org) {
   const thirtyDaysAgo = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000);
   const sentMessages = await Outbox.find({
     relatedOrganization: org._id,
     status: 'sent',
-    sentAt: { $gte: thirtyDaysAgo }
+    sentAt: { $gte: thirtyDaysAgo },
   }).select('_id subject providerMessageId recipient sentAt');
 
   if (sentMessages.length === 0) return 0;
 
-  // Build a map: subject (normalized) -> outboxId
-  // Funders typically reply with "Re: <original subject>"
   const subjectMap = new Map();
   const messageIdMap = new Map();
   for (const msg of sentMessages) {
-    if (msg.subject) {
-      subjectMap.set(normalizeSubject(msg.subject), msg._id);
-    }
-    if (msg.providerMessageId) {
-      messageIdMap.set(msg.providerMessageId, msg._id);
+    if (msg.subject) subjectMap.set(normalizeSubject(msg.subject), msg._id);
+    if (msg.providerMessageId) messageIdMap.set(msg.providerMessageId, msg._id);
+  }
+
+  const nylas = getNylasClient();
+  const grantId = org.nylasGrant.grantId;
+  const receivedAfter = Math.floor(thirtyDaysAgo.getTime() / 1000);
+
+  const { data: messages } = await nylas.messages.list({
+    identifier: grantId,
+    queryParams: { in: 'inbox', limit: 100, receivedAfter },
+  });
+
+  if (!messages || messages.length === 0) return 0;
+
+  let foundCount = 0;
+
+  for (const msg of messages) {
+    try {
+      const nylasMessageId = msg.id;
+      if (await Reply.findOne({ nylasMessageId })) continue;
+
+      const getHeader = (name) =>
+        (msg.headers || []).find((h) => h.name?.toLowerCase() === name.toLowerCase())?.value || '';
+
+      const inReplyTo = getHeader('in-reply-to');
+      const references = getHeader('references');
+      const subject = msg.subject || '';
+      const from = msg.from?.[0]?.email
+        ? `${msg.from[0].name || ''} <${msg.from[0].email}>`.trim()
+        : '';
+
+      let matchedOutboxId = null;
+      if (inReplyTo) {
+        const cleaned = inReplyTo.replace(/[<>]/g, '').trim();
+        if (messageIdMap.has(cleaned)) matchedOutboxId = messageIdMap.get(cleaned);
+      }
+      if (!matchedOutboxId) {
+        const normalized = normalizeSubject(subject);
+        if (subjectMap.has(normalized)) matchedOutboxId = subjectMap.get(normalized);
+      }
+      if (!matchedOutboxId && references) {
+        for (const [ourMsgId, outboxId] of messageIdMap.entries()) {
+          if (references.includes(ourMsgId)) { matchedOutboxId = outboxId; break; }
+        }
+      }
+      if (!matchedOutboxId) continue;
+
+      let applicationId = null;
+      try {
+        const outboxDoc = await Outbox.findById(matchedOutboxId).select('relatedGrant').lean();
+        applicationId = outboxDoc?.relatedGrant || null;
+      } catch (err) {
+        logger.warn(`[ReplyPoll/Nylas] Could not resolve applicationId: ${err.message}`);
+      }
+
+      const textBody = msg.body || '';
+      const receivedAt = msg.date ? new Date(msg.date * 1000) : new Date();
+
+      const savedReply = await Reply.create({
+        outboxId: matchedOutboxId,
+        organizationId: org._id,
+        from,
+        subject,
+        body: textBody,
+        htmlBody: textBody,
+        receivedAt,
+        nylasMessageId,
+      });
+
+      foundCount++;
+      logger.info(`[ReplyPoll/Nylas] Reply saved: ${savedReply._id} from ${from}`);
+
+      await saveCommLogAndTriggerAshleen({
+        savedReply, applicationId, org, subject,
+        textBody, htmlBody: textBody,
+        messageId: nylasMessageId, receivedAt,
+      });
+    } catch (err) {
+      logger.error(`[ReplyPoll/Nylas] Failed message ${msg.id}: ${err.message}`);
     }
   }
 
-  // Get fresh access token
+  return foundCount;
+}
+
+// ---------------------------------------------------------------------------
+// Legacy Gmail OAuth polling
+// ---------------------------------------------------------------------------
+async function pollAgencyInboxGmail(org) {
+  const thirtyDaysAgo = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000);
+  const sentMessages = await Outbox.find({
+    relatedOrganization: org._id,
+    status: 'sent',
+    sentAt: { $gte: thirtyDaysAgo },
+  }).select('_id subject providerMessageId recipient sentAt');
+
+  if (sentMessages.length === 0) return 0;
+
+  const subjectMap = new Map();
+  const messageIdMap = new Map();
+  for (const msg of sentMessages) {
+    if (msg.subject) subjectMap.set(normalizeSubject(msg.subject), msg._id);
+    if (msg.providerMessageId) messageIdMap.set(msg.providerMessageId, msg._id);
+  }
+
   const accessToken = await getValidAccessToken(org);
   const oauth2Client = new google.auth.OAuth2();
   oauth2Client.setCredentials({ access_token: accessToken });
   const gmail = google.gmail({ version: 'v1', auth: oauth2Client });
 
-  // Query Gmail inbox for recent messages (last 30 days)
-  // Use Gmail search query to limit
   const queryDate = Math.floor(thirtyDaysAgo.getTime() / 1000);
   const listResp = await gmail.users.messages.list({
     userId: 'me',
     q: `in:inbox after:${queryDate}`,
-    maxResults: 100
+    maxResults: 100,
   });
 
-  const messageIds = (listResp.data.messages || []).map(m => m.id);
+  const messageIds = (listResp.data.messages || []).map((m) => m.id);
   if (messageIds.length === 0) return 0;
 
   let foundCount = 0;
 
   for (const messageId of messageIds) {
     try {
-      // Skip if we already logged this one
-      const existing = await Reply.findOne({ gmailMessageId: messageId });
-      if (existing) continue;
+      if (await Reply.findOne({ gmailMessageId: messageId })) continue;
 
-      const msgResp = await gmail.users.messages.get({
-        userId: 'me',
-        id: messageId,
-        format: 'full'
-      });
+      const msgResp = await gmail.users.messages.get({ userId: 'me', id: messageId, format: 'full' });
 
       const headers = msgResp.data.payload.headers || [];
-      const getHeader = (name) => 
-        headers.find(h => h.name.toLowerCase() === name.toLowerCase())?.value;
+      const getHeader = (name) =>
+        headers.find((h) => h.name.toLowerCase() === name.toLowerCase())?.value;
 
       const inReplyTo = getHeader('In-Reply-To');
       const references = getHeader('References') || '';
       const subject = getHeader('Subject') || '';
       const from = getHeader('From') || '';
 
-      // Try to match this message to one of our sent outbox records
       let matchedOutboxId = null;
-
-      // Best match: In-Reply-To header matches a providerMessageId
       if (inReplyTo) {
         const cleaned = inReplyTo.replace(/[<>]/g, '').trim();
-        if (messageIdMap.has(cleaned)) {
-          matchedOutboxId = messageIdMap.get(cleaned);
-        }
+        if (messageIdMap.has(cleaned)) matchedOutboxId = messageIdMap.get(cleaned);
       }
-
-      // Fallback: subject is "Re: <our subject>"
       if (!matchedOutboxId) {
         const normalized = normalizeSubject(subject);
-        if (subjectMap.has(normalized)) {
-          matchedOutboxId = subjectMap.get(normalized);
-        }
+        if (subjectMap.has(normalized)) matchedOutboxId = subjectMap.get(normalized);
       }
-
-      // Fallback: References header contains one of our message IDs
       if (!matchedOutboxId && references) {
         for (const [ourMsgId, outboxId] of messageIdMap.entries()) {
-          if (references.includes(ourMsgId)) {
-            matchedOutboxId = outboxId;
-            break;
-          }
+          if (references.includes(ourMsgId)) { matchedOutboxId = outboxId; break; }
         }
       }
-
-      // No match = not a reply to one of our emails
       if (!matchedOutboxId) continue;
 
-      // Resolve application linkage from outbox record
       let applicationId = null;
       try {
-        const outboxDoc = await Outbox.findById(matchedOutboxId)
-          .select('relatedGrant')
-          .lean();
+        const outboxDoc = await Outbox.findById(matchedOutboxId).select('relatedGrant').lean();
         applicationId = outboxDoc?.relatedGrant || null;
-        logger.info(`[ReplyPoll] Resolved applicationId: ${applicationId} from outbox ${matchedOutboxId}`);
+        logger.info(`[ReplyPoll/Gmail] Resolved applicationId: ${applicationId}`);
       } catch (err) {
-        logger.warn(`[ReplyPoll] Could not resolve applicationId: ${err.message}`);
+        logger.warn(`[ReplyPoll/Gmail] Could not resolve applicationId: ${err.message}`);
       }
 
-      // Extract body
       const { textBody, htmlBody } = extractBodies(msgResp.data.payload);
+      const receivedAt = new Date(parseInt(msgResp.data.internalDate));
 
-      // Save reply
       const savedReply = await Reply.create({
         outboxId: matchedOutboxId,
         organizationId: org._id,
@@ -162,55 +284,19 @@ async function pollAgencyInbox(org) {
         subject,
         body: textBody,
         htmlBody,
-        receivedAt: new Date(parseInt(msgResp.data.internalDate)),
-        gmailMessageId: messageId
+        receivedAt,
+        gmailMessageId: messageId,
       });
 
       foundCount++;
-      logger.info(`[ReplyPoll] Reply saved: ${savedReply._id} from ${from} re: "${subject}"`);
+      logger.info(`[ReplyPoll/Gmail] Reply saved: ${savedReply._id} from ${from} re: "${subject}"`);
 
-      // Write CommunicationLog and store its ID on Reply BEFORE firing Ashleen.
-      // This prevents a race where Ashleen finishes before commLogId is saved.
-      if (applicationId) {
-        try {
-          const commLog = await CommunicationLog.create({
-            application: applicationId,
-            organization: org._id,
-            type: 'email_received',
-            direction: 'inbound',
-            subject: subject || '(No subject)',
-            body: textBody || htmlBody || '(No body)',
-            fromAddress: from,
-            messageId: messageId,
-            outboxId: matchedOutboxId,
-            ashleenSuggestion: null, // populated later by Ashleen
-            ashlynSuggestion: null,  // populated later (legacy field)
-            visibleToAgency: true,
-            createdByRole: 'system',
-            createdByName: 'Ashleen (Auto-detected)',
-            receivedAt: new Date(parseInt(msgResp.data.internalDate)),
-          });
-
-          await Reply.findByIdAndUpdate(savedReply._id, {
-            $set: { commLogId: commLog._id }
-          });
-
-          logger.info(`[ReplyPoll] CommunicationLog ${commLog._id} written and linked to reply ${savedReply._id}`);
-        } catch (err) {
-          logger.warn(`[ReplyPoll] Failed to write CommunicationLog: ${err.message}`);
-        }
-      } else {
-        logger.warn(`[ReplyPoll] Skipping CommunicationLog write — no applicationId resolved for reply ${savedReply._id}`);
-      }
-
-      // Fire Ashleen only after commLogId linking is complete (or attempted).
-      logger.info(`[ReplyPoll] Ashleen analysis triggered for reply ${savedReply._id}`);
-      generateAshleenSuggestion(savedReply._id.toString()).catch((err) => {
-        logger.warn(`[AshleenReply] Background analysis failed: ${err.message}`);
+      await saveCommLogAndTriggerAshleen({
+        savedReply, applicationId, org, subject,
+        textBody, htmlBody, messageId, receivedAt,
       });
     } catch (err) {
-      // Per-message errors don't kill the whole poll
-      logger.error(`[ReplyPoll] Failed message ${messageId}: ${err.message}`);
+      logger.error(`[ReplyPoll/Gmail] Failed message ${messageId}: ${err.message}`);
     }
   }
 
@@ -245,4 +331,4 @@ function extractBodies(payload) {
   return { textBody, htmlBody };
 }
 
-module.exports = { pollAllAgencies, pollAgencyInbox };
+module.exports = { pollAllAgencies, pollAgencyInboxNylas, pollAgencyInboxGmail };

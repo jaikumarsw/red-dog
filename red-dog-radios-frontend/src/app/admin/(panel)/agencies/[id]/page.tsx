@@ -38,9 +38,10 @@ import { cn } from "@/lib/utils";
 type OppOpt = { _id: string; title: string; funder: string };
 type FunderOpt = { _id: string; name: string };
 
-type GmailStatus = {
+type EmailStatus = {
   isConnected: boolean;
-  senderEmail?: string;
+  email?: string;
+  provider?: string;
   connectedAt?: string;
 };
 
@@ -79,11 +80,11 @@ export default function AdminAgencyDetailPage() {
     },
   });
 
-  const { data: gmailStatus, isLoading: gmailLoading } = useQuery<GmailStatus>({
-    queryKey: ["admin", "gmail", "status", id],
+  const { data: gmailStatus, isLoading: gmailLoading } = useQuery<EmailStatus>({
+    queryKey: ["admin", "nylas", "status", id],
     queryFn: async () => {
-      const res = await adminApi.get(`gmail/oauth/status/${id}`);
-      return res.data.data as GmailStatus;
+      const res = await adminApi.get(`nylas/oauth/status/${id}`);
+      return res.data.data as EmailStatus;
     },
     enabled: !!id,
     retry: false,
@@ -91,7 +92,7 @@ export default function AdminAgencyDetailPage() {
 
   const connectGmailMutation = useMutation({
     mutationFn: async () => {
-      const res = await adminApi.get("gmail/oauth/connect", { params: { organizationId: id } });
+      const res = await adminApi.get("nylas/oauth/connect", { params: { organizationId: id } });
       return res.data.data as { url: string };
     },
     onSuccess: (d) => {
@@ -100,22 +101,22 @@ export default function AdminAgencyDetailPage() {
         toast({ title: "Error", description: "No OAuth URL returned", variant: "destructive" });
         return;
       }
-      toast({ title: "Opening Google consent screen…" });
+      toast({ title: "Opening email consent screen…" });
       window.location.href = url;
     },
     onError: (err: unknown) => {
       const msg =
         (err as { response?: { data?: { message?: string } } })?.response?.data?.message ??
-        "Could not generate Google consent URL";
+        "Could not generate OAuth URL";
       toast({ title: "Error", description: msg, variant: "destructive" });
     },
   });
 
   const disconnectGmailMutation = useMutation({
-    mutationFn: async () => adminApi.delete(`gmail/oauth/disconnect/${id}`),
+    mutationFn: async () => adminApi.delete(`nylas/oauth/disconnect/${id}`),
     onSuccess: () => {
-      qc.invalidateQueries({ queryKey: ["admin", "gmail", "status", id] });
-      toast({ title: "Gmail disconnected" });
+      qc.invalidateQueries({ queryKey: ["admin", "nylas", "status", id] });
+      toast({ title: "Email disconnected" });
     },
     onError: (err: unknown) => {
       const msg =
@@ -225,9 +226,9 @@ export default function AdminAgencyDetailPage() {
       <div className="rounded-xl border border-gray-200 bg-white p-6">
         <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
           <div>
-            <h2 className="text-lg font-bold text-gray-900">Gmail Sending (OAuth2)</h2>
+            <h2 className="text-lg font-bold text-gray-900">Email Sending</h2>
             <p className="text-sm text-gray-500">
-              Connect a Gmail account so this agency’s outbox emails can send via Gmail API (SMTP fallback remains).
+              Connect an email account (Gmail, Outlook, Yahoo, or any provider) so this agency&apos;s outbox emails send from their address.
             </p>
           </div>
           <div className="flex items-center gap-2">
@@ -248,7 +249,7 @@ export default function AdminAgencyDetailPage() {
                 onClick={() => connectGmailMutation.mutate()}
                 disabled={connectGmailMutation.isPending}
               >
-                {connectGmailMutation.isPending ? "Generating URL…" : "Connect Gmail"}
+                {connectGmailMutation.isPending ? "Generating URL…" : "Connect Email"}
               </Button>
             )}
           </div>
@@ -264,7 +265,7 @@ export default function AdminAgencyDetailPage() {
           <div className="rounded-lg bg-gray-50 p-3">
             <p className="text-xs text-gray-500 font-medium">Sender Email</p>
             <p className="text-sm font-semibold text-gray-900 mt-0.5">
-              {gmailStatus?.senderEmail ? gmailStatus.senderEmail : "—"}
+              {gmailStatus?.email ? gmailStatus.email : "—"}
             </p>
           </div>
           <div className="rounded-lg bg-gray-50 p-3">

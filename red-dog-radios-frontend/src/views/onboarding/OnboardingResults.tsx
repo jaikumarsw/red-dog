@@ -36,10 +36,10 @@ export const OnboardingResults = () => {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    if (searchParams.get("gmail") === "connected") {
-      toast({ 
-        title: "Gmail connected ✓",
-        description: "You can now send emails to funders from your address." 
+    if (searchParams.get("email") === "connected" || searchParams.get("gmail") === "connected") {
+      toast({
+        title: "Email connected ✓",
+        description: "You can now send emails to funders from your address.",
       });
       router.replace("/onboarding/results");
     }
