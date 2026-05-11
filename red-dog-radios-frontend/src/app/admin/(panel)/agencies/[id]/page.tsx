@@ -277,7 +277,7 @@ export default function AdminAgencyDetailPage() {
         </div>
 
         <p className="mt-3 text-xs text-gray-500">
-          After completing Google consent, you’ll be redirected back to the app. Refresh this page to see updated status.
+          After completing email authentication, you&apos;ll be redirected back to the app. Refresh this page to see updated status.
         </p>
       </div>
 

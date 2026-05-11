@@ -1,4 +1,5 @@
 const Opportunity = require('./opportunity.schema');
+const mongoose = require('mongoose');
 const { AppError } = require('../../middlewares/error.middleware');
 const matchService = require('../matches/match.service');
 
@@ -11,8 +12,10 @@ const computeStatus = (deadline) => {
   return 'open';
 };
 
-const getAll = async ({ page = 1, limit = 20, search, status, category, organizationId }) => {
+const getAll = async ({ page = 1, limit = 20, search, status, category, organizationId, sortBy }) => {
   const query = {};
+  const pageNum = parseInt(page, 10);
+  const limitNum = parseInt(limit, 10);
   if (status) query.status = status;
   if (category) query.category = { $regex: category, $options: 'i' };
   if (search) {
@@ -22,9 +25,91 @@ const getAll = async ({ page = 1, limit = 20, search, status, category, organiza
     ];
   }
 
+  if (organizationId && sortBy === 'fitScore') {
+    const Match = require('../matches/match.schema');
+    const orgId =
+      typeof organizationId === 'string'
+        ? new mongoose.Types.ObjectId(organizationId)
+        : organizationId;
+
+    const [docs, totalDocs] = await Promise.all([
+      Opportunity.aggregate([
+        { $match: query },
+        {
+          $lookup: {
+            from: Match.collection.name,
+            let: { oppId: '$_id' },
+            pipeline: [
+              {
+                $match: {
+                  $expr: {
+                    $and: [
+                      { $eq: ['$opportunity', '$$oppId'] },
+                      { $eq: ['$organization', orgId] },
+                    ],
+                  },
+                },
+              },
+              {
+                $project: {
+                  fitScore: 1,
+                  rubricTier: 1,
+                  status: 1,
+                  winProbability: 1,
+                  reasons: 1,
+                  fitReasons: 1,
+                },
+              },
+            ],
+            as: 'matchRows',
+          },
+        },
+        { $addFields: { match: { $arrayElemAt: ['$matchRows', 0] } } },
+        {
+          $addFields: {
+            fitScore: '$match.fitScore',
+            matchTier: '$match.rubricTier',
+            matchStatus: '$match.status',
+            winProbability: '$match.winProbability',
+            matchReasons: {
+              $concatArrays: [
+                { $ifNull: ['$match.fitReasons', []] },
+                { $ifNull: ['$match.reasons', []] },
+              ],
+            },
+          },
+        },
+        { $project: { matchRows: 0, match: 0 } },
+        { $sort: { fitScore: -1, deadline: 1 } },
+        { $skip: (pageNum - 1) * limitNum },
+        { $limit: limitNum },
+      ]),
+      Opportunity.countDocuments(query),
+    ]);
+
+    for (const opp of docs) {
+      const computed = computeStatus(opp.deadline);
+      if (computed !== opp.status) {
+        await Opportunity.findByIdAndUpdate(opp._id, { status: computed });
+        opp.status = computed;
+      }
+    }
+
+    const totalPages = Math.ceil(totalDocs / limitNum) || 1;
+    return {
+      docs,
+      totalDocs,
+      limit: limitNum,
+      page: pageNum,
+      totalPages,
+      hasNextPage: pageNum < totalPages,
+      hasPrevPage: pageNum > 1,
+    };
+  }
+
   const result = await Opportunity.paginate(query, {
-    page: parseInt(page),
-    limit: parseInt(limit),
+    page: pageNum,
+    limit: limitNum,
     sort: { deadline: 1 },
     populate: [
       { path: 'createdBy', select: 'firstName lastName email' },

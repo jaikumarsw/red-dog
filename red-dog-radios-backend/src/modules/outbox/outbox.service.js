@@ -141,13 +141,13 @@ const queueEmail = async ({
     if (relatedAgency || relatedOrganization) {
       const orgId = relatedAgency || relatedOrganization;
       const organization = await Organization.findById(orgId)
-        .select('gmailOAuth.senderEmail email')
+        .select('nylasGrant.email gmailOAuth.senderEmail email')
         .lean();
-      if (organization?.gmailOAuth?.senderEmail) {
-        // Agency has Gmail OAuth connected — replies go to agency Gmail.
+      if (organization?.nylasGrant?.email) {
+        replyTo = organization.nylasGrant.email;
+      } else if (organization?.gmailOAuth?.senderEmail) {
         replyTo = organization.gmailOAuth.senderEmail;
       } else if (organization?.email) {
-        // Fall back to agency contact email.
         replyTo = organization.email;
       }
     }
@@ -170,8 +170,9 @@ const sendEmail = async (outboxId) => {
   try {
     let senderEmailForLog = record.senderEmail || process.env.SMTP_FROM || process.env.SMTP_USER || 'provider-resolved';
     if (record.relatedAgency) {
-      const org = await Organization.findById(record.relatedAgency).select('gmailOAuth.senderEmail').lean();
-      if (org?.gmailOAuth?.senderEmail) senderEmailForLog = org.gmailOAuth.senderEmail;
+      const org = await Organization.findById(record.relatedAgency).select('nylasGrant.email gmailOAuth.senderEmail').lean();
+      if (org?.nylasGrant?.email) senderEmailForLog = org.nylasGrant.email;
+      else if (org?.gmailOAuth?.senderEmail) senderEmailForLog = org.gmailOAuth.senderEmail;
     }
     logger.info(`[Outbox] Sending email — From: ${senderEmailForLog}, Reply-To: ${record.replyTo || 'not-set'}, To: ${record.recipient}`);
 
@@ -191,7 +192,9 @@ const sendEmail = async (outboxId) => {
     record.status = 'sent';
     record.sentAt = new Date();
     record.providerMessageId = result.id || `resend-${Date.now()}`;
+    record.sentViaNylas = !!result.sentViaNylas;
     record.sentViaGmail = !!result.sentViaGmail;
+    record.emailProvider = result.sentViaNylas ? 'nylas' : result.sentViaGmail ? 'gmail' : 'smtp';
     record.senderEmail = result.senderEmail || record.senderEmail;
     await record.save();
     logger.info(`[Outbox] Sent successfully. providerMessageId: ${record.providerMessageId}`);

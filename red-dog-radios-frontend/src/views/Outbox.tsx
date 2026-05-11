@@ -17,6 +17,8 @@ type Email = {
   body: string;
   senderEmail?: string;
   sentViaGmail?: boolean;
+  sentViaNylas?: boolean;
+  emailProvider?: string;
 };
 
 type ApiEmail = {
@@ -35,6 +37,8 @@ type ApiEmail = {
   replyTo?: string;
   senderEmail?: string;
   sentViaGmail?: boolean;
+  sentViaNylas?: boolean;
+  emailProvider?: string;
 };
 
 const fmtDate = (s: string | undefined) => {
@@ -56,6 +60,8 @@ const mapEmail = (e: ApiEmail): Email => ({
   body: e.htmlBody ?? e.body ?? e.htmlContent ?? "",
   senderEmail: e.senderEmail,
   sentViaGmail: e.sentViaGmail,
+  sentViaNylas: e.sentViaNylas,
+  emailProvider: e.emailProvider,
 });
 
 const statusBadge = (s: string) => {
@@ -101,7 +107,7 @@ const EmailDetailsModal = ({
               <span className="[font-family:'Montserrat',Helvetica] text-[#9ca3af] text-[10px] uppercase tracking-wider font-bold">Sent Via</span>
               <span className="[font-family:'Montserrat',Helvetica] font-semibold text-[#111827] text-sm">
                 {email.sentViaNylas
-                  ? `${email.provider ?? "Email"} (Nylas)`
+                  ? `${email.emailProvider ?? "Email"} (Nylas)`
                   : email.sentViaGmail
                   ? "Gmail (OAuth2)"
                   : "SMTP"}
@@ -253,7 +259,11 @@ export const Outbox = () => {
                             {email.status}
                           </span>
                           {email.status === "sent" && (
-                            email.sentViaGmail ? (
+                            email.sentViaNylas ? (
+                              <span className="inline-flex items-center rounded-full bg-violet-100 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide text-violet-800 shrink-0">
+                                via {email.emailProvider ?? "Email"}
+                              </span>
+                            ) : email.sentViaGmail ? (
                               <span className="inline-flex items-center rounded-full bg-blue-100 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide text-blue-800 shrink-0">
                                 via Gmail
                               </span>

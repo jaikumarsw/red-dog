@@ -121,7 +121,7 @@ async function pollAgencyInboxNylas(org) {
 
   const { data: messages } = await nylas.messages.list({
     identifier: grantId,
-    queryParams: { in: 'inbox', limit: 100, receivedAfter },
+    queryParams: { in: 'inbox', limit: 100, receivedAfter, fields: 'include_headers' },
   });
 
   if (!messages || messages.length === 0) return 0;

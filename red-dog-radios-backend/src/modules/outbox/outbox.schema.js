@@ -14,6 +14,8 @@ const outboxSchema = new mongoose.Schema(
     senderLocation: { type: String, default: null },
     senderWebsite: { type: String, default: null },
     sentViaGmail: { type: Boolean, default: false },
+    sentViaNylas: { type: Boolean, default: false },
+    emailProvider: { type: String }, // "nylas" | "gmail" | "smtp"
     emailType: {
       type: String,
       enum: ['weekly_digest', 'alert_digest', 'outreach', 'manual', 'followup_reminder'],

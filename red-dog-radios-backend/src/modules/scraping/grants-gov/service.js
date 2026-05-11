@@ -3,13 +3,20 @@
  *
  * Flow:
  *  1. Create ScrapeRun (status: running)
- *  2. Paginate through Simpler.Grants.gov search API
+ *  2. Paginate through Simpler.Grants.gov — filtered to public-safety categories
  *  3. Normalize each record
- *  4. Score for public safety relevance — skip if below threshold
- *  5. Upsert into Opportunity collection (key: externalSource + externalSourceId)
- *  6. Trigger match recompute for new opportunities
- *  7. Mark stale opportunities as 'closed'
- *  8. Update ScrapeRun with final stats
+ *  4. Score for relevance — skip if below threshold (secondary noise filter)
+ *  5. Fetch full detail for contact info
+ *  6. Upsert into Opportunity collection (key: externalSource + externalSourceId)
+ *  7. Trigger match recompute for new opportunities
+ *  8. Mark stale opportunities (within our categories) as 'closed'
+ *  9. Update ScrapeRun with final stats
+ *
+ * Category pre-filtering means we only pull grants from the four relevant domains:
+ *   LJL  - Law, Justice & Legal Services (COPS, Byrne JAG, corrections, crime prevention)
+ *   DPR  - Disaster Prevention & Relief  (FEMA/AFG, BRIC, emergency management, fire)
+ *   HL   - Health                        (EMS, paramedics, public health emergency)
+ *   ST   - Science & Technology          (NG911, LMR/P25, communications infrastructure)
  */
 
 const Opportunity = require('../../opportunities/opportunity.schema');
@@ -22,7 +29,19 @@ const { normalize, mergeDetail } = require('./normalizer');
 const { scoreOpportunity, shouldIngest } = require('./public-safety-score');
 
 const PAGE_SIZE = 100;
-const STALE_CLOSE_GUARD_MIN_PARSED = 500; // safety: don't mass-close on tiny runs
+
+// Simpler.Grants.gov funding category slugs (snake_case full names).
+// Only opportunities in these categories are fetched at the API level.
+const TARGET_CATEGORIES = [
+  'law_justice_and_legal_services',        // LJL — COPS, Byrne JAG, corrections, crime prevention
+  'disaster_prevention_and_relief',        // DPR — FEMA/AFG, BRIC, emergency management, fire
+  'health',                                // HL  — EMS, paramedics, public health emergency
+  'science_technology_and_other_research_and_development', // ST — NG911, LMR/P25, comms infra
+];
+
+// Safety guard: only run stale-close if we parsed enough records this run.
+// Lowered from 500 because category-filtering means fewer total records.
+const STALE_CLOSE_GUARD_MIN_PARSED = 50;
 
 /**
  * Upsert a single normalized opportunity. Returns 'inserted' | 'updated' | 'unchanged'.
@@ -47,7 +66,6 @@ async function upsertOpportunity(normalized, score, matched) {
     return 'inserted';
   }
 
-  // Detect meaningful change for match-refresh decision
   const meaningfulChanged =
     existing.title !== payload.title ||
     String(existing.deadline) !== String(payload.deadline) ||
@@ -72,7 +90,9 @@ async function runIngestion({ triggeredBy = 'cron' } = {}) {
     triggeredBy,
   });
 
-  logger.info(`[grantsGov] Starting ingestion run ${run._id}`);
+  logger.info(
+    `[grantsGov] Starting ingestion run ${run._id} — categories: ${TARGET_CATEGORIES.join(', ')}`
+  );
 
   const seenSourceIds = new Set();
   const newOpportunityIds = [];
@@ -86,7 +106,8 @@ async function runIngestion({ triggeredBy = 'cron' } = {}) {
         page,
         pageSize: PAGE_SIZE,
         filters: {
-          opportunity_status: { one_of: ['posted'] },
+          opportunity_status: { one_of: ['posted', 'forecasted'] },
+          funding_category: { one_of: TARGET_CATEGORIES },
         },
         sortOrder: [{ order_by: 'post_date', sort_direction: 'descending' }],
       });
@@ -123,7 +144,6 @@ async function runIngestion({ triggeredBy = 'cron' } = {}) {
             const detail = await getOpportunity(normalized.externalSourceId);
             normalized = mergeDetail(normalized, detail);
           } catch (detailErr) {
-            // Non-fatal — log and continue with what we have
             logger.warn(
               `[grantsGov] detail fetch failed for ${normalized.externalSourceId}: ${detailErr.message}`
             );
@@ -134,7 +154,6 @@ async function runIngestion({ triggeredBy = 'cron' } = {}) {
           run.stats.parsed += 1;
 
           if (action === 'inserted') {
-            // Use the result of the upsert directly instead of re-querying
             const insertedDoc = await Opportunity.findOne({
               externalSource: normalized.externalSource,
               externalSourceId: normalized.externalSourceId,
@@ -143,7 +162,6 @@ async function runIngestion({ triggeredBy = 'cron' } = {}) {
               .lean();
             if (insertedDoc?._id) {
               newOpportunityIds.push(insertedDoc._id);
-              // Trigger match computation immediately for this opportunity
               try {
                 await matchService.computeAllForOpportunity(insertedDoc._id);
               } catch (matchErr) {
@@ -169,20 +187,22 @@ async function runIngestion({ triggeredBy = 'cron' } = {}) {
 
       page += 1;
 
-      // Safety circuit breaker — stop if a single run goes wildly off
       if (page > 1000) {
         logger.warn('[grantsGov] page cap reached — stopping pagination');
         break;
       }
     }
 
-    // Close opportunities not seen this run (only if run looks healthy)
+    // Only close grants within our target categories that weren't seen this run.
+    // Scoping to TARGET_CATEGORIES prevents accidentally closing opportunities
+    // that were ingested from a broader search in a previous run.
     if (run.stats.parsed >= STALE_CLOSE_GUARD_MIN_PARSED) {
       const closeResult = await Opportunity.updateMany(
         {
           externalSource: 'grants_gov',
           externalSourceId: { $nin: [...seenSourceIds] },
           status: { $ne: 'closed' },
+          keywords: { $in: TARGET_CATEGORIES },
         },
         { $set: { status: 'closed', externalLastSeenAt: new Date() } }
       );
@@ -193,7 +213,7 @@ async function runIngestion({ triggeredBy = 'cron' } = {}) {
       );
     }
 
-    // Refresh match scores for new opportunities only (cheap)
+    // Refresh match scores for newly inserted opportunities
     let matchRefreshErrors = 0;
     for (const oppId of newOpportunityIds) {
       try {

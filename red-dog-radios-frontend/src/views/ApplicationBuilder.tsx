@@ -346,17 +346,6 @@ export const ApplicationBuilder = () => {
     },
   });
 
-  const submitMutation = useMutation({
-    mutationFn: () => api.put(`/applications/${id}/submit`),
-    onSuccess: () => {
-      toast({ title: "Application submitted" });
-      queryClient.invalidateQueries({ queryKey: qk.application(id) });
-      queryClient.invalidateQueries({ queryKey: qk.applications() });
-    },
-    onError: () => {
-      toast({ title: "Error", description: "Failed to submit application.", variant: "destructive" });
-    },
-  });
 
   const awardResponseMutation = useMutation({
     mutationFn: async () => {
@@ -497,10 +486,10 @@ export const ApplicationBuilder = () => {
   });
 
   const { data: gmailStatus } = useQuery({
-    queryKey: ["gmail", "self-status"],
+    queryKey: ["nylas", "self-status"],
     queryFn: async () => {
-      const r = await api.get("gmail/oauth/status-self");
-      return r.data.data as { isConnected: boolean; senderEmail: string | null };
+      const r = await api.get("nylas/oauth/status-self");
+      return r.data.data as { isConnected: boolean; email: string | null };
     },
   });
 
@@ -665,15 +654,6 @@ export const ApplicationBuilder = () => {
         </div>
 
         <div className="flex items-center gap-2 sm:shrink-0">
-          {(app.status === "draft" || app.status === "drafting") && (
-            <button
-              onClick={() => submitMutation.mutate()}
-              disabled={submitMutation.isPending || saveMutation.isPending}
-              className="inline-flex items-center justify-center rounded-lg bg-[#ef3e34] px-4 py-2 text-sm font-bold text-white [font-family:'Montserrat',Helvetica] hover:bg-[#d63029] disabled:opacity-50 transition-colors h-10"
-            >
-              {submitMutation.isPending ? "Submitting..." : "Submit Application"}
-            </button>
-          )}
           <button
             onClick={handleExport}
             className="inline-flex items-center justify-center gap-2 rounded-lg border border-[#e5e7eb] bg-white px-3 py-2 text-sm font-medium [font-family:'Montserrat',Helvetica] text-[#374151] hover:bg-[#f9fafb] transition-colors h-10"
@@ -1321,16 +1301,16 @@ export const ApplicationBuilder = () => {
                       <div className="flex items-start gap-2">
                         <Mail size={16} className="text-blue-600 mt-0.5" />
                         <div className="text-sm">
-                          <p className="font-medium text-blue-900 mb-1">Gmail not connected</p>
+                          <p className="font-medium text-blue-900 mb-1">Email not connected</p>
                           <p className="text-blue-800 mb-2">
                             This email will be sent from a Red Dog Grant Intelligence system address with your
-                            contact info in the body. Connect your Gmail to send from your own address instead.
+                            contact info in the body. Connect your email to send from your own address instead.
                           </p>
                           <button
                             className="text-blue-700 font-semibold underline"
                             onClick={() => router.push("/settings/agency")}
                           >
-                            Connect Gmail in Settings
+                            Connect Email in Settings
                           </button>
                         </div>
                       </div>
@@ -1340,7 +1320,7 @@ export const ApplicationBuilder = () => {
                   {gmailConnected && (
                     <div className="bg-emerald-50 border border-emerald-200 rounded-lg p-3 mb-4">
                       <p className="text-sm text-emerald-900">
-                        ✓ This will send from <strong>{gmailStatus?.senderEmail}</strong>
+                        ✓ This will send from <strong>{gmailStatus?.email}</strong>
                       </p>
                     </div>
                   )}

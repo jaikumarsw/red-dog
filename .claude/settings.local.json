@@ -10,7 +10,14 @@
       "Bash(node -e \"const Nylas = require\\('nylas'\\); console.log\\(JSON.stringify\\(Object.keys\\(Nylas\\)\\)\\)\")",
       "Bash(node -e \"const d=require\\('/dev/stdin'\\); console.log\\(d.version\\)\")",
       "Bash(node -e \"console.log\\(require\\('./node_modules/nylas/package.json'\\).version\\)\")",
-      "Bash(mkdir -p \"C:\\\\Users\\\\iamja\\\\.claude\\\\projects\\\\c--Users-iamja-Documents-Devoric-Red-Dog\\\\memory\" 2>/dev/null; echo \"done\")"
+      "Bash(mkdir -p \"C:\\\\Users\\\\iamja\\\\.claude\\\\projects\\\\c--Users-iamja-Documents-Devoric-Red-Dog\\\\memory\" 2>/dev/null; echo \"done\")",
+      "Bash(xargs grep -l \"staleTime\\\\|refetchInterval\\\\|polling\")",
+      "WebSearch",
+      "WebFetch(domain:api.usaspending.gov)",
+      "WebFetch(domain:open.gsa.gov)",
+      "WebFetch(domain:www.grants.gov)",
+      "WebFetch(domain:wiki.simpler.grants.gov)",
+      "WebFetch(domain:developer.candid.org)"
     ],
     "additionalDirectories": [
       "C:\\Users\\iamja\\.claude\\projects\\c--Users-iamja-Documents-Devoric-Red-Dog\\memory"
