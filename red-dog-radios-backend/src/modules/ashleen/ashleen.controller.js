@@ -1,5 +1,7 @@
 const asyncHandler = require('../../utils/asyncHandler');
 const openaiConfig = require('../../config/openai.config');
+const { resolveAgencyOrganizationId } = require('../../utils/resolveOrganizationId');
+const tierLimitsService = require('../billing/tierLimits.service');
 
 const ASHLEEN_SYSTEM_PROMPT = `You are Ashleen, the AI Grant Writing Expert for Red Dog Radio Grant Intelligence Platform.
 
@@ -141,6 +143,8 @@ const chat = asyncHandler(async (req, res) => {
     });
 
     const reply = response.choices[0].message.content.trim();
+    const orgId = await resolveAgencyOrganizationId(req.user);
+    if (orgId) await tierLimitsService.recordUsage(orgId, 'chat');
     return res.json({ success: true, data: { reply } });
   } catch (err) {
     const lastUserMsg = [...trimmedMessages].reverse().find((m) => m.role === 'user');

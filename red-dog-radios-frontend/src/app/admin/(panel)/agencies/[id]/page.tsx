@@ -90,28 +90,11 @@ export default function AdminAgencyDetailPage() {
     retry: false,
   });
 
-  const connectGmailMutation = useMutation({
-    mutationFn: async () => {
-      const res = await adminApi.get("nylas/oauth/connect", { params: { organizationId: id } });
-      return res.data.data as { url: string };
-    },
-    onSuccess: (d) => {
-      const url = d?.url;
-      if (!url) {
-        toast({ title: "Error", description: "No OAuth URL returned", variant: "destructive" });
-        return;
-      }
-      toast({ title: "Opening email consent screen…" });
-      window.location.href = url;
-    },
-    onError: (err: unknown) => {
-      const msg =
-        (err as { response?: { data?: { message?: string } } })?.response?.data?.message ??
-        "Could not generate OAuth URL";
-      toast({ title: "Error", description: msg, variant: "destructive" });
-    },
-  });
-
+  // Admins cannot initiate a mailbox connection on behalf of an agency —
+  // every Nylas grant is billable and must be authorized by the agency owner
+  // after they have accepted the paywall. Admins can still disconnect an
+  // existing grant (e.g. abuse mitigation), which is why only the disconnect
+  // mutation lives here.
   const disconnectGmailMutation = useMutation({
     mutationFn: async () => adminApi.delete(`nylas/oauth/disconnect/${id}`),
     onSuccess: () => {
@@ -233,24 +216,18 @@ export default function AdminAgencyDetailPage() {
           </div>
           <div className="flex items-center gap-2">
             {gmailStatus?.isConnected ? (
-              <>
-                <Button
-                  variant="outline"
-                  className="border-red-200 text-red-700 hover:bg-red-50"
-                  onClick={() => disconnectGmailMutation.mutate()}
-                  disabled={disconnectGmailMutation.isPending}
-                >
-                  {disconnectGmailMutation.isPending ? "Disconnecting…" : "Disconnect"}
-                </Button>
-              </>
-            ) : (
               <Button
-                className="bg-[#ef3e34] hover:bg-[#d63530] text-white"
-                onClick={() => connectGmailMutation.mutate()}
-                disabled={connectGmailMutation.isPending}
+                variant="outline"
+                className="border-red-200 text-red-700 hover:bg-red-50"
+                onClick={() => disconnectGmailMutation.mutate()}
+                disabled={disconnectGmailMutation.isPending}
               >
-                {connectGmailMutation.isPending ? "Generating URL…" : "Connect Email"}
+                {disconnectGmailMutation.isPending ? "Disconnecting…" : "Disconnect"}
               </Button>
+            ) : (
+              <span className="rounded-md border border-gray-200 bg-gray-50 px-3 py-2 text-xs text-gray-500">
+                Agency must connect their own email after subscribing
+              </span>
             )}
           </div>
         </div>

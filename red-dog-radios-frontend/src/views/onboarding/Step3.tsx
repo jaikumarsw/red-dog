@@ -9,7 +9,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { cn } from "@/lib/utils";
 import { onboardingStep3Schema, type OnboardingStep3FormValues } from "@/lib/validation-schemas";
 import { RedDogLogo } from "@/components/RedDogLogo";
-import { Wrench, AlertCircle, ChevronRight, CheckSquare } from "lucide-react";
+import { Wrench, AlertCircle, ChevronRight, CheckSquare, Loader2 } from "lucide-react";
 
 const CHALLENGE_OPTIONS = [
   { id: "outdated_equipment", label: "Outdated equipment", icon: "🔧" },
@@ -54,12 +54,15 @@ export const OnboardingStep3 = () => {
   const router = useRouter();
   const [selectedChallenges, setSelectedChallenges] = useState<string[]>([]);
   const [challengeError, setChallengeError] = useState("");
+  const [hydrated, setHydrated] = useState(false);
+  const [loading, setLoading] = useState(false);
 
   const {
     register,
     handleSubmit,
     reset,
     watch,
+    getValues,
     formState: { errors },
   } = useForm<OnboardingStep3FormValues>({
     resolver: zodResolver(onboardingStep3Schema),
@@ -70,7 +73,10 @@ export const OnboardingStep3 = () => {
   const urgencyVal = watch("urgencyStatement");
 
   useEffect(() => {
-    if (typeof window === "undefined") return;
+    if (typeof window === "undefined") {
+      setHydrated(true);
+      return;
+    }
     try {
       const saved = sessionStorage.getItem("rdg_onboarding_step3");
       if (saved) {
@@ -79,7 +85,34 @@ export const OnboardingStep3 = () => {
         if (Array.isArray(parsed.challenges)) setSelectedChallenges(parsed.challenges);
       }
     } catch {}
+    setHydrated(true);
   }, [reset]);
+
+  // Auto-save: textarea changes + selectedChallenges changes both flush the
+  // full step3 payload to sessionStorage so Back/Next/refresh preserves data.
+  useEffect(() => {
+    if (!hydrated || typeof window === "undefined") return;
+    const sub = watch((value) => {
+      try {
+        sessionStorage.setItem(
+          "rdg_onboarding_step3",
+          JSON.stringify({ ...value, challenges: selectedChallenges })
+        );
+      } catch {}
+    });
+    return () => sub.unsubscribe();
+  }, [watch, hydrated, selectedChallenges]);
+
+  useEffect(() => {
+    if (!hydrated || typeof window === "undefined") return;
+    try {
+      const values = getValues();
+      sessionStorage.setItem(
+        "rdg_onboarding_step3",
+        JSON.stringify({ ...values, challenges: selectedChallenges })
+      );
+    } catch {}
+  }, [selectedChallenges, hydrated, getValues]);
 
   const toggleChallenge = (id: string) => {
     setChallengeError("");
@@ -93,6 +126,7 @@ export const OnboardingStep3 = () => {
       setChallengeError("Please select at least one challenge");
       return;
     }
+    setLoading(true);
     if (typeof window !== "undefined") {
       sessionStorage.setItem("rdg_onboarding_step3", JSON.stringify({ ...data, challenges: selectedChallenges }));
     }
@@ -101,7 +135,7 @@ export const OnboardingStep3 = () => {
 
   return (
     <div className="flex min-h-screen flex-col items-center justify-start bg-[#fafafa] px-4 pb-12 pt-6 sm:pt-8">
-      <div className="mb-8 self-center sm:self-start">
+      <div className="mb-8 flex w-full max-w-[540px] justify-center">
         <RedDogLogo className="w-32 sm:w-40" />
       </div>
 
@@ -230,9 +264,18 @@ export const OnboardingStep3 = () => {
           </button>
           <button
             type="submit"
-            className="order-1 sm:order-2 flex items-center justify-center gap-2 rounded-lg bg-[#ef3e34] px-6 py-2.5 [font-family:'Montserrat',Helvetica] font-bold text-sm text-white shadow-sm transition-all hover:bg-[#d9382e] hover:shadow-md active:scale-[0.98]"
+            disabled={loading}
+            className="order-1 sm:order-2 flex items-center justify-center gap-2 rounded-lg bg-[#ef3e34] px-6 py-2.5 [font-family:'Montserrat',Helvetica] font-bold text-sm text-white shadow-sm transition-all hover:bg-[#d9382e] hover:shadow-md active:scale-[0.98] disabled:opacity-70 disabled:cursor-not-allowed"
           >
-            Continue <ChevronRight className="h-4 w-4" />
+            {loading ? (
+              <>
+                <Loader2 className="h-4 w-4 animate-spin" /> Continuing…
+              </>
+            ) : (
+              <>
+                Continue <ChevronRight className="h-4 w-4" />
+              </>
+            )}
           </button>
         </div>
       </form>

@@ -55,6 +55,10 @@ const opportunitySchema = new mongoose.Schema(
     // Adding it here so scraped opportunities score on geography.
     locationFocus: [{ type: String }],
 
+    // Stored embedding for semantic agency matching. Generated async after opportunity save.
+    // Excluded from normal queries (select: false) — only loaded when needed by match engine.
+    descriptionEmbedding: { type: [Number], select: false },
+
     // Public safety relevance — only opportunities with score >= threshold are saved
     publicSafetyScore: { type: Number, default: 0 },
     publicSafetyKeywordsMatched: [{ type: String }],

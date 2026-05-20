@@ -84,6 +84,7 @@ const queueEmail = async ({
   subject,
   htmlBody,
   emailType,
+  bodyFormat,
   isTest,
   emailKey,
   senderName,
@@ -95,6 +96,7 @@ const queueEmail = async ({
   relatedUser,
   relatedGrant,
   scheduledFor,
+  initialStatus,
 }) => {
   try {
     // 1. Strip [DATA NEEDED] placeholders and clean extra whitespace
@@ -103,8 +105,12 @@ const queueEmail = async ({
       .replace(/\n{3,}/g, '\n\n')
       .trim();
 
-    // 2. Convert Markdown to proper HTML (handles [text](url) -> <a href="url">text</a>)
-    let finalHtml = marked.parse(cleanedBody);
+    // 2. Markdown for outreach drafts; pre-built HTML (digests, templates) must not pass through marked
+    const isHtmlBody =
+      bodyFormat === 'html' ||
+      emailType === 'weekly_digest' ||
+      emailType === 'alert_digest';
+    let finalHtml = isHtmlBody ? cleanedBody : marked.parse(cleanedBody);
 
     // 3. Append sender signature if any sender fields are provided
     if ((senderName || senderCompany) && !finalHtml.includes('─────────────────')) {
@@ -133,7 +139,7 @@ const queueEmail = async ({
       relatedUser,
       relatedGrant,
       scheduledFor: scheduledFor || undefined,
-      status: 'pending',
+      status: initialStatus || 'pending',
     });
 
     // Set Reply-To to the agency's real inbox so funder replies route correctly.
@@ -185,7 +191,13 @@ const sendEmail = async (outboxId) => {
       organizationId: record.relatedAgency || undefined,
     });
 
-    if (!result.success && !result.stub) {
+    if (result.stub) {
+      throw new Error(
+        'Email provider not configured. Set SMTP_USER and SMTP_PASS on the server (see .env.example).'
+      );
+    }
+
+    if (!result.success) {
       throw new Error(result.error || 'Email send failed');
     }
 
@@ -211,7 +223,7 @@ const sendEmail = async (outboxId) => {
 const processQueue = async (limit = 50) => {
   const now = new Date();
   const pending = await Outbox.find({
-    status: 'pending',
+    status: 'pending', // explicitly excludes 'draft', 'sent', 'failed'
     retryCount: { $lt: 5 },
     $or: [{ scheduledFor: { $exists: false } }, { scheduledFor: null }, { scheduledFor: { $lte: now } }],
   })

@@ -241,7 +241,7 @@ export const WeeklySummary = () => {
       api.post(`/digests/${id}/send`, { recipientEmail, recipientName }),
     onSuccess: async () => {
       await queryClient.invalidateQueries({ queryKey: qk.digests() });
-      toast({ title: "Digest sent", description: "The weekly summary was queued for email delivery." });
+      toast({ title: "Digest sent", description: "The weekly summary was emailed successfully." });
     },
     onError: (err: unknown) => {
       const msg =

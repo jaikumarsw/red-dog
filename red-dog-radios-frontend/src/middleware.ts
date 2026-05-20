@@ -10,9 +10,19 @@ const AGENCY_PUBLIC = [
 ];
 
 // Pages that must always render regardless of any session cookies. This
-// prevents a stale/expired rdg_token cookie from bouncing users off /signup
-// into /dashboard (which then 401s and kicks them to /login).
-const AGENCY_UNCONDITIONAL = ["/signup"];
+// prevents a stale/expired rdg_token cookie from bouncing users off these
+// auth-flow screens into /dashboard (which would then 401 on data fetches
+// and kick them to /login). All mid-flow auth screens MUST be listed here
+// so a leftover cookie from a previous session cannot break sign-up, OTP,
+// password reset, or sign-in.
+const AGENCY_UNCONDITIONAL = [
+  "/signup",
+  "/otp-verification",
+  "/forgot-password",
+  "/create-password",
+];
+
+const PUBLIC_ALWAYS = ["/privacy-policy", "/terms-of-use"];
 
 export function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;
@@ -24,6 +34,10 @@ export function middleware(request: NextRequest) {
     pathname.includes(".") ||
     pathname === "/"
   ) {
+    return NextResponse.next();
+  }
+
+  if (PUBLIC_ALWAYS.some((p) => pathname === p || pathname.startsWith(`${p}/`))) {
     return NextResponse.next();
   }
 
@@ -80,7 +94,15 @@ export function middleware(request: NextRequest) {
     return NextResponse.redirect(new URL("/onboarding", request.url));
   }
 
-  if (agencyToken && onboardingCookie === "1" && pathname.startsWith("/onboarding")) {
+  // /onboarding/results is the success screen shown immediately after
+  // /onboarding/complete and is also the Nylas OAuth return target
+  // (?email=connected). It must stay reachable even though onboarding=1.
+  if (
+    agencyToken &&
+    onboardingCookie === "1" &&
+    pathname.startsWith("/onboarding") &&
+    !pathname.startsWith("/onboarding/results")
+  ) {
     return NextResponse.redirect(new URL("/dashboard", request.url));
   }
 

@@ -2,7 +2,7 @@ const express = require('express');
 const rateLimit = require('express-rate-limit');
 const { generateSummary, generateEmail, generateApplication, computeMatch } = require('./ai.controller');
 const { protect } = require('../../middlewares/auth.middleware');
-const { requireActiveSubscription } = require('../../middlewares/paywall.middleware');
+const { requireActiveSubscription, checkUsageLimit } = require('../../middlewares/paywall.middleware');
 
 const router = express.Router();
 
@@ -57,7 +57,14 @@ router.post('/generate-summary', protect, requireActiveSubscription, aiLimiter, 
  *               senderName: { type: string }
  *               senderCompany: { type: string }
  */
-router.post('/generate-email', protect, requireActiveSubscription, aiLimiter, generateEmail);
+router.post(
+  '/generate-email',
+  protect,
+  requireActiveSubscription,
+  checkUsageLimit('outreachEmail'),
+  aiLimiter,
+  generateEmail
+);
 
 /**
  * @swagger

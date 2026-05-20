@@ -44,13 +44,10 @@ const oauthDisconnectSelf = asyncHandler(async (req, res) => {
   return res.json({ success: true, data: result });
 });
 
-const oauthConnect = asyncHandler(async (req, res) => {
-  const organizationId = req.query.organizationId || req.body?.organizationId;
-  if (!organizationId) throw new AppError('organizationId is required', 400);
-  assertOrgAccess(req, organizationId);
-  const url = await gmailService.getConnectUrl(organizationId);
-  return success(res, { url }, 'Google OAuth URL generated');
-});
+// Admin-initiated `oauthConnect` was removed: starting a Google OAuth grant
+// on behalf of an agency would create a billable mailbox connection without
+// the agency owner first accepting the paywall. Status + disconnect remain
+// available so admins can still inspect and revoke an existing connection.
 
 const oauthCallback = asyncHandler(async (req, res) => {
   const code = req.query.code;
@@ -59,7 +56,7 @@ const oauthCallback = asyncHandler(async (req, res) => {
 
   await gmailService.handleOAuthCallback({ organizationId, code });
 
-  const frontend = process.env.FRONTEND_URL || 'http://localhost:3000';
+  const frontend = process.env.FRONTEND_URL || 'https://red-dog-frontend-production.up.railway.app';
   if (source === 'onboarding') {
     return res.redirect(`${frontend}/onboarding/results?gmail=connected`);
   }
@@ -82,7 +79,6 @@ module.exports = {
   oauthConnectSelf,
   oauthStatusSelf,
   oauthDisconnectSelf,
-  oauthConnect,
   oauthCallback,
   oauthStatus,
   oauthDisconnect,

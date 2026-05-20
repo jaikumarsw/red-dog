@@ -5,6 +5,7 @@ const Application = require('./application.schema');
 const activityLogService = require('../activityLogs/activityLog.service');
 const { resolveAgencyOrganizationId } = require('../../utils/resolveOrganizationId');
 const { AppError } = require('../../middlewares/error.middleware');
+const tierLimitsService = require('../billing/tierLimits.service');
 
 const assertAppInOrg = async (applicationId, organizationId) => {
   const row = await Application.findById(applicationId).select('organization');
@@ -60,6 +61,7 @@ const generate = asyncHandler(async (req, res) => {
       message: 'Application already exists',
     });
   }
+  await tierLimitsService.recordUsage(organizationId, 'ashleenDraft');
   return created(res, app, 'Application generated with AI');
 });
 
@@ -100,20 +102,6 @@ const remove = asyncHandler(async (req, res) => {
   await assertAppInOrg(req.params.id, organizationId);
   await appService.remove(req.params.id);
   return success(res, null, 'Application deleted');
-});
-
-const regenerate = asyncHandler(async (req, res) => {
-  const organizationId = await resolveAgencyOrganizationId(req.user);
-  await assertAppInOrg(req.params.id, organizationId);
-  const app = await appService.regenerate(req.params.id);
-  return success(res, app, 'Application regenerated');
-});
-
-const alignToFunder = asyncHandler(async (req, res) => {
-  const organizationId = await resolveAgencyOrganizationId(req.user);
-  await assertAppInOrg(req.params.id, organizationId);
-  const aligned = await appService.alignToFunder(req.params.id);
-  return success(res, aligned, 'Application aligned to funder');
 });
 
 const exportApplication = asyncHandler(async (req, res) => {
@@ -164,8 +152,6 @@ module.exports = {
   updateStatus,
   submit,
   remove,
-  regenerate,
-  alignToFunder,
   exportApplication,
   respondToAward,
 };

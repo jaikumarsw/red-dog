@@ -3,6 +3,7 @@ const Organization = require('../organizations/organization.schema');
 const User = require('../auth/user.schema');
 const logger = require('../../utils/logger');
 const { AppError } = require('../../middlewares/error.middleware');
+const tierLimitsService = require('./tierLimits.service');
 
 const isStripeReady = () => Boolean(stripe);
 
@@ -13,15 +14,27 @@ const getOrCreateCustomer = async (orgId) => {
   const org = await Organization.findById(orgId);
   if (!org) throw new AppError('Organization not found', 404);
   
-  if (org.subscription?.stripeCustomerId) {
-    return org.subscription.stripeCustomerId;
+  const existingId = org.subscription?.stripeCustomerId;
+  if (existingId) {
+    // Verify the stored customer still exists in the *current* Stripe account
+    // (it may not after a test→live key swap, account change, or manual delete).
+    try {
+      const existing = await stripe.customers.retrieve(existingId);
+      if (existing && !existing.deleted) return existingId;
+    } catch (err) {
+      const code = err?.raw?.code || err?.code;
+      if (code !== 'resource_missing') throw err;
+      logger.warn(
+        `[Stripe] Stored customer ${existingId} not found in current account — recreating`
+      );
+    }
   }
-  
+
   // Find primary user email
   const user = await User.findOne({ organizationId: orgId })
     .sort({ createdAt: 1 })
     .select('email firstName lastName');
-  
+
   const customer = await stripe.customers.create({
     email: user?.email || org.email,
     name: org.name,
@@ -30,11 +43,11 @@ const getOrCreateCustomer = async (orgId) => {
       agencyName: org.name,
     },
   });
-  
+
   org.subscription = org.subscription || {};
   org.subscription.stripeCustomerId = customer.id;
   await org.save();
-  
+
   return customer.id;
 };
 
@@ -95,7 +108,17 @@ const createPortalSession = async (orgId) => {
 const getSubscriptionStatus = async (orgId) => {
   const org = await Organization.findById(orgId).select('subscription');
   if (!org) throw new AppError('Organization not found', 404);
-  
+
+  let usageLimits = null;
+  if (hasActiveAccess(org.subscription)) {
+    try {
+      usageLimits = await tierLimitsService.getUsageSnapshot(orgId);
+    } catch (err) {
+      logger.error('[Billing] Failed to load usage snapshot:', err.message);
+      usageLimits = tierLimitsService.computeUsageSnapshot(org.subscription || {});
+    }
+  }
+
   return {
     status: org.subscription?.status || 'none',
     tier: org.subscription?.tier || 'none',
@@ -103,13 +126,15 @@ const getSubscriptionStatus = async (orgId) => {
     currentPeriodEnd: org.subscription?.currentPeriodEnd || null,
     cancelAtPeriodEnd: org.subscription?.cancelAtPeriodEnd || false,
     hasAccess: hasActiveAccess(org.subscription),
+    hasPremium: hasPremiumAccess(org.subscription),
+    usageLimits,
   };
 };
 
 // Helper: does the org have active access (paid OR beta)
 const hasActiveAccess = (sub) => {
   if (!sub) return false;
-  if (sub.betaAccess === true) return true;
+  if (sub.betaAccess === true || sub.status === 'beta_access') return true;
   if (sub.status === 'active') return true;
   return false;
 };
@@ -117,7 +142,7 @@ const hasActiveAccess = (sub) => {
 // Helper: does the org have premium tier access
 const hasPremiumAccess = (sub) => {
   if (!sub) return false;
-  if (sub.betaAccess === true) return true; // beta = premium
+  if (sub.betaAccess === true || sub.status === 'beta_access') return true;
   return sub.status === 'active' && sub.tier === 'premium';
 };
 

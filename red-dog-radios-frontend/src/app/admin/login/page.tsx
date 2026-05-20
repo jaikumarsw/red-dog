@@ -13,6 +13,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { cn } from "@/lib/utils";
 import { getAuthErrorMessage } from "@/lib/authErrors";
+import { AuthHeroPanel } from "@/components/AuthHeroPanel";
 
 const schema = z.object({
   email: z.string().email(),
@@ -58,13 +59,7 @@ export default function AdminLoginPage() {
 
   return (
     <div className="flex h-screen w-full overflow-hidden">
-      <div className="relative hidden w-[42%] flex-shrink-0 overflow-hidden lg:block">
-        <img
-          src="/auth-background.png"
-          alt="Red Dog Grant Intelligence"
-          className="h-full w-full object-cover object-center"
-        />
-      </div>
+      <AuthHeroPanel />
 
       <div className="flex min-h-0 min-w-0 flex-1 flex-col items-stretch overflow-y-auto bg-white px-4 py-4 sm:px-8 sm:py-6">
         <div className="mx-auto flex min-h-full w-full max-w-[400px] flex-col items-start justify-center gap-5">

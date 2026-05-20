@@ -33,15 +33,36 @@ export const SignUp = () => {
   const onSubmit = async (data: SignUpFormValues) => {
     setApiError(null);
     setLoading(true);
+
+    // Defensive: a stale rdg_token cookie or rdg_user from a previous session
+    // would make middleware bounce the freshly-signed-up user off
+    // /otp-verification into /dashboard, which then 401s and lands them on
+    // /login. Always start sign-up from a clean state.
+    if (typeof window !== "undefined") {
+      localStorage.removeItem("rdg_token");
+      localStorage.removeItem("rdg_user");
+      document.cookie = "rdg_token=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/;";
+      document.cookie = "rdg_onboarding=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/;";
+    }
+
     try {
       const res = await api.post("/auth/register", {
         fullName: data.fullName.trim(),
         email: String(data.email).trim().toLowerCase(),
         password: data.password,
       });
-      const pendingEmail = (res.data?.data?.email as string | undefined) ?? data.email;
+      const payload = res.data?.data as { email?: string; emailSent?: boolean } | undefined;
+      const pendingEmail = payload?.email ?? data.email;
       if (typeof window !== "undefined") {
         sessionStorage.setItem("rdg_pending_email", String(pendingEmail).trim().toLowerCase());
+      }
+      if (payload?.emailSent === false) {
+        toast({
+          title: "Verification email may not have been sent",
+          description:
+            "On Railway: backend must be on Pro plan with SMTP_USER and SMTP_PASS set, then redeploy. If port 465 times out, try port 587 with SMTP_SECURE=false. You can resend the code from the next screen.",
+          variant: "destructive",
+        });
       }
       router.push("/otp-verification");
     } catch (err: unknown) {
@@ -227,6 +248,14 @@ export const SignUp = () => {
           </form>
           <p className="mt-5 w-full text-center [font-family:'Montserrat',Helvetica] text-xs font-normal text-[#9ca3af] sm:mt-6">
             © 2026 Red Dog Grant Intelligence · Grant Intelligence Platform
+            <span className="mx-1">·</span>
+            <Link href="/terms-of-use" className="text-[#ef3e34] hover:underline">
+              Terms of Use
+            </Link>
+            <span className="mx-1">·</span>
+            <Link href="/privacy-policy" className="text-[#ef3e34] hover:underline">
+              Privacy Policy
+            </Link>
           </p>
         </div>
       </div>

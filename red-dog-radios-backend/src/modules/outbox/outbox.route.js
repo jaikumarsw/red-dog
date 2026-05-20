@@ -11,8 +11,13 @@ const {
   sendEmail,
   sendOrSchedule,
   retryFailed,
+  deleteDraft
 } = require('./outbox.controller');
 const { protect, restrictTo } = require('../../middlewares/auth.middleware');
+const {
+  requireActiveSubscription,
+  checkUsageLimit,
+} = require('../../middlewares/paywall.middleware');
 
 const router = express.Router();
 
@@ -60,7 +65,7 @@ router.get('/grant/:grantId', protect, getGrantHistory);
  *               emailType: { type: string }
  */
 router.post('/queue', protect, queueEmail);
-router.post('/send-or-schedule', protect, sendOrSchedule);
+router.post('/send-or-schedule', protect, requireActiveSubscription, sendOrSchedule);
 
 /**
  * @swagger
@@ -88,7 +93,13 @@ router.get('/:id', protect, getOne);
  *     tags: [Outbox]
  *     security: [{ bearerAuth: [] }]
  */
-router.post('/:id/send', protect, sendEmail);
+router.post(
+  '/:id/send',
+  protect,
+  requireActiveSubscription,
+  checkUsageLimit('outboxSend'),
+  sendEmail
+);
 
 /**
  * @swagger
@@ -99,6 +110,7 @@ router.post('/:id/send', protect, sendEmail);
  *     security: [{ bearerAuth: [] }]
  */
 router.post('/:id/retry', protect, retryFailed);
+router.delete('/draft/:id', protect, deleteDraft);
 
 // ── Admin Outbox dashboard endpoints (do not break agency outbox) ────────────
 router.get('/admin/all', protect, restrictTo('admin'), adminGetAll);

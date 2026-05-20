@@ -11,6 +11,7 @@ import { useRouter } from "next/navigation";
 import { cn } from "@/lib/utils";
 import { SettingsSectionCard, SettingsToggle } from "@/components/settings/SettingsPrimitives";
 import { DeleteAccountModal } from "@/components/settings/DeleteAccountModal";
+import AgencyGmailConnect from "@/components/AgencyGmailConnect";
 import { settingsSaveSchema, type SettingsSaveFormValues } from "@/lib/validation-schemas";
 import api from "@/lib/api";
 import { useAuth } from "@/lib/AuthContext";
@@ -327,6 +328,14 @@ export const Settings = () => {
               </div>
             )}
           </div>
+        </SettingsSectionCard>
+
+        <SettingsSectionCard
+          icon={<Mail size={15} />}
+          title="Email Sending"
+          subtitle="Connect your email to send funder outreach from your own address"
+        >
+          <AgencyGmailConnect variant="inline" source="settings" />
         </SettingsSectionCard>
 
         <SettingsSectionCard

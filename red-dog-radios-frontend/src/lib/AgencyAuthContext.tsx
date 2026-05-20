@@ -118,7 +118,16 @@ export const AgencyAuthProvider = ({ children }: { children: ReactNode }) => {
   const updateUser = useCallback((nextUser: AgencyUser) => {
     setUser(nextUser);
     localStorage.setItem(USER_KEY, JSON.stringify(nextUser));
-    const t = localStorage.getItem(TOKEN_KEY) ?? "";
+    const t = localStorage.getItem(TOKEN_KEY);
+    // If the token isn't present (e.g. it was cleared by a 401 interceptor in a
+    // race), do NOT overwrite the rdg_token cookie with an empty value — that
+    // would cause middleware to bounce the user to /login on the next nav.
+    // Still refresh the onboarding cookie so the route gate stays accurate.
+    if (!t) {
+      const maxAge = 7 * 24 * 60 * 60;
+      document.cookie = `rdg_onboarding=${nextUser.onboardingCompleted ? "1" : "0"}; path=/; max-age=${maxAge}`;
+      return;
+    }
     setAuthCookies(t, nextUser.onboardingCompleted);
   }, []);
 

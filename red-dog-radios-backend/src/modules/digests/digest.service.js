@@ -6,6 +6,15 @@ const openai = require('../../config/openai.config');
 const { AppError } = require('../../middlewares/error.middleware');
 const logger = require('../../utils/logger');
 
+const escapeHtml = (text) =>
+  String(text || '')
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;');
+
+const formatIntroHtml = (text) => escapeHtml(text).replace(/\r?\n/g, '<br />');
+
 const getAll = async ({ page = 1, limit = 20, status, organizationId }) => {
   const query = {};
   if (status) query.status = status;
@@ -58,7 +67,7 @@ const buildHtml = (org, matches, aiIntro) => {
         Red Dog Radio Grant Intelligence — Weekly Digest
       </h1>
       <h2 style="color:#444;">${org.name}</h2>
-      <p style="color:#666;line-height:1.6;">${aiIntro}</p>
+      <p style="color:#666;line-height:1.6;">${formatIntroHtml(aiIntro)}</p>
       <h3 style="color:#0d0d0d;margin-top:32px;">TOP OPPORTUNITIES THIS WEEK</h3>
       ${rows}
       <hr style="border:none;border-top:1px solid #eee;margin:32px 0;" />
@@ -82,7 +91,7 @@ const generateAiIntro = async (orgName, count) => {
       messages: [
         {
           role: 'user',
-          content: `Write a short professional 2-4 sentence intro for a weekly funding digest email for ${orgName}. The digest includes ${count} grant opportunities. Mention the value of reviewing them promptly. Plain text only.`,
+          content: `Write a short professional 2-4 sentence intro paragraph for a weekly funding digest email for ${orgName}. The digest includes ${count} grant opportunities. Mention the value of reviewing them promptly. Rules: plain text only, no subject line, no salutation (no "Dear"), no sign-off, no placeholders like [Your Name], single paragraph.`,
         },
       ],
       max_tokens: 200,
@@ -100,6 +109,7 @@ const generateDigest = async (organizationId, userId, periodStart, periodEnd, sa
 
   const matches = await Match.find({
     organization: organizationId,
+    isRelevant: true,
     fitScore: { $gte: 55 },
   })
     .populate({ path: 'opportunity', match: { status: { $in: ['open', 'closing'] } } })
@@ -146,14 +156,21 @@ const sendDigest = async (digestId, recipientEmail, recipientName) => {
   const html = digest.htmlContent || buildHtml(org, digest.matches, digest.aiIntro);
   const subject = `Grant Intelligence Weekly Digest — ${org.name}`;
 
-  await outboxService.queueEmail({
+  const queued = await outboxService.queueEmail({
     recipient: recipientEmail || org.email || 'admin@reddogradios.com',
     recipientName: recipientName || org.name,
     subject,
     htmlBody: html,
+    bodyFormat: 'html',
     emailType: 'weekly_digest',
     relatedOrganization: org._id,
+    relatedAgency: org._id,
   });
+
+  const sendResult = await outboxService.sendEmail(queued._id);
+  if (!sendResult.success) {
+    throw new AppError(sendResult.error || 'Failed to send digest email', 502);
+  }
 
   digest.status = 'sent';
   digest.sentAt = new Date();

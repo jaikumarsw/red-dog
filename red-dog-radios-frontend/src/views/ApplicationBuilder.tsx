@@ -17,7 +17,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
-import { ArrowLeft, Download, RefreshCw, CheckCircle, Columns2, FileText, AlertTriangle, Mail, Phone, Users, Settings, X } from "lucide-react";
+import { ArrowLeft, Download, RefreshCw, CheckCircle, Columns2, FileText, Mail, Phone, Users, Settings, X } from "lucide-react";
 import { useAuth } from "@/lib/AuthContext";
 import { cn } from "@/lib/utils";
 import { formatDistanceToNow } from "date-fns";
@@ -176,7 +176,7 @@ const ADMIN_CONTROLLED_STATUSES = ["under_review", "under-review", "in_review", 
 
 const EmptyContent = () => (
   <span className="text-[#9ca3af] italic text-sm [font-family:'Montserrat',Helvetica]">
-    No content yet. Click ↺ Regenerate to generate with AI.
+    No content yet. Use Edit to add content, or Generate Outreach Email to draft funder outreach.
   </span>
 );
 
@@ -257,7 +257,6 @@ export const ApplicationBuilder = () => {
   const [viewMode, setViewMode] = useState<ViewMode>("original");
   const [form, setForm] = useState<Partial<Application>>({});
   const [editNotes, setEditNotes] = useState("");
-  const [showRegenerateConfirm, setShowRegenerateConfirm] = useState(false);
   const [paywallOpen, setPaywallOpen] = useState(false);
   const [awardResponse, setAwardResponse] = useState("");
   const [awardResponseSubmitted, setAwardResponseSubmitted] = useState(false);
@@ -305,34 +304,6 @@ export const ApplicationBuilder = () => {
     },
     onError: () => toast({ title: "Error", description: "Failed to save.", variant: "destructive" }),
   });
-
-  const regenerateMutation = useMutation({
-    mutationFn: () => api.post(`/applications/${id}/regenerate`),
-    onSuccess: () => {
-      toast({ title: "✓ Content regenerated", description: "All sections have been rewritten with fresh AI content." });
-      queryClient.invalidateQueries({ queryKey: qk.application(id) });
-      setViewMode("original");
-      setShowRegenerateConfirm(false);
-    },
-    onError: (err: unknown) => {
-      const e = err as {
-        response?: { status?: number; data?: { code?: string; message?: string } };
-      };
-      if (e?.response?.status === 402 && e?.response?.data?.code === "SUBSCRIPTION_REQUIRED") {
-        setPaywallOpen(true);
-        setShowRegenerateConfirm(false);
-        return;
-      }
-      toast({
-        title: "Error",
-        description: e?.response?.data?.message ?? "Failed to regenerate.",
-        variant: "destructive",
-      });
-      setShowRegenerateConfirm(false);
-    },
-  });
-
-
 
   const statusMutation = useMutation({
     mutationFn: (status: string) => api.patch(`/applications/${id}/status`, { status }),
@@ -496,7 +467,7 @@ export const ApplicationBuilder = () => {
   const gmailConnected = gmailStatus?.isConnected;
 
   const generateEmailMutation = useMutation({
-    mutationFn: async () => {
+    mutationFn: async (opts?: { regenerate?: boolean }) => {
       const funderEmail =
         app?.funder?.contactEmail || app?.opportunity?.contactEmail || app?.opportunity?.funderId?.contactEmail;
       const funderName =
@@ -518,25 +489,47 @@ export const ApplicationBuilder = () => {
         contactName: funderName?.trim() || undefined,
         grantId: id,
       });
-      return res.data.data as {
-        subject: string;
-        htmlBody: string;
-        recipient: string;
-        recipientName: string;
-        senderEmail: string;
-        senderName: string;
+      return {
+        ...(res.data.data as {
+          subject: string;
+          htmlBody: string;
+          recipient: string;
+          recipientName: string;
+          senderEmail: string;
+          senderName: string;
+        }),
+        regenerate: opts?.regenerate ?? false,
       };
     },
     onSuccess: (data) => {
-      setEmailContent(data);
+      const { regenerate, ...preview } = data;
+      setEmailContent(preview);
       setEmailPhase("preview");
+      if (regenerate) {
+        toast({
+          title: "Outreach email regenerated",
+          description: "A fresh draft replaced the previous preview. Review before sending.",
+        });
+      }
     },
     onError: (err: unknown) => {
-      setEmailPhase("idle");
-      const msg =
-        (err as { response?: { data?: { message?: string } } })?.response?.data?.message ??
-        (err as Error)?.message ??
-        "Failed to generate email.";
+      setEmailPhase((prev) => (prev === "generating" ? "idle" : "preview"));
+      const e = err as {
+        response?: { status?: number; data?: { code?: string; message?: string } };
+      };
+      if (e?.response?.status === 402) {
+        const code = e?.response?.data?.code;
+        if (
+          code === "SUBSCRIPTION_REQUIRED" ||
+          code === "LIMIT_REACHED" ||
+          code === "LIMIT_REACHED_UPGRADE_PREMIUM" ||
+          code === "PREMIUM_REQUIRED"
+        ) {
+          setPaywallOpen(true);
+          return;
+        }
+      }
+      const msg = e?.response?.data?.message ?? (err as Error)?.message ?? "Failed to generate email.";
       toast({ title: "Error", description: msg, variant: "destructive" });
     },
   });
@@ -660,14 +653,6 @@ export const ApplicationBuilder = () => {
           >
             <Download size={14} /> Export
           </button>
-          <button
-            onClick={() => setShowRegenerateConfirm(true)}
-            disabled={regenerateMutation.isPending}
-            className="inline-flex items-center justify-center gap-2 rounded-lg border border-[#e5e7eb] bg-white px-3 py-2 text-sm font-medium [font-family:'Montserrat',Helvetica] text-[#374151] hover:bg-[#f9fafb] disabled:opacity-50 transition-colors h-10"
-          >
-            <RefreshCw size={14} className={regenerateMutation.isPending ? "animate-spin" : ""} />
-            {regenerateMutation.isPending ? "Regenerating..." : "Regenerate"}
-          </button>
           {!isEditing ? (
             <button
               onClick={() => setIsEditing(true)}
@@ -718,36 +703,6 @@ export const ApplicationBuilder = () => {
           <p className="[font-family:'Montserrat',Helvetica] text-sm font-semibold text-[#166534]">
             Thanks — we received your response. A Red Dog specialist will follow up soon with recommendations.
           </p>
-        </div>
-      )}
-
-      {/* Regenerate Confirm Banner */}
-      {showRegenerateConfirm && (
-        <div className="flex items-start gap-3 rounded-xl border border-orange-200 bg-orange-50 p-4">
-          <AlertTriangle size={18} className="shrink-0 text-orange-500 mt-0.5" />
-          <div className="flex flex-col gap-2 min-w-0 flex-1">
-            <p className="[font-family:'Montserrat',Helvetica] text-sm font-semibold text-orange-800">
-              Regenerate all sections with fresh AI content?
-            </p>
-            <p className="[font-family:'Montserrat',Helvetica] text-xs text-orange-700">
-              This will replace your current content in all sections. Any manual edits will be overwritten.
-            </p>
-            <div className="flex gap-2">
-              <button
-                onClick={() => regenerateMutation.mutate()}
-                disabled={regenerateMutation.isPending}
-                className="rounded-lg bg-orange-500 px-4 py-1.5 text-xs font-bold text-white hover:bg-orange-600 disabled:opacity-60 [font-family:'Montserrat',Helvetica]"
-              >
-                {regenerateMutation.isPending ? "Regenerating..." : "Yes, Regenerate"}
-              </button>
-              <button
-                onClick={() => setShowRegenerateConfirm(false)}
-                className="rounded-lg border border-orange-200 bg-white px-4 py-1.5 text-xs font-semibold text-orange-700 hover:bg-orange-50 [font-family:'Montserrat',Helvetica]"
-              >
-                Cancel
-              </button>
-            </div>
-          </div>
         </div>
       )}
 
@@ -1203,7 +1158,7 @@ export const ApplicationBuilder = () => {
           <AlertDialogHeader>
             <AlertDialogTitle>Subscription Required</AlertDialogTitle>
             <AlertDialogDescription>
-              AI grant writing requires an active subscription. Plans start at $199/month and include unlimited AI applications, smart
+              AI grant writing requires an active subscription. Plans start at $225/month and include unlimited AI applications, smart
               funder matching, and weekly digests.
             </AlertDialogDescription>
           </AlertDialogHeader>
@@ -1225,16 +1180,16 @@ export const ApplicationBuilder = () => {
       {/* Compose (Generate Outreach) Modal */}
       {composeOpen ? (
         <div
-          className="fixed inset-0 z-50 flex items-center justify-center bg-black/40"
+          className="fixed inset-0 z-50 flex items-center justify-center overflow-y-auto bg-black/40 p-4 sm:p-6"
           onClick={(e) => e.target === e.currentTarget && setComposeOpen(false)}
         >
           <div
             className={cn(
-              "bg-white rounded-2xl shadow-[0_8px_40px_rgba(0,0,0,0.18)] w-full mx-4 flex flex-col transition-all duration-300",
+              "flex max-h-[min(90dvh,calc(100vh-2rem))] min-h-0 w-full max-w-full flex-col overflow-hidden rounded-2xl bg-white shadow-[0_8px_40px_rgba(0,0,0,0.18)] transition-all duration-300 sm:mx-0",
               emailPhase === "preview" ? "max-w-[800px]" : "max-w-[640px]"
             )}
           >
-            <div className="flex items-center justify-between px-7 pt-7 pb-5 border-b border-[#f3f4f6]">
+            <div className="flex shrink-0 items-center justify-between border-b border-[#f3f4f6] px-7 pb-5 pt-7">
               <div>
                 <h2 className="[font-family:'Oswald',Helvetica] font-bold text-black text-xl tracking-[0.5px] uppercase">
                   {emailPhase === "preview" ? "Review Outreach" : "Generate Outreach Email"}
@@ -1248,7 +1203,7 @@ export const ApplicationBuilder = () => {
               </button>
             </div>
 
-            <div className="p-6 space-y-3 max-h-[70vh] overflow-y-auto">
+            <div className="min-h-0 flex-1 space-y-3 overflow-y-auto p-6">
               {emailPhase === "generating" && (
                 <div className="py-20 flex flex-col items-center justify-center gap-4 text-center">
                   <RefreshCw className="animate-spin text-[#ef3e34]" size={32} />
@@ -1297,20 +1252,20 @@ export const ApplicationBuilder = () => {
                   )}
 
                   {!gmailConnected && (
-                    <div className="bg-blue-50 border border-blue-200 rounded-lg p-3 mb-4">
+                    <div className="bg-amber-50 border border-amber-200 rounded-lg p-3 mb-4">
                       <div className="flex items-start gap-2">
-                        <Mail size={16} className="text-blue-600 mt-0.5" />
+                        <Mail size={16} className="text-amber-600 mt-0.5 shrink-0" />
                         <div className="text-sm">
-                          <p className="font-medium text-blue-900 mb-1">Email not connected</p>
-                          <p className="text-blue-800 mb-2">
-                            This email will be sent from a Red Dog Grant Intelligence system address with your
-                            contact info in the body. Connect your email to send from your own address instead.
+                          <p className="font-medium text-amber-900 mb-1">Email not connected</p>
+                          <p className="text-amber-800 mb-2">
+                            You can preview and save a draft now, but you&apos;ll need to connect your email
+                            before sending or scheduling outreach.
                           </p>
                           <button
-                            className="text-blue-700 font-semibold underline"
+                            className="text-amber-700 font-semibold underline"
                             onClick={() => router.push("/settings/agency")}
                           >
-                            Connect Email in Settings
+                            Connect Email in Settings →
                           </button>
                         </div>
                       </div>
@@ -1456,7 +1411,7 @@ export const ApplicationBuilder = () => {
               )}
             </div>
 
-            <div className="px-7 pb-7 flex flex-col gap-4 border-t border-[#f3f4f6] pt-5">
+            <div className="flex shrink-0 flex-col gap-4 border-t border-[#f3f4f6] px-7 pb-7 pt-5">
               {emailPhase === "idle" && (
                 <div className="flex flex-col gap-4">
                   <div className="bg-[#eff6ff] border border-[#dbeafe] rounded-xl p-4 flex items-start gap-3">
@@ -1477,7 +1432,7 @@ export const ApplicationBuilder = () => {
                       Cancel
                     </button>
                     <button
-                      onClick={() => generateEmailMutation.mutate()}
+                      onClick={() => generateEmailMutation.mutate({})}
                       disabled={
                         generateEmailMutation.isPending ||
                         (!app?.funder?.contactEmail &&
@@ -1495,6 +1450,24 @@ export const ApplicationBuilder = () => {
 
               {emailPhase === "preview" && (
                 <div className="flex flex-col gap-5">
+                  {!gmailConnected && (
+                    <div className="bg-red-50 border border-red-300 rounded-lg p-3 flex items-start gap-2">
+                      <Mail size={15} className="text-red-600 mt-0.5 shrink-0" />
+                      <div className="text-sm">
+                        <p className="font-bold text-red-900">Email account required</p>
+                        <p className="text-red-800 text-xs mt-0.5">
+                          Connect your email in{" "}
+                          <button
+                            className="font-semibold underline"
+                            onClick={() => router.push("/settings/agency")}
+                          >
+                            Settings → Agency Profile
+                          </button>{" "}
+                          to send or schedule. You can save this as a draft in the meantime.
+                        </p>
+                      </div>
+                    </div>
+                  )}
                   <div className="flex flex-wrap items-center justify-between gap-4">
                     <div className="flex items-center gap-3">
                       <label className="text-xs font-bold text-[#6b7280] uppercase tracking-wider [font-family:'Montserrat',Helvetica]">
@@ -1504,10 +1477,22 @@ export const ApplicationBuilder = () => {
                         type="datetime-local"
                         value={scheduleTime}
                         onChange={(e) => setScheduleTime(e.target.value)}
-                        className="rounded-lg border border-[#e5e7eb] bg-white px-3 py-1.5 text-xs font-medium focus:border-[#ef3e34] focus:outline-none [font-family:'Montserrat',Helvetica]"
+                        disabled={!gmailConnected}
+                        className="rounded-lg border border-[#e5e7eb] bg-white px-3 py-1.5 text-xs font-medium focus:border-[#ef3e34] focus:outline-none [font-family:'Montserrat',Helvetica] disabled:opacity-50"
                       />
                     </div>
                     <div className="flex items-center gap-2">
+                      <button
+                        onClick={() => generateEmailMutation.mutate({ regenerate: true })}
+                        disabled={generateEmailMutation.isPending}
+                        className="inline-flex items-center gap-2 rounded-lg border border-[#e5e7eb] bg-white px-4 py-2.5 text-sm font-semibold text-[#374151] hover:bg-[#f9fafb] [font-family:'Montserrat',Helvetica] transition-colors disabled:opacity-60"
+                      >
+                        <RefreshCw
+                          size={14}
+                          className={generateEmailMutation.isPending ? "animate-spin" : ""}
+                        />
+                        {generateEmailMutation.isPending ? "Regenerating…" : "Regenerate outreach email"}
+                      </button>
                       <button
                         onClick={() => handleSendEmail("draft")}
                         className="rounded-lg border border-[#e5e7eb] bg-white px-4 py-2.5 text-sm font-semibold text-[#374151] hover:bg-[#f9fafb] [font-family:'Montserrat',Helvetica] transition-colors"
@@ -1517,14 +1502,16 @@ export const ApplicationBuilder = () => {
                       {scheduleTime ? (
                         <button
                           onClick={() => handleSendEmail("scheduled")}
-                          className="rounded-lg bg-blue-600 px-5 py-2.5 text-sm font-bold text-white hover:bg-blue-700 [font-family:'Montserrat',Helvetica] shadow-sm transition-colors"
+                          disabled={!gmailConnected}
+                          className="rounded-lg bg-blue-600 px-5 py-2.5 text-sm font-bold text-white hover:bg-blue-700 [font-family:'Montserrat',Helvetica] shadow-sm transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                         >
                           Schedule Outreach
                         </button>
                       ) : (
                         <button
                           onClick={() => handleSendEmail("now")}
-                          className="rounded-lg bg-[#ef3e34] px-6 py-2.5 text-sm font-bold text-white hover:bg-[#d63029] [font-family:'Montserrat',Helvetica] shadow-sm transition-colors"
+                          disabled={!gmailConnected}
+                          className="rounded-lg bg-[#ef3e34] px-6 py-2.5 text-sm font-bold text-white hover:bg-[#d63029] [font-family:'Montserrat',Helvetica] shadow-sm transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                         >
                           Send Now →
                         </button>

@@ -1,5 +1,6 @@
 const Organization = require('../modules/organizations/organization.schema');
 const billingService = require('../modules/billing/billing.service');
+const tierLimitsService = require('../modules/billing/tierLimits.service');
 const logger = require('../utils/logger');
 const { resolveAgencyOrganizationId } = require('../utils/resolveOrganizationId');
 
@@ -64,4 +65,38 @@ const requirePremium = async (req, res, next) => {
   } catch (err) { next(err); }
 };
 
-module.exports = { requireActiveSubscription, requirePremium };
+/** Enforce monthly tier usage cap (ashleenDraft, outreachEmail, chat, outboxSend). */
+const checkUsageLimit = (featureKey) => async (req, res, next) => {
+  try {
+    const orgId = await resolveAgencyOrganizationId(req.user);
+    if (!orgId) {
+      return res.status(403).json({
+        success: false,
+        code: 'NO_ORGANIZATION',
+        message: 'Organization required',
+      });
+    }
+    await tierLimitsService.assertWithinLimit(orgId, featureKey);
+    next();
+  } catch (err) {
+    if (err.isOperational && err.statusCode === 402) {
+      return res.status(402).json({
+        success: false,
+        message: err.message,
+        code: err.code || 'LIMIT_REACHED',
+        redirectTo: err.redirectTo || '/pricing',
+        feature: err.feature,
+        used: err.used,
+        limit: err.limit,
+        tier: err.tier,
+      });
+    }
+    next(err);
+  }
+};
+
+module.exports = {
+  requireActiveSubscription,
+  requirePremium,
+  checkUsageLimit,
+};

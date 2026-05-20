@@ -43,6 +43,9 @@ mongoose
         logger.warn('[Opportunity] Index sync failed (likely existing duplicates):', err.message);
       });
 
+    const { logEmailConfigStatus } = require('./config/emailProvider.config');
+    logEmailConfigStatus();
+
     app.listen(PORT, () => {
       logger.info(`🚀 Red Dog Backend running on port ${PORT} (${process.env.NODE_ENV || 'development'})`);
       logger.info(`📋 Health: http://localhost:${PORT}/health`);

@@ -1,6 +1,7 @@
 "use client";
 
 import { useQuery, useMutation } from "@tanstack/react-query";
+import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import {
@@ -10,7 +11,7 @@ import {
 } from "@/components/ui/alert-dialog";
 import { useState } from "react";
 import { useToast } from "@/hooks/use-toast";
-import { Mail, CheckCircle2, Loader2 } from "lucide-react";
+import { Mail, CheckCircle2, Loader2, Lock } from "lucide-react";
 import api from "@/lib/api";
 
 interface Props {
@@ -24,6 +25,13 @@ type EmailStatus = {
   email: string | null;
   provider: string | null;
   connectedAt?: string;
+};
+
+type BillingStatus = {
+  hasAccess?: boolean;
+  status?: string;
+  tier?: string;
+  betaAccess?: boolean;
 };
 
 const providerLabel = (provider: string | null) => {
@@ -41,6 +49,7 @@ export default function AgencyGmailConnect({
   variant = "card",
   source = "settings",
 }: Omit<Props, "onConnected">) {
+  const router = useRouter();
   const [confirmDisconnect, setConfirmDisconnect] = useState(false);
   const { toast } = useToast();
 
@@ -52,6 +61,23 @@ export default function AgencyGmailConnect({
     },
   });
 
+  // Billing status drives the paywall UX. We swallow errors so a transient
+  // /billing/status failure doesn't accidentally hide the upgrade CTA — but
+  // we also default to `hasAccess: false` so a missing/failed response can
+  // never accidentally unlock the connect button.
+  const { data: billing } = useQuery<BillingStatus>({
+    queryKey: ["billing", "status"],
+    queryFn: async () => {
+      const r = await api
+        .get("/billing/status")
+        .catch(() => ({ data: { data: { hasAccess: false } } }));
+      return r.data?.data as BillingStatus;
+    },
+    staleTime: 60_000,
+  });
+
+  const hasPaidAccess = Boolean(billing?.hasAccess);
+
   const connectMutation = useMutation({
     mutationFn: async () => {
       const r = await api.get(`nylas/oauth/connect-self?source=${source}`);
@@ -61,7 +87,16 @@ export default function AgencyGmailConnect({
       window.location.href = url;
     },
     onError: (err: unknown) => {
-      const e = err as { response?: { data?: { message?: string } } };
+      const e = err as {
+        response?: { status?: number; data?: { code?: string; message?: string; redirectTo?: string } };
+      };
+      // Backend returns 402 SUBSCRIPTION_REQUIRED when the org has no active
+      // paid plan. Bounce the user to /pricing instead of showing a generic
+      // error so the upsell is obvious.
+      if (e?.response?.status === 402 && e.response.data?.code === "SUBSCRIPTION_REQUIRED") {
+        router.push(e.response.data.redirectTo || "/pricing");
+        return;
+      }
       toast({
         title: "Could not start email connection",
         description: e?.response?.data?.message ?? "Try again later",
@@ -108,7 +143,7 @@ export default function AgencyGmailConnect({
               Disconnect
             </Button>
           </>
-        ) : (
+        ) : hasPaidAccess ? (
           <Button
             onClick={() => connectMutation.mutate()}
             disabled={connectMutation.isPending}
@@ -116,6 +151,14 @@ export default function AgencyGmailConnect({
           >
             <Mail size={14} className="mr-2" />
             Connect Email
+          </Button>
+        ) : (
+          <Button
+            onClick={() => router.push("/pricing")}
+            className="bg-[#ef3e34] hover:bg-[#d63530] text-white"
+          >
+            <Lock size={14} className="mr-2" />
+            Upgrade to Connect
           </Button>
         )}
       </div>
@@ -150,7 +193,7 @@ export default function AgencyGmailConnect({
                 Disconnect
               </Button>
             </>
-          ) : (
+          ) : hasPaidAccess ? (
             <>
               <p className="text-sm text-[#6b7280] mb-3">
                 Connect your email so funder emails come from your address.
@@ -168,6 +211,21 @@ export default function AgencyGmailConnect({
                 ) : (
                   <><Mail size={14} className="mr-2" />Connect Email Account</>
                 )}
+              </Button>
+            </>
+          ) : (
+            <>
+              <p className="text-sm text-[#6b7280] mb-3">
+                Connecting an inbox lets us send funder emails from your
+                address. This feature is available on the Basic and Premium
+                plans — upgrade to unlock it.
+              </p>
+              <Button
+                onClick={() => router.push("/pricing")}
+                className="bg-[#ef3e34] hover:bg-[#d63530] text-white"
+              >
+                <Lock size={14} className="mr-2" />
+                Upgrade to Connect Email
               </Button>
             </>
           )}

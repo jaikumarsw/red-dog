@@ -36,8 +36,9 @@ const sendViaSmtp = async ({ to, subject, html, text, replyTo, senderName }) => 
 
     const transport = initTransporter();
     if (!transport) {
-      console.warn('[Email] No transporter — email NOT sent');
-      return { success: false, stub: true, sentViaGmail: false };
+      const msg = 'SMTP not configured (SMTP_USER/SMTP_PASS missing)';
+      logger.warn(`[Email] ${msg} — email NOT sent to ${to}`);
+      return { success: false, stub: true, error: msg, sentViaGmail: false };
     }
 
     // DEV MODE: redirect all emails to DEV_REDIRECT_EMAIL if set
@@ -119,5 +120,18 @@ const sendEmail = async ({ to, subject, html, text, replyTo, senderName, organiz
   return await sendViaSmtp({ to, subject, html, text, replyTo, senderName });
 };
 
-module.exports = { sendEmail };
+const logEmailConfigStatus = () => {
+  const hasSmtp = Boolean(process.env.SMTP_USER && process.env.SMTP_PASS);
+  if (!hasSmtp) {
+    logger.warn(
+      '[Email] SMTP_USER/SMTP_PASS not set — OTP, digests, and other platform mail will not deliver until configured'
+    );
+    return;
+  }
+  logger.info(
+    `[Email] SMTP ready (${process.env.SMTP_HOST || 'smtp.gmail.com'}:${process.env.SMTP_PORT || '587'}, from ${process.env.SMTP_FROM || process.env.SMTP_USER})`
+  );
+};
+
+module.exports = { sendEmail, logEmailConfigStatus };
 

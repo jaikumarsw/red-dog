@@ -23,25 +23,29 @@ if (!isPlaceholder) {
 const TIERS = {
   basic: {
     name: 'Basic',
-    price: 199,
+    price: 225,
     priceId: process.env.STRIPE_PRICE_BASIC,
     features: [
       'Smart funder matching',
-      'AI grant writing (unlimited)',
-      'Deadline alerts',
-      'Weekly digest emails',
+      'Up to 20 Apply with Ashleen drafts / month',
+      'Up to 15 outreach emails generated / month',
+      'Up to 75 Ashleen chat messages / month',
+      'Up to 50 outbound emails / month',
+      'Deadline alerts & weekly digest emails',
     ],
   },
   premium: {
     name: 'Premium',
-    price: 385,
+    price: 449,
     priceId: process.env.STRIPE_PRICE_PREMIUM,
     features: [
-      'Everything in Basic',
+      'Everything in Basic — unlimited',
+      'Unlimited Apply with Ashleen drafts',
+      'Unlimited outreach email generation',
+      'Unlimited Ashleen chat & outbound emails',
       'Private foundation access',
       'White-glove submission support',
-      'Priority application queue',
-      'Dedicated account support',
+      'Priority application queue & dedicated support',
     ],
   },
 };

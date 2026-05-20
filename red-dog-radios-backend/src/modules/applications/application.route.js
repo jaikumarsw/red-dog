@@ -1,8 +1,11 @@
 const express = require('express');
 const rateLimit = require('express-rate-limit');
-const { getAll, getOne, create, generate, update, updateStatus, submit, remove, regenerate, alignToFunder, exportApplication, respondToAward } = require('./application.controller');
+const { getAll, getOne, create, generate, update, updateStatus, submit, remove, exportApplication, respondToAward } = require('./application.controller');
 const { protect } = require('../../middlewares/auth.middleware');
-const { requireActiveSubscription } = require('../../middlewares/paywall.middleware');
+const {
+  requireActiveSubscription,
+  checkUsageLimit,
+} = require('../../middlewares/paywall.middleware');
 
 const router = express.Router();
 
@@ -22,13 +25,18 @@ router
   // No paywall: this is a free record-keeping feature.
   // The AI-generation path is /generate which is gated.
   .post(protect, create);
-router.post('/generate', protect, requireActiveSubscription, aiLimiter, generate);
+router.post(
+  '/generate',
+  protect,
+  requireActiveSubscription,
+  checkUsageLimit('ashleenDraft'),
+  aiLimiter,
+  generate
+);
 router.route('/:id').get(protect, getOne).put(protect, update).delete(protect, remove);
 router.put('/:id/submit', protect, submit);
 router.patch('/:id/status', protect, updateStatus);
 router.post('/:id/award-response', protect, respondToAward);
-router.post('/:id/regenerate', protect, requireActiveSubscription, aiLimiter, regenerate);
-router.post('/:id/align', protect, requireActiveSubscription, aiLimiter, alignToFunder);
 router.get('/:id/export', protect, exportApplication);
 
 module.exports = router;

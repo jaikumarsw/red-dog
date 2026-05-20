@@ -43,9 +43,16 @@ const errorHandler = (err, req, res, next) => {
     return res.status(401).json({ success: false, message: 'Token expired' });
   }
 
-  // Operational errors (AppError)
+  // Operational errors (AppError) — pass through paywall / limit metadata when set
   if (err.isOperational) {
-    return res.status(err.statusCode).json({ success: false, message: err.message });
+    const body = { success: false, message: err.message };
+    if (err.code) body.code = err.code;
+    if (err.redirectTo) body.redirectTo = err.redirectTo;
+    if (err.feature) body.feature = err.feature;
+    if (err.used != null) body.used = err.used;
+    if (err.limit != null) body.limit = err.limit;
+    if (err.tier) body.tier = err.tier;
+    return res.status(err.statusCode).json(body);
   }
 
   // Unhandled errors

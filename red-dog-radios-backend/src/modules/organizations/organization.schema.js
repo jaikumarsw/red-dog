@@ -56,6 +56,8 @@ const organizationSchema = new mongoose.Schema(
     fundingPriorities: [{ type: String }],
     
     // New fields from 4-step intake analysis
+    projectTitle: { type: String },
+    biggestChallenge: { type: String },
     specificRequest: { type: String },
     challenges: [{
       type: String,
@@ -79,6 +81,10 @@ const organizationSchema = new mongoose.Schema(
 
     /** Whether the agency can meet a local match requirement when applying. */
     canMeetLocalMatch: { type: Boolean },
+
+    // Stored embedding for semantic grant matching. Generated async after profile save.
+    // Excluded from normal queries (select: false) — only loaded when needed by match engine.
+    profileEmbedding: { type: [Number], select: false },
 
     matchCount: { type: Number, default: 0 },
     status: { type: String, enum: ['active', 'inactive'], default: 'active' },
@@ -115,6 +121,15 @@ const organizationSchema = new mongoose.Schema(
       betaAccess: { type: Boolean, default: false },
       betaAccessCouponCode: { type: String, default: null },
       betaAccessGrantedAt: { type: Date, default: null },
+
+      // Monthly usage counters (reset each billing period — see tierLimits.service.js)
+      usage: {
+        periodStart: { type: Date, default: null },
+        ashleenDrafts: { type: Number, default: 0 },
+        outreachEmails: { type: Number, default: 0 },
+        chatMessages: { type: Number, default: 0 },
+        outboxSends: { type: Number, default: 0 },
+      },
     },
 
     gmailOAuth: {

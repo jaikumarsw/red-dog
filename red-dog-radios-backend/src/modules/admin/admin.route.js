@@ -45,6 +45,7 @@ router.post('/scraping/grants-gov/run', protectAdmin, ctrl.triggerGrantsGovRun);
 router.get('/matches', protectAdmin, ctrl.listMatches);
 router.get('/matches/:id', protectAdmin, ctrl.getMatch);
 router.post('/matches/recompute-all', protectAdmin, ctrl.recomputeMatches);
+router.post('/matches/backfill-embeddings', protectAdmin, ctrl.backfillEmbeddings);
 // Deprecated: match approve/reject — staff review applications via PUT /applications/:id/status instead.
 router.put('/matches/:id/approve', protectAdmin, ctrl.approveMatch);
 router.put('/matches/:id/reject', protectAdmin, ctrl.rejectMatch);

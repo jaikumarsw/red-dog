@@ -1077,74 +1077,8 @@ const updateStatus = async (id, { status, dateSubmitted, followUpDate, notes, in
   return app;
 };
 
-const regenerate = async (id) => {
-  const app = await Application.findById(id).populate('organization').populate('opportunity').populate('funder');
-  if (!app) throw new AppError('Application not found', 404);
-  const parsed = await buildAIContent(app.organization, app.funder, app.opportunity);
-  const legacyDerived = {
-    projectSummary: parsed.executiveSummary,
-    proposedSolution: parsed.projectDescription,
-    budgetSummary: parsed.budgetJustification,
-    communityImpact: parsed.outcomesAndImpact,
-  };
-  await Application.findByIdAndUpdate(id, {
-    ...parsed,
-    ...legacyDerived,
-  });
-  return Application.findById(id).populate('organization').populate('opportunity').populate('funder');
-};
-
-// DEPRECATED — alignment now happens automatically in buildAIContent. This endpoint kept for backwards compatibility only.
-const alignToFunder = async (id) => {
-  const app = await Application.findById(id).populate('organization').populate('opportunity').populate('funder');
-  if (!app) throw new AppError('Application not found', 404);
-  const funder = app.funder;
-  const fallback = {
-    executiveSummary: app.executiveSummary || app.projectSummary || AI_FALLBACK_CONTENT.executiveSummary,
-    problemStatement: app.problemStatement || AI_FALLBACK_CONTENT.problemStatement,
-    projectDescription: app.projectDescription || app.proposedSolution || AI_FALLBACK_CONTENT.projectDescription,
-    missionAlignment: app.missionAlignment || AI_FALLBACK_CONTENT.missionAlignment,
-    budgetJustification: app.budgetJustification || app.budgetSummary || AI_FALLBACK_CONTENT.budgetJustification,
-    organizationalCapacity: app.organizationalCapacity || AI_FALLBACK_CONTENT.organizationalCapacity,
-    outcomesAndImpact: app.outcomesAndImpact || app.communityImpact || AI_FALLBACK_CONTENT.outcomesAndImpact,
-    evaluationPlan: app.evaluationPlan || AI_FALLBACK_CONTENT.evaluationPlan,
-    sustainabilityPlan: app.sustainabilityPlan || AI_FALLBACK_CONTENT.sustainabilityPlan,
-    generatedAt: new Date(),
-  };
-  if (!openai) { app.alignedVersion = fallback; await app.save(); return fallback; }
-  try {
-    const prompt = `Rewrite these grant application sections to align with this funder's mission and tone. Match their vocabulary exactly.
-Funder: ${funder?.name || 'the funder'}
-Funder mission: ${funder?.missionStatement || 'public safety'}
-Funder categories: ${funder?.fundingCategories?.join(', ') || 'public safety'}
-Original sections: ${JSON.stringify({
-      executiveSummary: app.executiveSummary || app.projectSummary,
-      problemStatement: app.problemStatement,
-      projectDescription: app.projectDescription || app.proposedSolution,
-      missionAlignment: app.missionAlignment,
-      budgetJustification: app.budgetJustification || app.budgetSummary,
-      organizationalCapacity: app.organizationalCapacity,
-      outcomesAndImpact: app.outcomesAndImpact || app.communityImpact,
-      evaluationPlan: app.evaluationPlan,
-      sustainabilityPlan: app.sustainabilityPlan,
-    })}
-Return the same 9 keys rewritten to match funder's voice.`;
-    const res = await openai.chat.completions.create({
-      model: 'gpt-4o-mini',
-      messages: [
-        { role: 'system', content: 'You are an expert grant writer. Rewrite to mirror funder language while keeping facts.' },
-        { role: 'user', content: prompt },
-      ],
-      max_tokens: 1200,
-    });
-    const raw = res.choices[0]?.message?.content?.trim() || '';
-    const aligned = { ...JSON.parse(raw.replace(/^```json?\n?/, '').replace(/\n?```$/, '').trim()), generatedAt: new Date() };
-    app.alignedVersion = aligned; await app.save(); return aligned;
-  } catch (e) {
-    logger.warn('[Application] Align failed:', e.message);
-    app.alignedVersion = fallback; await app.save(); return fallback;
-  }
-};
+// Full-document regenerate removed — agencies edit sections manually or use
+// "Regenerate outreach email" in the compose flow instead.
 
 const exportApplication = async (id) => {
   const app = await Application.findById(id).populate('organization').populate('opportunity').populate('funder');
@@ -1212,9 +1146,8 @@ module.exports = {
   getOne,
   update,
   updateStatus,
-  regenerate,
+  regenerate: adminRegenerateAI,
   adminRegenerateAI,
-  alignToFunder,
   exportApplication,
   submit,
   remove,

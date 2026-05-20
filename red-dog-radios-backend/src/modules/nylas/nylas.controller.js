@@ -46,21 +46,18 @@ const oauthCallback = asyncHandler(async (req, res) => {
 
   await nylasService.handleOAuthCallback({ organizationId, code });
 
-  const frontend = process.env.FRONTEND_URL || 'http://localhost:3000';
+  const frontend = process.env.FRONTEND_URL || 'https://red-dog-frontend-production.up.railway.app';
   if (source === 'onboarding') {
     return res.redirect(`${frontend}/onboarding/results?email=connected`);
   }
   return res.redirect(`${frontend}/settings/agency?email=connected`);
 });
 
-// Admin routes (org-scoped)
-const oauthConnect = asyncHandler(async (req, res) => {
-  const organizationId = req.query.organizationId || req.body?.organizationId;
-  if (!organizationId) throw new AppError('organizationId is required', 400);
-  assertOrgAccess(req, organizationId);
-  const url = await nylasService.getConnectUrl(organizationId);
-  return success(res, { url }, 'Nylas OAuth URL generated');
-});
+// Admin routes (org-scoped).
+// Admin-initiated `oauthConnect` was removed: starting a Nylas grant on
+// behalf of an agency would create a billable connection without the agency
+// owner accepting the paywall. Status + disconnect remain available so admins
+// can still inspect and revoke an existing connection.
 
 const oauthStatus = asyncHandler(async (req, res) => {
   assertOrgAccess(req, req.params.organizationId);
@@ -79,7 +76,6 @@ module.exports = {
   oauthStatusSelf,
   oauthDisconnectSelf,
   oauthCallback,
-  oauthConnect,
   oauthStatus,
   oauthDisconnect,
 };

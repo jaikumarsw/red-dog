@@ -14,21 +14,25 @@ const sendOtpEmail = async ({ to, otp, name, type = 'signup' }) => {
     html: `
       <!DOCTYPE html>
       <html>
+      <head>
+        <meta charset="utf-8" />
+        <meta name="viewport" content="width=device-width, initial-scale=1" />
+      </head>
       <body style="margin:0;padding:0;font-family:Arial,sans-serif;
         background:#f9fafb;">
-        <div style="max-width:560px;margin:40px auto;background:#fff;
+        <div style="max-width:560px;margin:24px auto;background:#fff;
           border-radius:12px;overflow:hidden;
-          border:1px solid #e5e7eb;box-shadow:0 2px 8px rgba(0,0,0,0.06);">
+          border:1px solid #e5e7eb;box-shadow:0 2px 8px rgba(0,0,0,0.06);width:100%;box-sizing:border-box;">
 
-          <div style="background:#ef3e34;padding:28px;text-align:center;">
-            <h1 style="color:#fff;margin:0;font-size:22px;font-weight:800;
+          <div style="background:#ef3e34;padding:22px 16px;text-align:center;">
+            <h1 style="color:#fff;margin:0;font-size:clamp(18px, 5vw, 22px);font-weight:800;
               letter-spacing:1px;">RED DOG RADIOS</h1>
             <p style="color:rgba(255,255,255,0.85);margin:6px 0 0;
-              font-size:13px;">Grant Intelligence for Public Safety</p>
+              font-size:12px;">Grant Intelligence for Public Safety</p>
           </div>
 
-          <div style="padding:40px 36px;">
-            <h2 style="color:#111827;margin-top:0;font-size:20px;">
+          <div style="padding:28px 16px;box-sizing:border-box;">
+            <h2 style="color:#111827;margin-top:0;font-size:clamp(17px, 4.5vw, 20px);">
               ${heading}
             </h2>
             <p style="color:#374151;font-size:15px;line-height:1.6;">
@@ -39,10 +43,10 @@ const sendOtpEmail = async ({ to, otp, name, type = 'signup' }) => {
             </p>
 
             <div style="background:#f3f4f6;border-radius:12px;
-              padding:32px;text-align:center;margin:28px 0;">
-              <span style="font-size:48px;font-weight:900;
-                letter-spacing:14px;color:#ef3e34;
-                font-family:monospace;">${otp}</span>
+              padding:20px 12px;text-align:center;margin:24px 0;box-sizing:border-box;overflow-x:auto;">
+              <span style="font-size:clamp(26px, 7vw, 44px);font-weight:900;
+                letter-spacing:clamp(3px, 1.2vw, 12px);color:#ef3e34;
+                font-family:ui-monospace,monospace;line-height:1.2;word-break:break-all;">${otp}</span>
             </div>
 
             <p style="color:#6b7280;font-size:13px;text-align:center;
@@ -101,7 +105,7 @@ const sendWelcomeEmail = async ({ to, name, agencyName }) => {
               <li>Get alerts before grants close</li>
             </ul>
             <div style="text-align:center;margin:36px 0;">
-              <a href="${process.env.FRONTEND_URL || 'http://localhost:3000'}/dashboard"
+              <a href="${process.env.FRONTEND_URL || 'https://red-dog-frontend-production.up.railway.app'}/dashboard"
                 style="background:#ef3e34;color:#fff;padding:14px 40px;
                 border-radius:8px;text-decoration:none;font-weight:700;
                 font-size:15px;display:inline-block;">
@@ -195,7 +199,7 @@ const sendApplicationStatusEmail = async ({ to, name, agencyName, opportunityTit
               : ''}
 
             <div style="text-align:center;margin:32px 0;">
-              <a href="${process.env.FRONTEND_URL || 'http://localhost:3000'}/applications"
+              <a href="${process.env.FRONTEND_URL || 'https://red-dog-frontend-production.up.railway.app'}/applications"
                 style="background:#ef3e34;color:#fff;padding:14px 40px;
                 border-radius:8px;text-decoration:none;font-weight:700;
                 font-size:15px;display:inline-block;">
@@ -265,7 +269,7 @@ const sendDeadlineAlertEmail = async ({ to, name, opportunityTitle, deadline, da
             </div>
 
             <div style="text-align:center;margin:32px 0;">
-              <a href="${process.env.FRONTEND_URL || 'http://localhost:3000'}/applications"
+              <a href="${process.env.FRONTEND_URL || 'https://red-dog-frontend-production.up.railway.app'}/applications"
                 style="background:#ef3e34;color:#fff;padding:14px 40px;
                 border-radius:8px;text-decoration:none;font-weight:700;
                 font-size:15px;display:inline-block;">
@@ -288,7 +292,7 @@ const sendDeadlineAlertEmail = async ({ to, name, opportunityTitle, deadline, da
 };
 
 const sendPostAwardCongratsEmail = async ({ to, name, agencyName, funderName, awardAmount, applicationId }) => {
-  const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:3000';
+  const frontendUrl = process.env.FRONTEND_URL || 'https://red-dog-frontend-production.up.railway.app';
   const responseUrl = `${frontendUrl}/applications/${applicationId}?action=respond`;
 
   const html = `

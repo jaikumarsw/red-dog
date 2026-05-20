@@ -4,7 +4,6 @@ import { useEffect, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { RedDogLogo } from "@/components/RedDogLogo";
 import { ArrowRight, CheckCircle, Target, Sparkles } from "lucide-react";
-import { useAuth } from "@/lib/AuthContext";
 import { useToast } from "@/hooks/use-toast";
 import AgencyGmailConnect from "@/components/AgencyGmailConnect";
 
@@ -25,13 +24,14 @@ type OnboardingResultsPayload = {
   };
   matches?: Match[];
   matchCount?: number;
+  /** Server finished HTTP before full match scan; list may fill in shortly */
+  matchesRecomputing?: boolean;
 };
 
 export const OnboardingResults = () => {
   const router = useRouter();
   const searchParams = useSearchParams();
   const { toast } = useToast();
-  const { user, updateUser } = useAuth();
   const [data, setData] = useState<OnboardingResultsPayload | null>(null);
   const [loading, setLoading] = useState(true);
 
@@ -54,28 +54,29 @@ export const OnboardingResults = () => {
         setData((parsed?.data || parsed) as OnboardingResultsPayload);
       }
 
-      // Clear onboarding form data
       sessionStorage.removeItem("rdg_onboarding_step1");
       sessionStorage.removeItem("rdg_onboarding_step2");
       sessionStorage.removeItem("rdg_onboarding_step3");
       sessionStorage.removeItem("rdg_onboarding_step4");
 
-      // ── CRITICAL: flip rdg_onboarding cookie to "1" ──────────────────────
-      if (user) {
-        updateUser({ ...user, onboardingCompleted: true });
-      } else {
+      // Safety net: ensure the onboarding cookie is "1" in case the user
+      // landed here directly (e.g. via the Nylas oauth callback redirect).
+      // Auth state itself is already updated in Step4 before navigation.
+      if (!document.cookie.includes("rdg_onboarding=1")) {
         document.cookie = "rdg_onboarding=1; path=/; max-age=604800";
       }
     } catch {}
     setLoading(false);
-  }, [user, updateUser]);
+  }, []);
 
 
   if (loading) return <div className="min-h-screen bg-white" />;
 
   const org = data?.organization || {};
   const matches: Match[] = data?.matches || [];
-  const matchCount = data?.matchCount || matches.length || 0;
+  const matchCount = data?.matchCount ?? matches.length ?? 0;
+  const matchesPending =
+    Boolean(data?.matchesRecomputing) && matches.length === 0 && matchCount === 0;
 
   const buildParagraph = () => {
     const orgName = org.name || "Your organization";
@@ -95,7 +96,7 @@ export const OnboardingResults = () => {
 
   return (
     <div className="flex min-h-screen flex-col items-center justify-start bg-white px-4 pb-12 pt-6 sm:pt-8">
-      <div className="mb-8 self-center sm:self-start">
+      <div className="mb-8 flex w-full max-w-[800px] justify-center">
         <RedDogLogo className="w-32 sm:w-40" />
       </div>
 
@@ -106,8 +107,16 @@ export const OnboardingResults = () => {
             <CheckCircle className="w-8 h-8 text-green-500" />
           </div>
           <h1 className="[font-family:'Oswald',Helvetica] font-bold text-black text-3xl sm:text-4xl tracking-[0.5px] uppercase">
-            We found {matchCount} funding opportunities!
+            {matchesPending
+              ? "We're finding your best matches"
+              : `We found ${matchCount} funding opportunities!`}
           </h1>
+          {matchesPending && (
+            <p className="[font-family:'Montserrat',Helvetica] text-sm text-[#6b7280] max-w-md">
+              Your profile is saved. We&apos;re scanning open grants in the background — this usually takes under a minute.
+              Open <span className="font-semibold text-[#111827]">Opportunities</span> anytime; your list updates as results come in.
+            </p>
+          )}
           <div className="max-w-[650px] bg-[#fff4f4] rounded-xl p-5 border border-red-100 relative mt-4 text-left">
             <Sparkles className="absolute top-0 right-0 w-32 h-32 text-red-500/5 -translate-y-4 translate-x-4 pointer-events-none" />
             <p className="[font-family:'Montserrat',Helvetica] font-medium text-[#111827] text-base leading-relaxed relative z-10">
@@ -168,7 +177,9 @@ export const OnboardingResults = () => {
         ) : (
           <div className="w-full bg-gray-50 p-8 rounded-xl text-center border border-gray-200 mt-4">
             <p className="text-gray-600 font-medium">
-              Your profile has been saved. Our team will review your information and surface matches shortly.
+              {matchesPending
+                ? "Matches are still being calculated. Check the Opportunities page in a moment for your personalized list."
+                : "Your profile has been saved. Our team will review your information and surface matches shortly."}
             </p>
           </div>
         )}

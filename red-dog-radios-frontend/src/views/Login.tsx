@@ -12,6 +12,7 @@ import { loginSchema, type LoginFormValues } from "@/lib/validation-schemas";
 import api from "@/lib/api";
 import { useAuth } from "@/lib/AuthContext";
 import { useAuthGateRedirects } from "@/lib/useAuthGateRedirects";
+import { AuthHeroPanel } from "@/components/AuthHeroPanel";
 import { RedDogLogo } from "@/components/RedDogLogo";
 import { useRouter } from "next/navigation";
 import { useToast } from "@/hooks/use-toast";
@@ -126,18 +127,12 @@ export const Login = () => {
 
   return (
     <div className="flex h-screen w-full overflow-hidden">
-      <div className="hidden lg:block lg:w-[42%] flex-shrink-0 relative overflow-hidden">
-        <img
-          src="/auth-background.png"
-          alt="Red Dog Grant Intelligence"
-          className="w-full h-full object-cover object-center"
-        />
-      </div>
+      <AuthHeroPanel />
 
       <div className="flex min-h-0 min-w-0 flex-1 flex-col items-center justify-center overflow-y-auto bg-white px-4 py-4 sm:px-8 sm:py-6">
         <div className="w-full max-w-[400px] flex-col items-center justify-center gap-5">
           <div className="flex w-full justify-center mb-6">
-            <RedDogLogo className="w-[160px] max-w-full" />
+            <RedDogLogo className="w-[160px] max-w-full" priority sizes="160px" />
           </div>
 
           <div className="w-full bg-[#f3f4f6] rounded-full p-1 flex gap-1 mb-5">
@@ -274,11 +269,27 @@ export const Login = () => {
             </button>
 
             <p className="[font-family:'Montserrat',Helvetica] font-normal text-[#9ca3af] text-[10px] text-center leading-4">
-              By continuing, you agree to the Red Dog Grant Intelligence platform terms of service.
+              By continuing, you agree to the Red Dog Grant Intelligence{" "}
+              <Link href="/terms-of-use" className="text-[#ef3e34] hover:underline">
+                Terms of Use
+              </Link>{" "}
+              and{" "}
+              <Link href="/privacy-policy" className="text-[#ef3e34] hover:underline">
+                Privacy Policy
+              </Link>
+              .
             </p>
           </form>
           <p className="mt-5 w-full text-center [font-family:'Montserrat',Helvetica] text-xs font-normal text-[#9ca3af] sm:mt-6">
             © 2026 Red Dog Grant Intelligence · Grant Intelligence Platform
+            <span className="mx-1">·</span>
+            <Link href="/terms-of-use" className="text-[#ef3e34] hover:underline">
+              Terms of Use
+            </Link>
+            <span className="mx-1">·</span>
+            <Link href="/privacy-policy" className="text-[#ef3e34] hover:underline">
+              Privacy Policy
+            </Link>
           </p>
         </div>
       </div>

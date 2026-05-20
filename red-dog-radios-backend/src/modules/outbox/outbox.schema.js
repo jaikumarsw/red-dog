@@ -23,7 +23,7 @@ const outboxSchema = new mongoose.Schema(
     },
     /** When set, processQueue will not send until this datetime (UTC). */
     scheduledFor: { type: Date },
-    status: { type: String, enum: ['pending', 'sent', 'failed'], default: 'pending' },
+    status: { type: String, enum: ['draft', 'pending', 'sent', 'failed'], default: 'pending' },
     retryCount: { type: Number, default: 0 },
     providerMessageId: { type: String },
     errorMessage: { type: String },

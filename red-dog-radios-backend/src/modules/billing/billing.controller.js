@@ -7,11 +7,13 @@ const { resolveAgencyOrganizationId } = require('../../utils/resolveOrganization
 // GET /api/billing/tiers — public, returns available tiers
 const getTiers = async (req, res, next) => {
   try {
+    const { TIER_LIMITS } = require('../../config/tierLimits.config');
     const tiers = Object.entries(TIERS).map(([key, val]) => ({
       key,
       name: val.name,
       price: val.price,
       features: val.features,
+      limits: TIER_LIMITS[key] || null,
     }));
     res.json({ success: true, data: tiers });
   } catch (err) { next(err); }

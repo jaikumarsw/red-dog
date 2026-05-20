@@ -11,7 +11,7 @@ import { cn } from "@/lib/utils";
 import { onboardingStep1Schema, type OnboardingStep1FormValues } from "@/lib/validation-schemas";
 import { RedDogLogo } from "@/components/RedDogLogo";
 import { US_STATES } from "@/lib/constants";
-import { Building2, MapPin, Globe, ChevronRight, AlertCircle } from "lucide-react";
+import { Building2, MapPin, Globe, ChevronRight, AlertCircle, Loader2 } from "lucide-react";
 
 const ORG_TYPES = [
   { value: "police", label: "Police" },
@@ -91,9 +91,14 @@ export const OnboardingStep1 = () => {
   const watchedState = watch("state");
   const watchedOrgType = watch("organizationType");
   const [charCount, setCharCount] = useState(0);
+  const [hydrated, setHydrated] = useState(false);
+  const [loading, setLoading] = useState(false);
 
   useEffect(() => {
-    if (typeof window === "undefined") return;
+    if (typeof window === "undefined") {
+      setHydrated(true);
+      return;
+    }
     try {
       const saved = sessionStorage.getItem("rdg_onboarding_step1");
       if (saved) {
@@ -102,9 +107,24 @@ export const OnboardingStep1 = () => {
         setCharCount((parsed.organizationName || "").length);
       }
     } catch {}
+    setHydrated(true);
   }, [reset]);
 
+  // Auto-save every change so navigating away (Back, Next, refresh) cannot
+  // lose typed-but-not-submitted data. Only runs after the initial hydration
+  // so we don't overwrite a saved snapshot with empty defaults on first render.
+  useEffect(() => {
+    if (!hydrated || typeof window === "undefined") return;
+    const sub = watch((value) => {
+      try {
+        sessionStorage.setItem("rdg_onboarding_step1", JSON.stringify(value));
+      } catch {}
+    });
+    return () => sub.unsubscribe();
+  }, [watch, hydrated]);
+
   const onSubmit = (data: OnboardingStep1FormValues) => {
+    setLoading(true);
     if (typeof window !== "undefined") {
       sessionStorage.setItem("rdg_onboarding_step1", JSON.stringify(data));
     }
@@ -113,7 +133,7 @@ export const OnboardingStep1 = () => {
 
   return (
     <div className="flex min-h-screen flex-col items-center justify-start bg-[#fafafa] px-4 pb-12 pt-6 sm:pt-8">
-      <div className="mb-8 self-center sm:self-start">
+      <div className="mb-8 flex w-full max-w-[540px] justify-center">
         <RedDogLogo className="w-32 sm:w-40" />
       </div>
 
@@ -260,9 +280,18 @@ export const OnboardingStep1 = () => {
           </button>
           <button
             type="submit"
-            className="order-1 sm:order-2 flex items-center justify-center gap-2 rounded-lg bg-[#ef3e34] px-6 py-2.5 [font-family:'Montserrat',Helvetica] font-bold text-sm text-white shadow-sm transition-all hover:bg-[#d9382e] hover:shadow-md active:scale-[0.98]"
+            disabled={loading}
+            className="order-1 sm:order-2 flex items-center justify-center gap-2 rounded-lg bg-[#ef3e34] px-6 py-2.5 [font-family:'Montserrat',Helvetica] font-bold text-sm text-white shadow-sm transition-all hover:bg-[#d9382e] hover:shadow-md active:scale-[0.98] disabled:opacity-70 disabled:cursor-not-allowed"
           >
-            Continue <ChevronRight className="h-4 w-4" />
+            {loading ? (
+              <>
+                <Loader2 className="h-4 w-4 animate-spin" /> Continuing…
+              </>
+            ) : (
+              <>
+                Continue <ChevronRight className="h-4 w-4" />
+              </>
+            )}
           </button>
         </div>
       </form>

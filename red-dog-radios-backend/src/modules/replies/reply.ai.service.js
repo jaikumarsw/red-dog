@@ -8,7 +8,6 @@
  * → Organization (agency profile)
  */
 
-const OpenAI = require('openai').default;
 const Reply = require('./reply.schema');
 const CommunicationLog = require('../communication-log/communication-log.schema');
 const Outbox = require('../outbox/outbox.schema');
@@ -16,8 +15,7 @@ const Application = require('../applications/application.schema');
 const Organization = require('../organizations/organization.schema');
 const Opportunity = require('../opportunities/opportunity.schema');
 const logger = require('../../utils/logger');
-
-const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
+const openai = require('../../config/openai.config');
 
 /**
  * Generate Ashleen's suggested reply for a detected funder reply.
@@ -27,6 +25,13 @@ const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
  * @param {string} replyId - MongoDB ID of the newly saved Reply document
  */
 async function generateAshleenSuggestion(replyId) {
+  if (!openai) {
+    logger.warn(
+      '[AshleenReply] OpenAI not configured (OPENAI_API_KEY missing) — skipping suggestion generation'
+    );
+    return;
+  }
+
   try {
     // 1. Load reply with full chain
     const reply = await Reply.findById(replyId)

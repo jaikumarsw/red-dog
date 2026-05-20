@@ -11,7 +11,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { cn } from "@/lib/utils";
 import { onboardingStep2Schema, type OnboardingStep2FormValues } from "@/lib/validation-schemas";
 import { RedDogLogo } from "@/components/RedDogLogo";
-import { Users, AlertCircle, ChevronRight } from "lucide-react";
+import { Users, AlertCircle, ChevronRight, Loader2 } from "lucide-react";
 
 function ProgressBar({ step, total }: { step: number; total: number }) {
   const pct = Math.round((step / total) * 100);
@@ -83,9 +83,14 @@ export const OnboardingStep2 = () => {
   const watchedStaffSize = watch("staffSizeRange");
   const missionValue = watch("missionStatement");
   const [missionCount, setMissionCount] = useState(0);
+  const [hydrated, setHydrated] = useState(false);
+  const [loading, setLoading] = useState(false);
 
   useEffect(() => {
-    if (typeof window === "undefined") return;
+    if (typeof window === "undefined") {
+      setHydrated(true);
+      return;
+    }
     try {
       const saved = sessionStorage.getItem("rdg_onboarding_step2");
       if (saved) {
@@ -94,13 +99,26 @@ export const OnboardingStep2 = () => {
         setMissionCount((parsed.missionStatement || "").length);
       }
     } catch {}
+    setHydrated(true);
   }, [reset]);
 
   useEffect(() => {
     setMissionCount(missionValue?.length ?? 0);
   }, [missionValue]);
 
+  // Auto-save on every form change so Back/Next/refresh cannot drop data.
+  useEffect(() => {
+    if (!hydrated || typeof window === "undefined") return;
+    const sub = watch((value) => {
+      try {
+        sessionStorage.setItem("rdg_onboarding_step2", JSON.stringify(value));
+      } catch {}
+    });
+    return () => sub.unsubscribe();
+  }, [watch, hydrated]);
+
   const onSubmit = (data: OnboardingStep2FormValues) => {
+    setLoading(true);
     if (typeof window !== "undefined") {
       sessionStorage.setItem("rdg_onboarding_step2", JSON.stringify(data));
     }
@@ -109,7 +127,7 @@ export const OnboardingStep2 = () => {
 
   return (
     <div className="flex min-h-screen flex-col items-center justify-start bg-[#fafafa] px-4 pb-12 pt-6 sm:pt-8">
-      <div className="mb-8 self-center sm:self-start">
+      <div className="mb-8 flex w-full max-w-[540px] justify-center">
         <RedDogLogo className="w-32 sm:w-40" />
       </div>
 
@@ -250,9 +268,18 @@ export const OnboardingStep2 = () => {
           </button>
           <button
             type="submit"
-            className="order-1 sm:order-2 flex items-center justify-center gap-2 rounded-lg bg-[#ef3e34] px-6 py-2.5 [font-family:'Montserrat',Helvetica] font-bold text-sm text-white shadow-sm transition-all hover:bg-[#d9382e] hover:shadow-md active:scale-[0.98]"
+            disabled={loading}
+            className="order-1 sm:order-2 flex items-center justify-center gap-2 rounded-lg bg-[#ef3e34] px-6 py-2.5 [font-family:'Montserrat',Helvetica] font-bold text-sm text-white shadow-sm transition-all hover:bg-[#d9382e] hover:shadow-md active:scale-[0.98] disabled:opacity-70 disabled:cursor-not-allowed"
           >
-            Continue <ChevronRight className="h-4 w-4" />
+            {loading ? (
+              <>
+                <Loader2 className="h-4 w-4 animate-spin" /> Continuing…
+              </>
+            ) : (
+              <>
+                Continue <ChevronRight className="h-4 w-4" />
+              </>
+            )}
           </button>
         </div>
       </form>

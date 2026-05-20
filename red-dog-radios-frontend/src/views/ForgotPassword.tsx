@@ -35,14 +35,25 @@ export const ForgotPassword = () => {
   const onSubmit = async (data: ForgotPasswordFormValues) => {
     setLoading(true);
     try {
-      await api.post("/auth/forgot-password", { email: data.email.trim() });
+      const res = await api.post("/auth/forgot-password", { email: data.email.trim() });
+      const emailSent = (res.data?.data as { emailSent?: boolean } | undefined)?.emailSent;
       if (typeof window !== "undefined") {
         sessionStorage.setItem("rdg_reset_email", data.email.trim().toLowerCase());
       }
-      toast({
-        title: "Check your email",
-        description: "If an account exists with that email, a 6-digit code has been sent. Check your inbox and spam folder.",
-      });
+      if (emailSent === false) {
+        toast({
+          title: "Reset email may not have been sent",
+          description:
+            "Confirm SMTP settings on the API server, or check the API terminal for [DEBUG forgotPassword] OTP in development.",
+          variant: "destructive",
+        });
+      } else {
+        toast({
+          title: "Check your email",
+          description:
+            "If an account exists with that email, a 6-digit code has been sent. Check your inbox and spam folder.",
+        });
+      }
       router.push("/otp-verification");
     } catch (err: unknown) {
       const status = (err as { response?: { status?: number } })?.response?.status;

@@ -2,7 +2,8 @@
 
 import { useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { Clock, X, Zap, RefreshCw } from "lucide-react";
+import { Clock, X, Zap, RefreshCw, Trash2, Mail } from "lucide-react";
+import { useRouter } from "next/navigation";
 import api from "@/lib/api";
 import { useToast } from "@/hooks/use-toast";
 import { qk } from "@/lib/queryKeys";
@@ -67,6 +68,7 @@ const mapEmail = (e: ApiEmail): Email => ({
 const statusBadge = (s: string) => {
   if (s === "sent") return "bg-[#dcfce7] text-[#16a34a]";
   if (s === "failed") return "bg-[#fee2e2] text-[#dc2626]";
+  if (s === "draft") return "bg-[#f3f4f6] text-[#6b7280]";
   return "bg-[#fef9c3] text-[#b45309]";
 };
 
@@ -106,7 +108,9 @@ const EmailDetailsModal = ({
             <div className="flex flex-col gap-0.5">
               <span className="[font-family:'Montserrat',Helvetica] text-[#9ca3af] text-[10px] uppercase tracking-wider font-bold">Sent Via</span>
               <span className="[font-family:'Montserrat',Helvetica] font-semibold text-[#111827] text-sm">
-                {email.sentViaNylas
+                {email.status === "draft"
+                  ? "—"
+                  : email.sentViaNylas
                   ? `${email.emailProvider ?? "Email"} (Nylas)`
                   : email.sentViaGmail
                   ? "Gmail (OAuth2)"
@@ -156,6 +160,7 @@ export const Outbox = () => {
   const [previewEmail, setPreviewEmail] = useState<Email | null>(null);
   const { toast } = useToast();
   const queryClient = useQueryClient();
+  const router = useRouter();
 
   const { data: emails = [], isLoading: loading } = useQuery<Email[]>({
     queryKey: qk.outbox(),
@@ -165,6 +170,16 @@ export const Outbox = () => {
       return raw.map(mapEmail);
     },
   });
+
+  // Check if the agency has email connected (determines whether Send Now is available)
+  const { data: emailStatus } = useQuery({
+    queryKey: ["nylas", "self-status"],
+    queryFn: async () => {
+      const r = await api.get("nylas/oauth/status-self");
+      return r.data.data as { isConnected: boolean; email: string | null };
+    },
+  });
+  const emailConnected = emailStatus?.isConnected ?? false;
 
   const retryMutation = useMutation({
     mutationFn: (id: string) => api.post(`/outbox/${id}/retry`),
@@ -195,9 +210,46 @@ export const Outbox = () => {
     },
   });
 
+  const handleSendNow = (id: string) => {
+    if (!emailConnected) {
+      toast({
+        title: "Email account not connected",
+        description: (
+          <span>
+            Connect your email in{" "}
+            <button
+              className="font-semibold underline"
+              onClick={() => router.push("/settings/agency")}
+            >
+              Settings → Agency Profile
+            </button>{" "}
+            before sending.
+          </span>
+        ) as unknown as string,
+        variant: "destructive",
+      });
+      return;
+    }
+    sendNowMutation.mutate(id);
+  };
+
+  const deleteDraftMutation = useMutation({
+    mutationFn: (id: string) => api.delete(`/outbox/draft/${id}`),
+    onSuccess: (_data, id) => {
+      queryClient.setQueryData<Email[]>(qk.outbox(), (prev = []) =>
+        prev.filter((e) => e.id !== id)
+      );
+      toast({ title: "Draft deleted" });
+    },
+    onError: () => {
+      toast({ title: "Could not delete draft", variant: "destructive" });
+    },
+  });
+
   const pending = emails.filter((e) => e.status === "pending").length;
-  const sent = emails.filter((e) => e.status === "sent").length;
-  const failed = emails.filter((e) => e.status === "failed").length;
+  const drafts  = emails.filter((e) => e.status === "draft").length;
+  const sent    = emails.filter((e) => e.status === "sent").length;
+  const failed  = emails.filter((e) => e.status === "failed").length;
 
   return (
     <>
@@ -211,11 +263,12 @@ export const Outbox = () => {
           </p>
         </div>
 
-        <div className="grid grid-cols-1 gap-3 sm:grid-cols-3 sm:gap-4">
+        <div className="grid grid-cols-2 gap-3 sm:grid-cols-4 sm:gap-4">
           {[
-            { label: "Pending", value: pending, Icon: Clock, iconBg: "bg-[#fff7ed]", iconCls: "text-[#f59e0b]", valueCls: "text-[#f59e0b]" },
-            { label: "Sent", value: sent, Icon: Zap, iconBg: "bg-[#f0fdf4]", iconCls: "text-[#16a34a]", valueCls: "text-[#16a34a]" },
-            { label: "Failed", value: failed, Icon: X, iconBg: "bg-[#fff1f0]", iconCls: "text-[#ef4444]", valueCls: "text-[#ef4444]" },
+            { label: "Drafts",   value: drafts,   Icon: Clock, iconBg: "bg-[#f3f4f6]",  iconCls: "text-[#6b7280]",  valueCls: "text-[#6b7280]"  },
+            { label: "Pending",  value: pending,  Icon: Clock, iconBg: "bg-[#fff7ed]",  iconCls: "text-[#f59e0b]",  valueCls: "text-[#f59e0b]"  },
+            { label: "Sent",     value: sent,     Icon: Zap,   iconBg: "bg-[#f0fdf4]",  iconCls: "text-[#16a34a]",  valueCls: "text-[#16a34a]"  },
+            { label: "Failed",   value: failed,   Icon: X,     iconBg: "bg-[#fff1f0]",  iconCls: "text-[#ef4444]",  valueCls: "text-[#ef4444]"  },
           ].map((s) => (
             <div key={s.label} className="bg-white rounded-xl border border-[#f0f0f0] shadow-[0_1px_4px_rgba(0,0,0,0.05)] p-4 sm:p-5 flex items-center gap-3 sm:gap-4">
               <div className={`w-10 h-10 sm:w-11 sm:h-11 rounded-xl ${s.iconBg} flex items-center justify-center flex-shrink-0`}>
@@ -280,6 +333,19 @@ export const Outbox = () => {
                     </div>
 
                     <div className="flex items-center gap-2 self-end sm:self-center">
+                      {/* Draft — delete only; send requires going back to the application */}
+                      {email.status === "draft" && (
+                        <button
+                          onClick={() => deleteDraftMutation.mutate(email.id)}
+                          disabled={deleteDraftMutation.isPending && deleteDraftMutation.variables === email.id}
+                          className="flex items-center gap-1.5 h-8 px-3 rounded-lg border border-[#e5e7eb] bg-white hover:bg-red-50 hover:border-red-300 [font-family:'Montserrat',Helvetica] font-bold text-[10px] uppercase tracking-wide text-[#6b7280] hover:text-red-600 transition-colors disabled:opacity-50"
+                        >
+                          <Trash2 size={12} />
+                          Delete Draft
+                        </button>
+                      )}
+
+                      {/* Failed — retry */}
                       {email.status === "failed" && (
                         <button
                           onClick={() => retryMutation.mutate(email.id)}
@@ -290,24 +356,27 @@ export const Outbox = () => {
                           Retry
                         </button>
                       )}
+
+                      {/* Pending/queued — always show Send Now; gate fires a toast if not connected */}
                       {(email.status === "pending" || email.status === "queued") && (
                         <button
-                          onClick={() => sendNowMutation.mutate(email.id)}
+                          onClick={() => handleSendNow(email.id)}
                           disabled={sendNowMutation.isPending && sendNowMutation.variables === email.id}
                           className="flex items-center gap-1.5 h-8 px-3 rounded-lg border border-[#e5e7eb] bg-white hover:bg-[#f3f4f6] [font-family:'Montserrat',Helvetica] font-bold text-[10px] uppercase tracking-wide text-[#374151] transition-colors disabled:opacity-50"
                         >
                           {sendNowMutation.isPending && sendNowMutation.variables === email.id ? (
                             <RefreshCw size={12} className="animate-spin" />
-                          ) : (
+                          ) : emailConnected ? (
                             <Zap size={12} className="text-[#f59e0b]" />
+                          ) : (
+                            <Mail size={12} className="text-[#9ca3af]" />
                           )}
                           Send Now
                         </button>
                       )}
+
                       <button
-                        onClick={() => {
-                          setPreviewEmail(email);
-                        }}
+                        onClick={() => setPreviewEmail(email)}
                         className="h-8 px-4 rounded-lg bg-[#ef3e34] hover:bg-[#d63530] text-white [font-family:'Montserrat',Helvetica] font-bold text-[10px] uppercase tracking-wide transition-colors"
                       >
                         View
@@ -324,9 +393,7 @@ export const Outbox = () => {
       {previewEmail && (
         <EmailDetailsModal
           email={previewEmail}
-          onClose={() => {
-            setPreviewEmail(null);
-          }}
+          onClose={() => setPreviewEmail(null)}
         />
       )}
     </>

@@ -66,6 +66,7 @@ const register = async (body) => {
     throw e;
   }
 
+  let emailSent = false;
   try {
     if (process.env.NODE_ENV !== 'production') {
       console.log('[DEBUG] Sending OTP email to:', normalizedEmail, 'OTP:', otp);
@@ -80,7 +81,8 @@ const register = async (body) => {
       type: 'signup',
     });
 
-    if (!result?.success) {
+    emailSent = Boolean(result?.success);
+    if (!emailSent) {
       console.error('[auth] Verification email send failed:', result?.error || '(stub/no error provided)');
     }
   } catch (e) {
@@ -91,6 +93,7 @@ const register = async (body) => {
     success: true,
     message: 'Account created. Please check your email for verification code.',
     email: normalizedEmail,
+    emailSent,
   };
 };
 
@@ -178,6 +181,7 @@ const resendVerificationOtp = async ({ email }) => {
     console.log('[auth] Resending verification OTP to:', normalized);
   }
 
+  let emailSent = false;
   try {
     const result = await sendOtpEmail({
       to: normalized,
@@ -185,7 +189,8 @@ const resendVerificationOtp = async ({ email }) => {
       name: user.fullName || user.firstName || '',
       type: 'signup',
     });
-    if (!result?.success) {
+    emailSent = Boolean(result?.success);
+    if (!emailSent) {
       console.error('[resendVerification] Email failed:', result?.error || '(stub/no error provided)');
     }
   } catch (emailErr) {
@@ -193,7 +198,7 @@ const resendVerificationOtp = async ({ email }) => {
     // Non-fatal — OTP saved, user can try again
   }
 
-  return { success: true, message: 'New verification code sent to your email.' };
+  return { success: true, message: 'New verification code sent to your email.', emailSent };
 };
 
 const getMe = async (userId) => {
@@ -248,6 +253,7 @@ const forgotPassword = async ({ email }) => {
     console.log('[DEBUG forgotPassword] OTP for', normalizedEmail, ':', otp);
   }
 
+  let emailSent = false;
   try {
     const result = await sendOtpEmail({
       to: normalizedEmail,
@@ -255,6 +261,7 @@ const forgotPassword = async ({ email }) => {
       name: user.firstName || user.fullName || 'there',
       type: 'reset',
     });
+    emailSent = Boolean(result?.success);
     console.log('[forgotPassword] Email result:', result);
   } catch (emailErr) {
     console.error('[forgotPassword] Email failed:', emailErr.message);
@@ -264,6 +271,7 @@ const forgotPassword = async ({ email }) => {
   return {
     message: 'If that email exists, a reset code has been sent.',
     email: normalizedEmail,
+    emailSent,
   };
 };
 

@@ -5,7 +5,9 @@ const { resolveAgencyOrganizationId } = require('../../utils/resolveAgencyOrg');
 
 const getAll = asyncHandler(async (req, res) => {
   const organizationId = await resolveAgencyOrganizationId(req.user);
-  const result = await oppService.getAll({ ...req.query, organizationId });
+  const matchedOnly =
+    organizationId && req.query.matchedOnly !== 'false' && req.query.matchedOnly !== false;
+  const result = await oppService.getAll({ ...req.query, organizationId, matchedOnly: matchedOnly || undefined });
   return paginate(res, result.docs, result, 'Opportunities retrieved');
 });
 

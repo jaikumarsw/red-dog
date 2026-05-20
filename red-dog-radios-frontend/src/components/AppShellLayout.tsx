@@ -108,11 +108,11 @@ const SidebarContent = ({
       >
         {collapsed ? (
           <div className="mx-auto flex items-center justify-center">
-            <img src="/logo.png" alt="RD" className="w-10 h-auto" />
+            <RedDogLogo sizes="40px" imgClassName="h-auto w-10 max-w-[40px]" />
           </div>
         ) : (
           <>
-            <RedDogLogo dark />
+            <RedDogLogo dark sizes="min(100%, 240px)" />
             {headerSubtitle && (
               <span className="inline-flex w-fit items-center rounded-full border border-[#ef3e34]/25 bg-[#ef3e34]/10 px-2.5 py-1 [font-family:'Montserrat',Helvetica] text-[10px] font-semibold uppercase tracking-[0.12em] text-[#ff6b62]">
                 {headerSubtitle}
@@ -362,7 +362,7 @@ export function AppShellLayout({
             <Menu size={18} className="text-[#374151]" />
           </button>
           <div className="flex items-center">
-            <img src="/logo.png" alt="Red Dog Grant Intelligence" className="h-10 w-auto" />
+            <RedDogLogo sizes="160px" imgClassName="h-10 w-auto" />
           </div>
         </div>
 

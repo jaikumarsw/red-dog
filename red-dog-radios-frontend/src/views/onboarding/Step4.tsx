@@ -13,6 +13,7 @@ import { cn } from "@/lib/utils";
 import { onboardingStep4Schema, type OnboardingStep4FormValues } from "@/lib/validation-schemas";
 import { RedDogLogo } from "@/components/RedDogLogo";
 import api from "@/lib/api";
+import { useAuth } from "@/lib/AuthContext";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Sparkles, Ticket, Check, X, Loader2 } from "lucide-react";
 
@@ -97,6 +98,7 @@ function buildSuggestions(step1: Step1Saved, step2: Step2Saved, step3: Step3Save
 export const OnboardingStep4 = () => {
   const router = useRouter();
   const { toast } = useToast();
+  const { user, updateUser } = useAuth();
   const [selectedBudget, setSelectedBudget] = useState<string>("");
   const [selectedTimeline, setSelectedTimeline] = useState<string>("");
   const [eligibilityType, setEligibilityType] = useState<string>("");
@@ -104,6 +106,7 @@ export const OnboardingStep4 = () => {
   const [errorMsg, setErrorMsg] = useState("");
   const [suggestions, setSuggestions] = useState<string[]>([]);
   const [showSuggestions, setShowSuggestions] = useState(false);
+  const [hydrated, setHydrated] = useState(false);
   const suggestionsRef = useRef<HTMLDivElement>(null);
 
   // Coupon State
@@ -119,6 +122,7 @@ export const OnboardingStep4 = () => {
     reset,
     setValue,
     watch,
+    getValues,
     formState: { errors },
   } = useForm<OnboardingStep4FormValues>({
     resolver: zodResolver(onboardingStep4Schema),
@@ -129,7 +133,10 @@ export const OnboardingStep4 = () => {
 
   // Load saved state + generate suggestions from earlier steps
   useEffect(() => {
-    if (typeof window === "undefined") return;
+    if (typeof window === "undefined") {
+      setHydrated(true);
+      return;
+    }
     try {
       const saved = sessionStorage.getItem("rdg_onboarding_step4");
       if (saved) {
@@ -150,7 +157,44 @@ export const OnboardingStep4 = () => {
       const step3 = JSON.parse(sessionStorage.getItem("rdg_onboarding_step3") || "{}");
       setSuggestions(buildSuggestions(step1, step2, step3));
     } catch {}
+    setHydrated(true);
   }, [reset]);
+
+  // Auto-save on every form change and every select-state change so navigating
+  // away (Back / refresh / forward) never drops typed data.
+  useEffect(() => {
+    if (!hydrated || typeof window === "undefined") return;
+    const sub = watch((value) => {
+      try {
+        sessionStorage.setItem(
+          "rdg_onboarding_step4",
+          JSON.stringify({
+            ...value,
+            budgetRange: selectedBudget,
+            timeline: selectedTimeline,
+            eligibilityType,
+          })
+        );
+      } catch {}
+    });
+    return () => sub.unsubscribe();
+  }, [watch, hydrated, selectedBudget, selectedTimeline, eligibilityType]);
+
+  useEffect(() => {
+    if (!hydrated || typeof window === "undefined") return;
+    try {
+      const values = getValues();
+      sessionStorage.setItem(
+        "rdg_onboarding_step4",
+        JSON.stringify({
+          ...values,
+          budgetRange: selectedBudget,
+          timeline: selectedTimeline,
+          eligibilityType,
+        })
+      );
+    } catch {}
+  }, [selectedBudget, selectedTimeline, eligibilityType, hydrated, getValues]);
 
   // Close suggestions dropdown on outside click
   useEffect(() => {
@@ -208,8 +252,10 @@ export const OnboardingStep4 = () => {
       sessionStorage.setItem("rdg_onboarding_step4", JSON.stringify(step4Data));
     }
 
+    setIsSubmitting(true);
+    let didSucceed = false;
+
     try {
-      setIsSubmitting(true);
       const step1 = JSON.parse(sessionStorage.getItem("rdg_onboarding_step1") || "{}");
       const step2 = JSON.parse(sessionStorage.getItem("rdg_onboarding_step2") || "{}");
       const step3 = JSON.parse(sessionStorage.getItem("rdg_onboarding_step3") || "{}");
@@ -223,32 +269,57 @@ export const OnboardingStep4 = () => {
         location: [step1.city, step1.state, step1.county].filter(Boolean).join(", "),
       };
 
-      const res = await api.post("/onboarding/complete", payload);
+      // Hard timeout so a hung/slow network can never freeze the submit button
+      // forever. 60s is generous for backend match computation.
+      const res = await api.post("/onboarding/complete", payload, { timeout: 60000 });
 
-      // If a coupon was applied, redeem it now that the org exists
+      // Best-effort: redeem coupon if applied. Failure here must NOT block navigation.
       if (appliedCoupon) {
         try {
-          await api.post("/coupons/redeem", { code: appliedCoupon });
+          await api.post("/coupons/redeem", { code: appliedCoupon }, { timeout: 15000 });
           toast({ title: "Coupon applied — beta access granted" });
         } catch (couponRedeemErr) {
           console.error("Failed to redeem coupon:", couponRedeemErr);
         }
       }
 
-      // Store result to pass it to results page
-      sessionStorage.setItem("rdg_onboarding_results", JSON.stringify(res));
+      // Best-effort: persist results for next page. Only store res.data — the
+      // full axios response has non-serializable bits (e.g. request adapter)
+      // that can blow up JSON.stringify and leave the button stuck.
+      try {
+        const resData = (res as { data?: unknown })?.data ?? null;
+        sessionStorage.setItem("rdg_onboarding_results", JSON.stringify(resData));
+      } catch (storageErr) {
+        console.warn("Failed to cache onboarding results:", storageErr);
+      }
 
-      // Trigger background recompute for matches now that profile is done
-      api.post("/matches/compute-all", {}).catch(() => {});
+      // Best-effort: flip auth state + rdg_onboarding cookie BEFORE navigating
+      // so middleware sees onboardingCompleted=true on the very next route.
+      // Backend already ran match computation inside /onboarding/complete — do
+      // NOT fire /matches/compute-all here.
+      try {
+        if (user) {
+          updateUser({ ...user, onboardingCompleted: true });
+        }
+      } catch (authErr) {
+        console.warn("Failed to update local auth state:", authErr);
+      }
 
-      router.push("/onboarding/results");
+      didSucceed = true;
     } catch (err: unknown) {
       const msg =
         typeof err === "object" && err && "message" in err && typeof (err as { message?: unknown }).message === "string"
           ? (err as { message: string }).message
           : null;
       setErrorMsg(msg || "Failed to complete onboarding. Please try again.");
+    } finally {
+      // CRITICAL: always clear the loading flag so the button never stays
+      // stuck on "Submitting..." regardless of what happened above.
       setIsSubmitting(false);
+    }
+
+    if (didSucceed) {
+      router.push("/onboarding/results");
     }
   };
 
@@ -264,7 +335,7 @@ export const OnboardingStep4 = () => {
 
   return (
     <div className="flex min-h-screen flex-col items-center justify-start bg-white px-4 pb-12 pt-6 sm:pt-8">
-      <div className="mb-8 self-center sm:self-start">
+      <div className="mb-8 flex w-full max-w-[520px] justify-center">
         <RedDogLogo className="w-32 sm:w-40" />
       </div>
 

@@ -3,6 +3,8 @@ const { success, created, paginate } = require('../../utils/apiResponse');
 const matchService = require('./match.service');
 const { resolveAgencyOrganizationId } = require('../../utils/resolveAgencyOrg');
 const { AppError } = require('../../middlewares/error.middleware');
+const { DEFAULT_MIN_RELEVANCE_SCORE } = require('../../utils/agencyProfileTags');
+const logger = require('../../utils/logger');
 
 const assertMatchInOrg = async (matchId, organizationId) => {
   const match = await matchService.getOne(matchId);
@@ -15,7 +17,18 @@ const assertMatchInOrg = async (matchId, organizationId) => {
 const getAll = asyncHandler(async (req, res) => {
   const organizationId = await resolveAgencyOrganizationId(req.user);
   if (!organizationId) throw new AppError('No organization linked to your account', 400);
-  const result = await matchService.getAll({ ...req.query, organizationId });
+
+  const relevantOnly =
+    req.query.relevantOnly === undefined ? true : req.query.relevantOnly !== 'false';
+  const minScore =
+    req.query.minScore !== undefined ? req.query.minScore : DEFAULT_MIN_RELEVANCE_SCORE;
+
+  const result = await matchService.getAll({
+    ...req.query,
+    organizationId,
+    relevantOnly,
+    minScore,
+  });
   return paginate(res, result.docs, result, 'Matches retrieved');
 });
 
@@ -44,8 +57,23 @@ const computeAndSave = asyncHandler(async (req, res) => {
 const computeAll = asyncHandler(async (req, res) => {
   const organizationId = await resolveAgencyOrganizationId(req.user);
   if (!organizationId) throw new AppError('No organization linked to your account', 400);
-  const result = await matchService.computeAllForOrganization(organizationId);
-  return success(res, result, `Computed matches for all opportunities. Processed: ${result.processed}, Errors: ${result.errors}`);
+
+  setImmediate(() => {
+    matchService
+      .computeAllForOrganization(organizationId)
+      .then((stats) => {
+        logger.info(`[Matches] Background compute-all finished for org ${organizationId}`, stats);
+      })
+      .catch((err) => {
+        logger.warn('[Matches] Background compute-all failed:', err?.message || err);
+      });
+  });
+
+  return success(
+    res,
+    { recomputing: true, organizationId },
+    'Match recomputation started. Results will update shortly.'
+  );
 });
 
 const approve = asyncHandler(async () => {

@@ -3,6 +3,16 @@ const Organization = require('../organizations/organization.schema');
 const Opportunity = require('../opportunities/opportunity.schema');
 const Application = require('../applications/application.schema');
 const { AppError } = require('../../middlewares/error.middleware');
+const {
+  buildAgencyProfile,
+  buildOpportunityCorpus,
+  countTermOverlap,
+  isAgencyRelevant,
+  isNationalLocationFocus,
+  isOffDomainOpportunity,
+  DEFAULT_MIN_RELEVANCE_SCORE,
+} = require('../../utils/agencyProfileTags');
+const { cosineSimilarity } = require('../../utils/embedding.service');
 
 const buildRecommendedAction = (fitScore, disqualifiers) => {
   if (fitScore >= 80 && disqualifiers.length === 0) return 'High-priority. Recommend immediate review and pursuit.';
@@ -26,21 +36,60 @@ const computeMatchScore = (organization, opportunity) => {
     localMatch: 0,
   };
 
-  // 1. Agency type match (20 pts)
-  if (!opportunity.agencyTypes || opportunity.agencyTypes.length === 0) {
-    breakdown.agencyType = 10;
-    score += 10;
-    reasons.push('No agency type restriction — partial credit (+10 pts)');
+  const profile = buildAgencyProfile(organization);
+  const corpus = buildOpportunityCorpus(opportunity);
+
+  // 1. Agency type match (20 pts) — also checks eligibility text when Grants.gov omits agencyTypes
+  const oppAgencyTypes = opportunity.agencyTypes || [];
+  const eligibleText = (opportunity.eligibleApplicants || []).map(String).join(' ').toLowerCase();
+  const orgTypes = profile.agencyTypes;
+
+  if (oppAgencyTypes.length === 0) {
+    const typeKeywordOverlap = countTermOverlap(
+      orgTypes.flatMap((t) => [t, t.replace(/_/g, ' ')]),
+      [...corpus.allTerms, eligibleText]
+    );
+    if (orgTypes.length === 0) {
+      breakdown.agencyType = 8;
+      score += 8;
+      reasons.push('Agency type not specified in profile — partial credit (+8 pts)');
+    } else if (typeKeywordOverlap.count > 0) {
+      breakdown.agencyType = 18;
+      score += 18;
+      reasons.push(
+        `Agency type aligns with opportunity eligibility (${typeKeywordOverlap.matched.slice(0, 3).join(', ')}) (+18 pts)`
+      );
+    } else {
+      breakdown.agencyType = 6;
+      score += 6;
+      reasons.push('No explicit agency type on opportunity — partial credit (+6 pts)');
+    }
   } else {
-    const orgTypes = organization.agencyTypes || [];
-    const hasOverlap = orgTypes.some((t) => opportunity.agencyTypes.includes(t));
+    const hasOverlap = orgTypes.some((t) => oppAgencyTypes.includes(t));
     if (hasOverlap) {
       breakdown.agencyType = 20;
       score += 20;
       reasons.push('Agency type matches opportunity requirements (+20 pts)');
+    } else if (orgTypes.length === 0) {
+      breakdown.agencyType = 5;
+      score += 5;
+      reasons.push('Agency type not set in profile — partial credit (+5 pts)');
     } else {
       breakdown.agencyType = 0;
       disqualifiers.push('Agency type mismatch — organization type not listed in opportunity requirements');
+    }
+  }
+
+  // 1a. Eligibility type (nonprofit vs government)
+  if (profile.eligibilityType && eligibleText) {
+    const eligibilityTerms =
+      profile.eligibilityType === 'nonprofit_501c3'
+        ? ['nonprofit', '501', '501c3', 'non-profit']
+        : ['government', 'state', 'local', 'tribal', 'municipal', 'public agency'];
+    const eligibilityHit = eligibilityTerms.some((term) => eligibleText.includes(term));
+    if (eligibilityHit) {
+      score += 5;
+      reasons.push('Eligibility type aligns with opportunity applicant requirements (+5 pts)');
     }
   }
 
@@ -59,13 +108,11 @@ const computeMatchScore = (organization, opportunity) => {
     }
   }
 
-  // 2. Geography match (20 pts) — uses opportunity.locationFocus (national = empty / absent)
+  // 2. Geography match (20 pts)
   const orgLocation = (organization.location || '').toLowerCase();
   const rawLocationFocus = opportunity.locationFocus;
-  const isNationalProgram =
-    rawLocationFocus == null || (Array.isArray(rawLocationFocus) && rawLocationFocus.length === 0);
 
-  if (isNationalProgram) {
+  if (isNationalLocationFocus(rawLocationFocus)) {
     breakdown.geography = 20;
     score += 20;
     reasons.push('National program — open to all states (+20 pts)');
@@ -84,30 +131,78 @@ const computeMatchScore = (organization, opportunity) => {
     }
   }
 
-  // 3. Program/keyword match (25 pts)
-  const programAreas = (organization.programAreas || []).map((p) => p.toLowerCase());
-  const oppKeywords = (opportunity.keywords || []).map((k) => k.toLowerCase());
-  const programOverlap = programAreas.filter((p) => oppKeywords.some((k) => k.includes(p) || p.includes(k))).length;
+  // 2b. Off-domain check for public safety agencies vs health/education/research grants
+  if (isOffDomainOpportunity(profile, opportunity, corpus)) {
+    disqualifiers.push('Off-domain opportunity — grant focus does not align with agency mission');
+  }
 
-  if (programOverlap >= 3) {
-    breakdown.programKeyword = 25;
-    score += 25;
-    reasons.push(`Strong program/keyword fit — ${programOverlap} matching areas (+25 pts)`);
-  } else if (programOverlap === 2) {
-    breakdown.programKeyword = 20;
-    score += 20;
-    reasons.push(`Good program/keyword alignment — ${programOverlap} matching areas (+20 pts)`);
-  } else if (programOverlap === 1) {
-    breakdown.programKeyword = 12;
-    score += 12;
-    reasons.push('Some program/keyword overlap (+12 pts)');
-  } else if (programAreas.length === 0 || oppKeywords.length === 0) {
-    breakdown.programKeyword = 8;
-    score += 8;
-    reasons.push('Insufficient data for program match — partial credit (+8 pts)');
+  // 3. Thematic / semantic match (25 pts)
+  // Uses OpenAI cosine similarity when both embeddings are stored; falls back to keyword overlap.
+  // Agency-type keywords are intentionally excluded from the keyword path — they inflate scores
+  // identically for every agency of the same type regardless of actual stated needs.
+  let keywordOverlap = 0;
+  let semanticSimilarity = null;
+
+  const orgEmbedding = Array.isArray(organization.profileEmbedding) && organization.profileEmbedding.length > 0
+    ? organization.profileEmbedding : null;
+  const oppEmbedding = Array.isArray(opportunity.descriptionEmbedding) && opportunity.descriptionEmbedding.length > 0
+    ? opportunity.descriptionEmbedding : null;
+
+  if (orgEmbedding && oppEmbedding) {
+    // Semantic path: cosine similarity drives the score
+    semanticSimilarity = cosineSimilarity(orgEmbedding, oppEmbedding);
+    const sim = semanticSimilarity ?? 0;
+
+    if (sim >= 0.55) {
+      breakdown.programKeyword = 25;
+      score += 25;
+      keywordOverlap = 4;
+      reasons.push(`Strong semantic match (${(sim * 100).toFixed(0)}% relevance score) (+25 pts)`);
+    } else if (sim >= 0.40) {
+      breakdown.programKeyword = 18;
+      score += 18;
+      keywordOverlap = 2;
+      reasons.push(`Good semantic alignment (${(sim * 100).toFixed(0)}% relevance score) (+18 pts)`);
+    } else if (sim >= 0.25) {
+      breakdown.programKeyword = 8;
+      score += 8;
+      keywordOverlap = 1;
+      reasons.push(`Moderate semantic overlap (${(sim * 100).toFixed(0)}% relevance score) (+8 pts)`);
+    } else {
+      breakdown.programKeyword = 0;
+      keywordOverlap = 0;
+      disqualifiers.push('Low semantic relevance — agency profile does not align with this opportunity');
+    }
   } else {
-    breakdown.programKeyword = 0;
-    disqualifiers.push('No program/keyword overlap between organization and opportunity');
+    // Keyword fallback path (used when embeddings haven't been generated yet)
+    const thematicKeywords = profile.thematicKeywords || profile.keywords || [];
+    const { count, matched: matchedKeywords } = countTermOverlap(
+      thematicKeywords,
+      corpus.thematicTerms || corpus.allTerms
+    );
+    keywordOverlap = count;
+
+    if (count >= 4) {
+      breakdown.programKeyword = 25;
+      score += 25;
+      reasons.push(
+        `Strong thematic match — ${count} overlapping themes (${matchedKeywords.slice(0, 4).join(', ')}) (+25 pts)`
+      );
+    } else if (count >= 2) {
+      breakdown.programKeyword = 18;
+      score += 18;
+      reasons.push(`Good thematic alignment — ${matchedKeywords.slice(0, 3).join(', ')} (+18 pts)`);
+    } else if (count === 1) {
+      breakdown.programKeyword = 8;
+      score += 8;
+      reasons.push(`Limited thematic overlap — ${matchedKeywords[0]} (+8 pts)`);
+    } else if (thematicKeywords.length === 0) {
+      breakdown.programKeyword = 0;
+      reasons.push('Complete your agency profile to improve grant matching');
+    } else {
+      breakdown.programKeyword = 0;
+      disqualifiers.push('No thematic overlap between agency profile and opportunity');
+    }
   }
 
   // 4. Deadline viability (10 pts)
@@ -217,7 +312,18 @@ const computeMatchScore = (organization, opportunity) => {
   const state = organization.location ? organization.location.split(',').map((s) => s.trim()).pop() : '';
 
   // Use distinct arrays to avoid duplication in UI
-  const result = { fitScore, reasons, fitReasons: [...reasons], disqualifiers, recommendedAction, breakdown, state };
+  const result = {
+    fitScore,
+    reasons,
+    fitReasons: [...reasons],
+    disqualifiers,
+    recommendedAction,
+    breakdown,
+    state,
+    thematicOverlap: keywordOverlap,
+    isRelevant: false,
+    ...(semanticSimilarity !== null && { semanticSimilarity }),
+  };
 
   // Priority boost for long-term non-winning agencies
   if (organization?.priorityFlags?.isLongTermNoWin) {
@@ -226,6 +332,8 @@ const computeMatchScore = (organization, opportunity) => {
     result.reasons.push(`Priority boost (+${PRIORITY_BOOST}) — long-term agency, no recent wins`);
     result.fitReasons.push(`Priority boost (+${PRIORITY_BOOST}) — long-term agency, no recent wins`);
   }
+
+  result.isRelevant = isAgencyRelevant(result, profile, opportunity, corpus);
 
   return result;
 };
@@ -247,10 +355,12 @@ const competitionFromCount = (highFitCount) => {
 };
 
 const computeRubricScores = ({ organization, opportunity, breakdown, pastSuccessFactor = 0.5 }) => {
+  const profile = buildAgencyProfile(organization);
   const orgChallenges = Array.isArray(organization?.challenges) ? organization.challenges.map(String) : [];
   const orgPriorities = Array.isArray(organization?.fundingPriorities) ? organization.fundingPriorities.map(String) : [];
-  const orgPrograms = Array.isArray(organization?.programAreas) ? organization.programAreas.map(String).map((s) => s.toLowerCase()) : [];
-  const oppKeywords = Array.isArray(opportunity?.keywords) ? opportunity.keywords.map(String).map((s) => s.toLowerCase()) : [];
+  const orgPrograms = profile.programAreas.map((s) => String(s).toLowerCase());
+  const corpus = buildOpportunityCorpus(opportunity);
+  const oppKeywords = corpus.allTerms;
 
   const overlap = (a, b) => {
     const setB = new Set(b);
@@ -361,11 +471,22 @@ const computeWinProbability = ({ fitScore, competitionLevel, pastSuccessFactor }
   return clamp(Math.round(win), 0, 100);
 };
 
-const getAll = async ({ page = 1, limit = 20, organizationId, oppId, status, minScore, maxScore, search }) => {
+const getAll = async ({
+  page = 1,
+  limit = 20,
+  organizationId,
+  oppId,
+  status,
+  minScore,
+  maxScore,
+  search,
+  relevantOnly,
+}) => {
   const query = {};
   if (organizationId) query.organization = organizationId;
   if (oppId) query.opportunity = oppId;
   if (status) query.status = status;
+  if (relevantOnly === true || relevantOnly === 'true') query.isRelevant = true;
   if (minScore !== undefined) query.fitScore = { ...query.fitScore, $gte: Number(minScore) };
   if (maxScore !== undefined) query.fitScore = { ...query.fitScore, $lte: Number(maxScore) };
 
@@ -392,10 +513,26 @@ const getOne = async (id) => {
 
 const create = async (data) => Match.create(data);
 
+// Override fitScore with a conservatively-discounted rubric score so agencies don't see
+// inflated numbers that create false confidence. The displayed score is 82% of the actual
+// rubric normalizedScore (roughly 15-20% lower). Relevance filtering still uses the
+// undiscounted rubric score so borderline matches aren't hidden. rawFitScore preserves
+// the original rule-based eligibility score for internal reference.
+const DISPLAY_DISCOUNT = 0.82;
+const buildDisplayOverrides = (scored, rubricScores) => {
+  const normalizedScore = rubricScores.normalizedScore;
+  const displayFitScore = Math.round(normalizedScore * DISPLAY_DISCOUNT);
+  return {
+    fitScore: displayFitScore,
+    rawFitScore: scored.fitScore,
+    isRelevant: scored.isRelevant && normalizedScore >= DEFAULT_MIN_RELEVANCE_SCORE,
+  };
+};
+
 const computeAndSave = async (opportunityId, organizationId) => {
   const [org, opp] = await Promise.all([
-    Organization.findById(organizationId),
-    Opportunity.findById(opportunityId),
+    Organization.findById(organizationId).select('+profileEmbedding'),
+    Opportunity.findById(opportunityId).select('+descriptionEmbedding'),
   ]);
   if (!org) throw new AppError('Organization not found', 404);
   if (!opp) throw new AppError('Opportunity not found', 404);
@@ -418,6 +555,7 @@ const computeAndSave = async (opportunityId, organizationId) => {
     { organization: organizationId, opportunity: opportunityId },
     {
       ...scored,
+      ...buildDisplayOverrides(scored, rubricScores),
       rubricScores,
       rubricTier,
       competitionLevel,
@@ -426,7 +564,7 @@ const computeAndSave = async (opportunityId, organizationId) => {
       winProbability,
       lastUpdated: new Date(),
       status: 'pending',
-      scoreVersion: 'v3',
+      scoreVersion: 'v5',
     },
     { new: true, upsert: true, setDefaultsOnInsert: true }
   ).populate(['organization', 'opportunity']);
@@ -447,10 +585,10 @@ const rejectMatch = async (id) => {
 };
 
 const computeAllForOrganization = async (organizationId) => {
-  const org = await Organization.findById(organizationId);
+  const org = await Organization.findById(organizationId).select('+profileEmbedding');
   if (!org) throw new AppError('Organization not found', 404);
 
-  const opportunities = await Opportunity.find({ status: { $in: ['open', 'closing'] } });
+  const opportunities = await Opportunity.find({ status: { $in: ['open', 'closing'] } }).select('+descriptionEmbedding');
   let processed = 0, upserted = 0, errors = 0;
 
   const { pastSuccessFactor } = await computePastSuccessFactor(organizationId);
@@ -472,6 +610,7 @@ const computeAllForOrganization = async (organizationId) => {
         { organization: organizationId, opportunity: opp._id },
         {
           ...scored,
+          ...buildDisplayOverrides(scored, rubricScores),
           rubricScores,
           rubricTier,
           competitionLevel,
@@ -479,7 +618,7 @@ const computeAllForOrganization = async (organizationId) => {
           pastSuccessFactor,
           winProbability,
           lastUpdated: new Date(),
-          scoreVersion: 'v3',
+          scoreVersion: 'v5',
         },
         { upsert: true, new: true, setDefaultsOnInsert: true }
       );
@@ -499,13 +638,13 @@ const computeAllForOrganization = async (organizationId) => {
 };
 
 const computeAllForOpportunity = async (opportunityId) => {
-  const opp = await Opportunity.findById(opportunityId);
+  const opp = await Opportunity.findById(opportunityId).select('+descriptionEmbedding');
   if (!opp) throw new AppError('Opportunity not found', 404);
 
-  const organizations = await Organization.find({ status: 'active' });
+  const organizations = await Organization.find({ status: 'active' }).select('+profileEmbedding');
   let processed = 0, errors = 0;
 
-  // Step 1: Initial pass to create/update match records with base scores
+  // Step 1: Initial pass — compute base eligibility scores and persist them
   for (const org of organizations) {
     try {
       const scored = computeMatchScore(org, opp);
@@ -513,8 +652,9 @@ const computeAllForOpportunity = async (opportunityId) => {
         { organization: org._id, opportunity: opp._id },
         {
           ...scored,
+          rawFitScore: scored.fitScore,  // preserve raw eligibility score; fitScore overridden in pass 2
           lastUpdated: new Date(),
-          scoreVersion: 'v3',
+          scoreVersion: 'v5',
           status: 'pending',
         },
         { upsert: true, new: true, setDefaultsOnInsert: true }
@@ -529,7 +669,7 @@ const computeAllForOpportunity = async (opportunityId) => {
   // Step 2: Calculate competition level based on all newly created matches
   const { competitionLevel, competitionLabel } = await computeCompetition(opp._id);
 
-  // Step 3: Second pass to calculate win probability and rubric scores
+  // Step 3: Second pass — compute rubric scores and override fitScore with normalizedScore
   for (const org of organizations) {
     try {
       const { pastSuccessFactor } = await computePastSuccessFactor(org._id);
@@ -543,13 +683,16 @@ const computeAllForOpportunity = async (opportunityId) => {
         pastSuccessFactor,
       });
       const rubricTier = rubricTierFrom(rubricScores.normalizedScore);
-      const winProbability = computeWinProbability({ 
-        fitScore: match.fitScore, 
-        competitionLevel, 
-        pastSuccessFactor 
+      const winProbability = computeWinProbability({
+        fitScore: match.rawFitScore ?? match.fitScore,
+        competitionLevel,
+        pastSuccessFactor,
       });
 
+      const displayFitScore = rubricScores.normalizedScore;
       await Match.findByIdAndUpdate(match._id, {
+        fitScore: displayFitScore,
+        isRelevant: match.isRelevant && displayFitScore >= DEFAULT_MIN_RELEVANCE_SCORE,
         rubricScores,
         rubricTier,
         competitionLevel,

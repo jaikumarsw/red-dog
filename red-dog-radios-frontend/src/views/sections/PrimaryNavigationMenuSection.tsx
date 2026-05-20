@@ -30,7 +30,7 @@ export const PrimaryNavigationMenuSection = () => {
     <nav className="z-[1] flex w-72 min-h-screen flex-col items-stretch self-stretch border-r border-solid border-[#1f1f1f] bg-[#0d0d0d]">
       {/* Logo / Brand Header */}
       <div className="h-20 items-center px-6 py-0 border-[#1f1f1f] flex self-stretch w-full border-b border-solid flex-shrink-0">
-        <RedDogLogo dark />
+        <RedDogLogo dark sizes="180px" />
       </div>
 
       {/* Menu */}

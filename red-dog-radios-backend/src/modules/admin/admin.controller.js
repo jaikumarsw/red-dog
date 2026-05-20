@@ -185,6 +185,19 @@ const recomputeMatches = asyncHandler(async (req, res) => {
   return success(res, result, 'Match recompute complete');
 });
 
+const backfillEmbeddings = asyncHandler(async (req, res) => {
+  const { backfillAllEmbeddings } = require('../../utils/embedding.service');
+  const result = await backfillAllEmbeddings();
+  await activityLogService.log({
+    category: 'match',
+    action: 'backfill_embeddings',
+    summary: `Embedding backfill complete — ${result.orgs} orgs, ${result.opps} opps`,
+    actorId: req.user._id,
+    meta: result,
+  });
+  return success(res, result, 'Embedding backfill complete');
+});
+
 const approveMatch = asyncHandler(async (req, res) => {
   const match = await adminService.approveMatchAdmin(req.params.id);
   await activityLogService.log({
@@ -386,6 +399,7 @@ module.exports = {
   listMatches,
   getMatch,
   recomputeMatches,
+  backfillEmbeddings,
   approveMatch,
   rejectMatch,
   listUsers,

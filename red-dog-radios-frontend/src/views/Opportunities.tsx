@@ -175,49 +175,38 @@ const reasoningFrom = (m: ApiMatchRow) => {
 const inputCls =
   "w-full rounded-lg border border-[#e5e7eb] bg-white px-4 py-2.5 [font-family:'Montserrat',Helvetica] text-sm text-[#111827] placeholder:text-[#9ca3af] focus:border-[#ef3e34] focus:outline-none focus:ring-2 focus:ring-[#ef3e34]/20 transition-all";
 
-function mergeRankedOpportunities(matches: ApiMatchRow[], opportunities: Opportunity[]): RankedOpportunity[] {
-  const pageOpportunityIds = new Set(opportunities.map((o) => String(o._id)));
-  const byOpp = new Map<string, RankedOpportunity>();
-
+function buildRankedList(matches: ApiMatchRow[], opportunities: Opportunity[]): RankedOpportunity[] {
+  const matchByOpp = new Map<string, ApiMatchRow>();
   for (const m of matches) {
-    const opp = m.opportunity;
-    const oid = opp?._id ? String(opp._id) : null;
-    if (!oid || !opp?.title) continue;
-    if (!pageOpportunityIds.has(oid)) continue;
-    const reasons = [...(m.fitReasons || []), ...(m.reasons || [])].filter(
-      (r) => typeof r === "string" && r.trim().length > 0
-    );
-    byOpp.set(oid, {
-      ...opp,
-      _id: oid,
-      fitScore: m.fitScore ?? null,
-      winProbability: m.winProbability ?? null,
-      rubricScores: m.rubricScores ?? null,
-      rubricTier: m.rubricTier,
-      matchId: String(m._id),
-      matchReasons: reasons,
-      matchStatus: m.state ?? m.status ?? "pending",
-      lastActivity: fmtActivity(m.updatedAt),
-      orgName: m.organization?.name ?? "Unknown",
-      aiReasoning: reasoningFrom(m),
-    });
+    const oid = m.opportunity?._id ? String(m.opportunity._id) : null;
+    if (oid) matchByOpp.set(oid, m);
   }
 
-  const ranked = [...byOpp.values()].sort((a, b) => (b.fitScore ?? 0) - (a.fitScore ?? 0));
+  return opportunities
+    .map((opp) => {
+      const oid = String(opp._id);
+      const m = matchByOpp.get(oid);
+      const reasons = m
+        ? [...(m.fitReasons || []), ...(m.reasons || [])].filter(
+            (r) => typeof r === "string" && r.trim().length > 0
+          )
+        : (opp.matchReasons ?? []);
 
-  const unmatched = opportunities
-    .filter((o) => !byOpp.has(String(o._id)))
-    .map((o) => ({
-      ...o,
-      fitScore: o.fitScore ?? null,
-      winProbability: o.winProbability ?? null,
-      rubricTier: o.matchTier as RankedOpportunity["rubricTier"],
-      matchStatus: o.matchStatus ?? "pending",
-      matchReasons: o.matchReasons ?? [],
-    }))
-    .sort((a, b) => (a.title || "").localeCompare(b.title || ""));
-
-  return [...ranked, ...unmatched];
+      return {
+        ...opp,
+        fitScore: m?.fitScore ?? opp.fitScore ?? null,
+        winProbability: m?.winProbability ?? opp.winProbability ?? null,
+        rubricScores: m?.rubricScores ?? null,
+        rubricTier: m?.rubricTier ?? (opp.matchTier as RankedOpportunity["rubricTier"]),
+        matchId: m?._id ? String(m._id) : undefined,
+        matchReasons: reasons,
+        matchStatus: m?.state ?? m?.status ?? opp.matchStatus ?? "pending",
+        lastActivity: m?.updatedAt ? fmtActivity(m.updatedAt) : undefined,
+        orgName: m?.organization?.name,
+        aiReasoning: m ? reasoningFrom(m) : reasons.join(" ") || undefined,
+      };
+    })
+    .sort((a, b) => (b.fitScore ?? 0) - (a.fitScore ?? 0));
 }
 
 // ── Main Component ─────────────────────────────────────────────────────────
@@ -238,9 +227,29 @@ export const Opportunities = () => {
   const [selectedOpp, setSelectedOpp] = useState<RankedOpportunity | null>(null);
   const [scoreOpp, setScoreOpp] = useState<RankedOpportunity | null>(null);
   const [paywallOpen, setPaywallOpen] = useState(false);
+  const [paywallVariant, setPaywallVariant] = useState<"subscription" | "premium">("subscription");
   const [generatingFor, setGeneratingFor] = useState<string | null>(null);
   const [isMounted, setIsMounted] = useState(false);
   useEffect(() => setIsMounted(true), []);
+
+  const { data: billingStatus } = useQuery<{ hasAccess?: boolean; tier?: string; betaAccess?: boolean }>({
+    queryKey: ["billing", "status"],
+    queryFn: async () => {
+      const res = await api
+        .get("/billing/status")
+        .catch(() => ({ data: { data: { hasAccess: false } } }));
+      return res.data?.data ?? { hasAccess: false };
+    },
+    staleTime: 60_000,
+  });
+
+  const openPaywall = (variant: "subscription" | "premium") => {
+    // Close the opportunity modal first — it uses z-[100] while AlertDialog
+    // uses z-50, so leaving it open traps the page behind an invisible overlay.
+    setSelectedOpp(null);
+    setPaywallVariant(variant);
+    setPaywallOpen(true);
+  };
 
   const { data: matchRows = [], isLoading: matchesLoading } = useQuery<ApiMatchRow[]>({
     queryKey: [...qk.matches(), "for-opportunities"],
@@ -259,11 +268,12 @@ export const Opportunities = () => {
   } = useQuery<OpportunitiesResponse>({
     queryKey: [...qk.opportunities(), "paged", page, search, categoryFilter, statusFilter],
     queryFn: async () => {
-      const res = await api.get("/opportunities", {
+  const res = await api.get("/opportunities", {
         params: {
           page,
           limit: 24,
           sortBy: "fitScore",
+          matchedOnly: true,
           search: search || undefined,
           category: categoryFilter || undefined,
           status: statusFilter === "all" ? undefined : statusFilter,
@@ -298,7 +308,7 @@ export const Opportunities = () => {
   );
 
   const opportunities = useMemo(() => oppPayload?.data ?? [], [oppPayload?.data]);
-  const ranked = useMemo(() => mergeRankedOpportunities(matchRows, opportunities), [matchRows, opportunities]);
+  const ranked = useMemo(() => buildRankedList(matchRows, opportunities), [matchRows, opportunities]);
   const isLoading = matchesLoading || oppsLoading;
   const isPageFetching = oppsFetching && !oppsLoading;
   const pagination = oppPayload?.pagination;
@@ -309,12 +319,23 @@ export const Opportunities = () => {
     mutationFn: (opts?: { silent?: boolean }) => api.post("/matches/compute-all", opts || {}),
     onSuccess: (res, variables) => {
       const silent = variables?.silent ?? false;
+      const recomputing = (res.data as { data?: { recomputing?: boolean } })?.data?.recomputing;
       if (!silent) {
-        const msg = (res.data as { message?: string })?.message ?? "Scores updated.";
-        toast({ title: "Match scores updated", description: msg });
+        const msg = recomputing
+          ? "Recalculating matches for your agency profile. Results will appear shortly."
+          : (res.data as { message?: string })?.message ?? "Scores updated.";
+        toast({ title: "Match scores updating", description: msg });
       }
-      queryClient.invalidateQueries({ queryKey: qk.matches() });
-      refetch();
+      const refresh = () => {
+        queryClient.invalidateQueries({ queryKey: qk.matches() });
+        refetch();
+      };
+      if (recomputing) {
+        setTimeout(refresh, 5000);
+        setTimeout(refresh, 15000);
+      } else {
+        refresh();
+      }
     },
     onError: (err: unknown, variables) => {
       const silent = variables?.silent ?? false;
@@ -349,9 +370,19 @@ export const Opportunities = () => {
     },
     onError: (err: unknown) => {
       const e = err as { response?: { status?: number; data?: { code?: string; message?: string } } };
-      if (e?.response?.status === 402 && e?.response?.data?.code === "SUBSCRIPTION_REQUIRED") {
-        setPaywallOpen(true);
-        return;
+      if (e?.response?.status === 402) {
+        const code = e.response.data?.code;
+        if (
+          code === "PREMIUM_REQUIRED" ||
+          code === "LIMIT_REACHED_UPGRADE_PREMIUM"
+        ) {
+          openPaywall("premium");
+          return;
+        }
+        if (code === "SUBSCRIPTION_REQUIRED" || code === "LIMIT_REACHED") {
+          openPaywall("subscription");
+          return;
+        }
       }
       const msg = e?.response?.data?.message;
       toast({ title: "Failed to draft application", description: msg ?? "Please try again.", variant: "destructive" });
@@ -380,7 +411,7 @@ export const Opportunities = () => {
           Grant Intelligence
         </h1>
         <p className="[font-family:'Montserrat',Helvetica] text-[#6b7280] text-xs sm:text-sm max-w-xl leading-relaxed">
-          Browse, filter, and discover the best grant matches for your agency. Apply with Ashleen AI to start drafting.
+          Grants matched to your agency profile — filtered by your type, challenges, and funding priorities.
         </p>
       </div>
 
@@ -511,9 +542,17 @@ export const Opportunities = () => {
           <p className="[font-family:'Montserrat',Helvetica] font-semibold text-[#374151] text-sm sm:text-base">
             No grants found
           </p>
-          <p className="[font-family:'Montserrat',Helvetica] text-[#6b7280] text-xs sm:text-sm max-w-xs text-center px-4">
-            Try adjusting your filters or search terms to find what you are looking for.
+          <p className="[font-family:'Montserrat',Helvetica] text-[#6b7280] text-xs sm:text-sm max-w-sm text-center px-4">
+            No grants match your agency profile yet. Try refreshing scores, updating your agency profile, or adjusting filters.
           </p>
+          <button
+            type="button"
+            onClick={() => computeMutation.mutate(undefined)}
+            disabled={computeMutation.isPending}
+            className="mt-2 rounded-lg border border-[#ef3e34] px-4 py-2 text-sm font-semibold text-[#ef3e34] hover:bg-[#fff1f0] disabled:opacity-50"
+          >
+            {computeMutation.isPending ? "Refreshing…" : "Refresh match scores"}
+          </button>
         </div>
       ) : (
         <div className="grid gap-3 grid-cols-1 min-[480px]:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
@@ -695,6 +734,10 @@ export const Opportunities = () => {
           onClose={() => setSelectedOpp(null)}
           onApply={() => {
             if (generatingFor) return;
+            if (!billingStatus?.hasAccess) {
+              openPaywall("subscription");
+              return;
+            }
             setGeneratingFor(selectedOpp._id);
             generateMutation.mutate(selectedOpp._id, { onSettled: () => setGeneratingFor(null) });
           }}
@@ -771,14 +814,26 @@ export const Opportunities = () => {
         </DialogContent>
       </Dialog>
 
-      {/* Paywall dialog */}
+      {/* Paywall dialog — z-[110] so it stacks above OppDetailModal (z-[100]) */}
       <AlertDialog open={paywallOpen} onOpenChange={setPaywallOpen}>
-        <AlertDialogContent className="w-[calc(100vw-1.5rem)] max-w-md rounded-xl">
+        <AlertDialogContent className="z-[110] w-[calc(100vw-1.5rem)] max-w-md rounded-xl">
           <AlertDialogHeader>
-            <AlertDialogTitle>Subscription Required</AlertDialogTitle>
+            <AlertDialogTitle>
+              {paywallVariant === "premium" ? "Premium Plan Required" : "Subscription Required"}
+            </AlertDialogTitle>
             <AlertDialogDescription className="text-sm">
-              AI grant writing requires an active subscription. Plans start at $199/month and include
-              unlimited AI applications, smart funder matching, and weekly digests.
+              {paywallVariant === "premium" ? (
+                <>
+                  You&apos;ve reached your Basic plan limit for this feature, or it requires{" "}
+                  <strong>Premium</strong> ($449/month). Upgrade for unlimited Apply with Ashleen,
+                  Ashleen chat, outbound emails, and private foundation access.
+                </>
+              ) : (
+                <>
+                  Apply with Ashleen requires an active paid plan. Subscribe to <strong>Basic</strong> ($225/month)
+                  or <strong>Premium</strong> ($449/month) to start drafting AI applications.
+                </>
+              )}
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter className="flex-col-reverse gap-2 sm:flex-row sm:gap-0">
@@ -829,8 +884,14 @@ const OppDetailModal = ({
     (r) => typeof r === "string" && r.trim().length > 0 && !NEGATIVE_PATTERNS.test(r)
   );
   const cleanAiReasoning =
-    typeof opp.aiReasoning === "string" && opp.aiReasoning.trim().length > 0 ? opp.aiReasoning : null;
-  const hasAnyAnalysis = cleanReasons.length > 0 || cleanAiReasoning;
+    typeof opp.aiReasoning === "string" && opp.aiReasoning.trim().length > 0 ? opp.aiReasoning.trim() : null;
+  const analysisPoints =
+    cleanReasons.length > 0
+      ? cleanReasons
+      : cleanAiReasoning
+        ? cleanAiReasoning.split(/(?<=[.!?])\s+/).map((s) => s.trim()).filter(Boolean)
+        : [];
+  const hasAnyAnalysis = analysisPoints.length > 0;
 
   const isPortalOnly =
     opp.funder &&
@@ -887,8 +948,9 @@ const OppDetailModal = ({
           </button>
         </div>
 
-        {/* Scrollable body */}
-        <div className="flex flex-1 flex-col gap-5 overflow-y-auto px-4 py-4 sm:px-6 sm:py-5">
+        {/* Scrollable body — block layout so sections are not flex-shrunk */}
+        <div className="flex-1 overflow-y-auto px-4 py-4 sm:px-6 sm:py-5">
+          <div className="space-y-5">
 
           {/* Key details grid */}
           <div className="grid grid-cols-1 gap-3 rounded-xl border border-[#e5e7eb] bg-white p-4 shadow-sm min-[400px]:grid-cols-2">
@@ -999,9 +1061,8 @@ const OppDetailModal = ({
 
           {/* AI analysis */}
           {hasAnyAnalysis && (
-            <div className="flex flex-col gap-4 rounded-xl border border-[#ef3e34]/20 bg-[#fffafa] p-4 sm:p-5 relative overflow-hidden shadow-sm">
-              <Sparkles size={100} className="absolute -top-4 -right-4 text-[#ef3e34]/5 pointer-events-none sm:size-[120px]" />
-              <div className="flex items-center gap-2 relative z-10 shrink-0">
+            <div className="rounded-xl border border-[#ef3e34]/20 bg-[#fffbf9] p-4 sm:p-5 shadow-sm">
+              <div className="flex items-center gap-2">
                 <div className="w-7 h-7 sm:w-8 sm:h-8 rounded-full bg-[#ef3e34] flex items-center justify-center text-white shrink-0 shadow-sm border-2 border-white">
                   <span className="[font-family:'Montserrat',Helvetica] font-bold text-[10px] sm:text-xs">AI</span>
                 </div>
@@ -1009,17 +1070,11 @@ const OppDetailModal = ({
                   Ashleen Match Analysis
                 </h4>
               </div>
-              <div className="[font-family:'Montserrat',Helvetica] text-xs sm:text-sm text-[#374151] relative z-10">
-                {cleanReasons.length > 0 ? (
-                  <ul className="list-disc pl-5 space-y-2 leading-relaxed marker:text-[#ef3e34]">
-                    {cleanReasons.map((r, i) => <li key={i}>{r}</li>)}
-                  </ul>
-                ) : cleanAiReasoning ? (
-                  <p className="leading-relaxed bg-white/50 rounded-lg p-3 sm:p-3.5 border border-[#ef3e34]/10">
-                    {cleanAiReasoning}
-                  </p>
-                ) : null}
-              </div>
+              <ul className="mt-3 list-disc space-y-2 pl-5 [font-family:'Montserrat',Helvetica] text-xs leading-relaxed text-[#374151] marker:text-[#ef3e34] sm:text-sm">
+                {analysisPoints.map((point, i) => (
+                  <li key={i}>{point}</li>
+                ))}
+              </ul>
             </div>
           )}
 
@@ -1053,6 +1108,7 @@ const OppDetailModal = ({
               </div>
             </div>
           )}
+          </div>
         </div>
 
         {/* ── Sticky footer ───────────────────────────────────────────────── */}

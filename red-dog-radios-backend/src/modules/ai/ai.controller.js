@@ -4,6 +4,7 @@ const aiService = require('./ai.service');
 const { resolveAgencyOrganizationId } = require('../../utils/resolveAgencyOrg');
 const { AppError } = require('../../middlewares/error.middleware');
 const outboxService = require('../outbox/outbox.service');
+const tierLimitsService = require('../billing/tierLimits.service');
 
 const generateSummary = asyncHandler(async (req, res) => {
   const { opportunityId } = req.body;
@@ -45,6 +46,8 @@ const generateEmail = asyncHandler(async (req, res) => {
     .trim();
 
   const previewOnly = req.query.previewOnly === 'true';
+
+  await tierLimitsService.recordUsage(organizationId, 'outreachEmail');
 
   if (previewOnly) {
     return success(

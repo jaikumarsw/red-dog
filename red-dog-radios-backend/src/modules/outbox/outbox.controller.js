@@ -3,6 +3,7 @@ const { success, created, paginate } = require('../../utils/apiResponse');
 const outboxService = require('./outbox.service');
 const { resolveAgencyOrganizationId } = require('../../utils/resolveAgencyOrg');
 const { AppError } = require('../../middlewares/error.middleware');
+const tierLimitsService = require('../billing/tierLimits.service');
 const Outbox = require('./outbox.schema');
 
 const getAll = asyncHandler(async (req, res) => {
@@ -65,7 +66,12 @@ const queueEmail = asyncHandler(async (req, res) => {
 });
 
 const sendEmail = asyncHandler(async (req, res) => {
+  const organizationId = await resolveAgencyOrganizationId(req.user);
+  if (!organizationId) throw new AppError('No organization linked to your account', 400);
   const result = await outboxService.sendEmail(req.params.id);
+  if (result?.success !== false) {
+    await tierLimitsService.recordUsage(organizationId, 'outboxSend');
+  }
   return success(res, result, result.success ? 'Email sent' : 'Email failed');
 });
 
@@ -97,6 +103,24 @@ const sendOrSchedule = asyncHandler(async (req, res) => {
     throw new AppError('subject, htmlBody, and recipient are required', 400);
   }
 
+  // Sending / scheduling requires the agency to have connected their own email.
+  // Drafts are allowed without a connection — the user may connect later before sending.
+  if (sendMode === 'now' || sendMode === 'scheduled') {
+    const Organization = require('../organizations/organization.schema');
+    const org = await Organization.findById(organizationId).select('nylasGrant gmailOAuth').lean();
+    const hasNylas = org?.nylasGrant?.isConnected && org?.nylasGrant?.grantId;
+    const hasGmail = org?.gmailOAuth?.isConnected && org?.gmailOAuth?.senderEmail;
+    if (!hasNylas && !hasGmail) {
+      throw new AppError(
+        'You must connect your email account before sending. Go to Settings → Agency Profile to connect your email.',
+        400
+      );
+    }
+    if (sendMode === 'now') {
+      await tierLimitsService.assertWithinLimit(organizationId, 'outboxSend');
+    }
+  }
+
   let resolvedScheduledFor = scheduledFor ? new Date(scheduledFor) : new Date();
 
   if (sendMode === 'draft') {
@@ -122,8 +146,10 @@ const sendOrSchedule = asyncHandler(async (req, res) => {
   });
 
   if (sendMode === 'now') {
-    await outboxService.sendEmail(queued._id);
-    // Reload to get updated status/sentAt
+    const result = await outboxService.sendEmail(queued._id);
+    if (result?.success !== false) {
+      await tierLimitsService.recordUsage(organizationId, 'outboxSend');
+    }
     const updated = await outboxService.getOne(queued._id);
     return success(res, updated, 'Email sent successfully');
   }
@@ -133,6 +159,19 @@ const sendOrSchedule = asyncHandler(async (req, res) => {
     queued,
     sendMode === 'scheduled' ? 'Email scheduled' : 'Draft saved'
   );
+});
+
+const deleteDraft = asyncHandler(async (req, res) => {
+  const organizationId = await resolveAgencyOrganizationId(req.user);
+  const record = await outboxService.getOne(req.params.id);
+  if (!organizationId || String(record.relatedOrganization) !== String(organizationId)) {
+    throw new AppError('Outbox record not found', 404);
+  }
+  if (record.status !== 'draft') {
+    throw new AppError('Only draft emails can be deleted', 400);
+  }
+  await Outbox.findByIdAndDelete(req.params.id);
+  return success(res, { id: req.params.id }, 'Draft deleted');
 });
 
 module.exports = {
@@ -147,4 +186,5 @@ module.exports = {
   sendEmail,
   sendOrSchedule,
   retryFailed,
+  deleteDraft,
 };

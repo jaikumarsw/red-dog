@@ -17,7 +17,15 @@
       "WebFetch(domain:open.gsa.gov)",
       "WebFetch(domain:www.grants.gov)",
       "WebFetch(domain:wiki.simpler.grants.gov)",
-      "WebFetch(domain:developer.candid.org)"
+      "WebFetch(domain:developer.candid.org)",
+      "Bash(Get-ChildItem -Path \"c:\\\\Users\\\\iamja\\\\Documents\\\\Devoric\\\\Red Dog\" -Recurse -Directory)",
+      "Bash(Select-Object -First 20)",
+      "Bash(Format-Table FullName)",
+      "Bash(Get-ChildItem -Path \"c:\\\\Users\\\\iamja\\\\Documents\\\\Devoric\\\\Red Dog\\\\red-dog-radios-backend\" -Directory -Force)",
+      "Bash(Select-Object -ExpandProperty Name)",
+      "Bash(node scripts/recompute-matches.js)",
+      "Bash(node -e \"require\\('dotenv'\\).config\\(\\); console.log\\('OPENAI_API_KEY configured:', !!process.env.OPENAI_API_KEY\\);\")",
+      "Bash(node probe.js)"
     ],
     "additionalDirectories": [
       "C:\\Users\\iamja\\.claude\\projects\\c--Users-iamja-Documents-Devoric-Red-Dog\\memory"

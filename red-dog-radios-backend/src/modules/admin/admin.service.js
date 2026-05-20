@@ -523,25 +523,20 @@ const getMatchAdmin = async (id) => {
 
 const recomputeAllMatches = async () => {
   const orgs = await Organization.find({ status: 'active' });
-  const opps = await Opportunity.find({});
   let processed = 0;
-  const { computeMatchScore } = matchService;
+  let errors = 0;
   for (const org of orgs) {
-    for (const opp of opps) {
-      const scored = computeMatchScore(org, opp);
-      await Match.findOneAndUpdate(
-        { organization: org._id, opportunity: opp._id },
-        { ...scored, lastUpdated: new Date() },
-        { upsert: true, new: true }
-      );
-      processed += 1;
+    try {
+      // Use the full pipeline: rubric scores, embedding similarity, display override, win probability
+      await matchService.computeAllForOrganization(org._id);
+      processed++;
+    } catch (err) {
+      console.error(`[RecomputeAll] Failed for org ${org._id}:`, err.message);
+      errors++;
     }
-    await Organization.findByIdAndUpdate(org._id, {
-      lastMatchRecomputedAt: new Date(),
-      matchCount: await Match.countDocuments({ organization: org._id }),
-    });
   }
-  return { organizations: orgs.length, opportunities: opps.length, processed };
+  const totalMatches = await Match.countDocuments({});
+  return { organizations: orgs.length, processed, errors, totalMatches };
 };
 
 const getUserAdmin = async (userId) => {
